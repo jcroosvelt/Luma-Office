@@ -48,24 +48,32 @@ async function loadImage(src) {
   return { bytes, type, w, h };
 }
 
-export async function buildDocx(json, settings, title) {
+export async function buildDocx(json, settings, title, commentList = []) {
   const D = await import('docx');
   const {
     Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, ImageRun,
     PageBreak, Header, Footer, PageNumber, LevelFormat, BorderStyle, ShadingType, ExternalHyperlink, Tab,
-    PageOrientation, LineRuleType, TableLayoutType,
+    PageOrientation, LineRuleType, TableLayoutType, InsertedTextRun, DeletedTextRun, CommentRangeStart, CommentRangeEnd, CommentReference, TabStopType, LeaderType,
   } = D;
 
   const M = metrics(settings);
   const contentTw = Math.round((M.wcm - settings.margins.left - settings.margins.right) * CM_TWIP);
-  const ctx = { orderedInstance: 0 };
+  const ctx = { orderedInstance: 0, trackId: 1 };
+  const cIdx = new Map();
+  const liveComments = (commentList || []).filter((c) => !c.resolved);
+  liveComments.forEach((c, i) => cIdx.set(c.id, i));
   const ALIGN = { left: AlignmentType.LEFT, center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED };
   const HEADING = [null, HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
 
   /* ----- inline ----- */
   async function inline(nodes = [], base = {}) {
     const out = [];
+    let open = [];
+    const closeAll = () => { open.forEach((id) => { out.push(new CommentRangeEnd(cIdx.get(id))); out.push(new TextRun({ children: [new CommentReference(cIdx.get(id))] })); }); open = []; };
     for (const n of nodes) {
+      const ids = (n.marks || []).filter((m) => m.type === 'comment' && cIdx.has(m.attrs.id)).map((m) => m.attrs.id);
+      for (const id of [...open]) if (!ids.includes(id)) { out.push(new CommentRangeEnd(cIdx.get(id))); out.push(new TextRun({ children: [new CommentReference(cIdx.get(id))] })); open = open.filter((x) => x !== id); }
+      for (const id of ids) if (!open.includes(id)) { out.push(new CommentRangeStart(cIdx.get(id))); open.push(id); }
       if (n.type === 'hardBreak') { out.push(new TextRun({ break: 1 })); continue; }
       if (n.type === 'image') {
         try {
@@ -80,7 +88,7 @@ export async function buildDocx(json, settings, title) {
       }
       if (n.type !== 'text') continue;
       const o = { text: n.text, ...base };
-      let link;
+      let link, track;
       for (const mk of n.marks || []) {
         const a = mk.attrs || {};
         switch (mk.type) {
@@ -93,6 +101,8 @@ export async function buildDocx(json, settings, title) {
           case 'code': o.font = 'Consolas'; o.shading = { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' }; break;
           case 'highlight': { const f = toHex(a.color) || 'FFF59D'; o.shading = { type: ShadingType.CLEAR, fill: f, color: 'auto' }; break; }
           case 'link': link = a.href; o.color = '0563C1'; o.underline = {}; break;
+          case 'insertion': track = { kind: 'ins', author: a.author, date: a.date }; break;
+          case 'deletion': track = { kind: 'del', author: a.author, date: a.date }; break;
           case 'textStyle':
             if (a.color) o.color = toHex(a.color);
             if (a.fontFamily) o.font = firstFont(a.fontFamily);
@@ -102,9 +112,15 @@ export async function buildDocx(json, settings, title) {
           default:
         }
       }
+      if (track) {
+        const meta = { id: ctx.trackId++, author: track.author || 'Auteur', date: track.date || new Date().toISOString() };
+        out.push(track.kind === 'ins' ? new InsertedTextRun({ ...o, ...meta }) : new DeletedTextRun({ ...o, ...meta }));
+        continue;
+      }
       const run = new TextRun(o);
       out.push(link ? new ExternalHyperlink({ link, children: [run] }) : run);
     }
+    closeAll();
     return out;
   }
 
@@ -166,6 +182,19 @@ export async function buildDocx(json, settings, title) {
       case 'orderedList':
       case 'taskList':
         return list(n, o.level ?? -1, o);
+      case 'tableOfContents': {
+        const items = n.attrs?.items || [];
+        const rows = [new Paragraph({ children: [new TextRun({ text: 'Table des matières', bold: true, size: 30, color: '1F3864' })], spacing: { after: 120 } })];
+        for (const it of items) {
+          rows.push(new Paragraph({
+            children: [new TextRun({ text: it.text }), new TextRun({ children: [new Tab(), String(it.page)] })],
+            tabStops: [{ type: TabStopType.RIGHT, position: contentTw, leader: LeaderType.DOT }],
+            indent: { left: (it.level - 1) * 360 }, spacing: { after: 60 },
+          }));
+        }
+        if (!items.length) rows.push(new Paragraph({ children: [new TextRun({ text: '(Aucun titre dans le document)', italics: true, color: '888888' })] }));
+        return rows;
+      }
       case 'table':
         return [await table(n), new Paragraph({ spacing: { after: 0 } })];
       case 'image':
@@ -300,6 +329,13 @@ export async function buildDocx(json, settings, title) {
 
   const doc = new Document({
     creator: 'Luma Office',
+    comments: liveComments.length ? { children: liveComments.map((c, i) => ({
+      id: i, author: c.author || 'Auteur', initials: (c.author || 'A').slice(0, 2).toUpperCase(), date: new Date(c.date || Date.now()),
+      children: [
+        new Paragraph({ children: [new TextRun(c.text || '')] }),
+        ...(c.replies || []).map((r) => new Paragraph({ children: [new TextRun({ text: `↳ ${r.author} : ${r.text}`, italics: true })] })),
+      ],
+    })) } : undefined,
     title: title || 'Document',
     description: 'Créé avec Luma Office',
     styles: {

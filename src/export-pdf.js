@@ -1,99 +1,277 @@
-// Export PDF : rendu fidèle page par page (jsPDF + html2canvas) et impression native.
-import { metrics, CM_MM } from './layout.js';
+// Export PDF vectoriel (texte sélectionnable, polices intégrées) via pdfmake, et impression native.
+import { metrics } from './layout.js';
 
-const waitImages = (root) =>
-  Promise.all([...root.querySelectorAll('img')].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))));
+const PT_CM = 72 / 2.54;
+const FAMILY = {
+  calibri: 'Carlito', carlito: 'Carlito', cambria: 'Caladea', arial: 'Arimo', verdana: 'Arimo', tahoma: 'Arimo', 'trebuchet ms': 'Arimo',
+  helvetica: 'Arimo', 'times new roman': 'Tinos', garamond: 'Tinos', georgia: 'Gelasio', 'courier new': 'Cousine', consolas: 'Cousine',
+};
+const FILES = (fam) => ({ normal: `${fam}-Regular.ttf`, bold: `${fam}-Bold.ttf`, italics: `${fam}-Italic.ttf`, bolditalics: `${fam}-BoldItalic.ttf` });
+const ALL_FAMILIES = ['Carlito', 'Caladea', 'Arimo', 'Tinos', 'Gelasio', 'Cousine'];
+const LH = 1.15 / 1.22; // interligne CSS -> multiplicateur pdfmake (basé sur la hauteur naturelle de la police)
 
-const latin = (s) => (s || '').replace(/[^ -ÿ‘’“”–—…€]/g, '?');
+const famOf = (name) => FAMILY[(name || '').split(',')[0].replace(/["']/g, '').trim().toLowerCase()] || 'Carlito';
+const colorOf = (c) => {
+  if (!c) return undefined;
+  const m = c.match(/^rgba?\(\s*(\d+)[ ,]+(\d+)[ ,]+(\d+)/i);
+  return m ? '#' + [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, '0')).join('') : c;
+};
+const ptSize = (s) => { const n = parseFloat(s); return n ? (/px$/.test(s) ? n * 0.75 : n) : undefined; };
 
-export async function buildPdf(editor, settings, title, onProgress = () => {}) {
-  const [{ jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')]);
-  const M = metrics(settings);
-  const W = Math.round(M.contentWpx);
-  const Hc = M.contentHpx;
-
-  const holder = document.createElement('div');
-  holder.className = 'pdf-holder';
-  holder.style.cssText = `position:fixed;left:0;top:0;width:${W}px;background:#fff;z-index:-9999;pointer-events:none`;
-  const inner = document.createElement('div');
-  inner.className = 'doc-content';
-  inner.style.width = W + 'px';
-  inner.innerHTML = editor.getHTML();
-  holder.append(inner);
-  document.body.append(holder);
-
-  try {
-    await waitImages(inner);
-    if (document.fonts?.ready) await document.fonts.ready;
-    const top0 = holder.getBoundingClientRect().top;
-    const total = Math.ceil(holder.getBoundingClientRect().height);
-
-    // Points de coupure possibles (bas des blocs, lignes de tableau, éléments de liste)
-    const cands = [];
-    const forced = [];
-    const rel = (el) => el.getBoundingClientRect().bottom - top0;
-    for (const el of inner.children) {
-      if (el.hasAttribute('data-page-break')) { forced.push(el.getBoundingClientRect().top - top0); continue; }
-      cands.push(rel(el));
-      if (el.tagName === 'TABLE') el.querySelectorAll('tr').forEach((tr) => cands.push(rel(tr)));
-      if (el.tagName === 'UL' || el.tagName === 'OL') [...el.children].forEach((li) => cands.push(rel(li)));
-    }
-
-    const slices = [];
-    let y = 0;
-    while (y < total - 2) {
-      const limit = y + Hc;
-      const f = forced.find((t) => t > y + 1 && t <= limit);
-      let end;
-      if (f !== undefined) end = f;
-      else if (total <= limit) end = total;
-      else {
-        const c = cands.filter((b) => b > y + 24 && b <= limit);
-        end = c.length ? Math.max(...c) : limit;
-      }
-      if (end - y > 1) slices.push([y, end]);
-      y = Math.max(end, y + 1);
-    }
-    if (!slices.length) slices.push([0, Math.max(total, 10)]);
-
-    const wmm = M.wcm * CM_MM, hmm = M.hcm * CM_MM;
-    const pdf = new jsPDF({ orientation: wmm > hmm ? 'l' : 'p', unit: 'mm', format: [Math.min(wmm, hmm), Math.max(wmm, hmm)], compress: true });
-    pdf.setProperties({ title: title || 'Document', creator: 'Luma Office' });
-    const m = settings.margins;
-    const k = (m.left !== undefined ? (wmm - (m.left + m.right) * CM_MM) : wmm) / W; // mm par px
-    const scale = Math.min(2, Math.max(1.5, (window.devicePixelRatio || 2)));
-
-    for (let i = 0; i < slices.length; i++) {
-      onProgress(i + 1, slices.length);
-      await new Promise((r) => setTimeout(r, 0));
-      const [ya, yb] = slices[i];
-      const canvas = await html2canvas(holder, {
-        x: 0, y: ya, width: W, height: yb - ya, windowWidth: W, scale, backgroundColor: '#ffffff', logging: false, useCORS: true,
-      });
-      if (i > 0) pdf.addPage([Math.min(wmm, hmm), Math.max(wmm, hmm)], wmm > hmm ? 'l' : 'p');
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', m.left * CM_MM, m.top * CM_MM, W * k, (yb - ya) * k, undefined, 'FAST');
-      canvas.width = canvas.height = 0;
-    }
-
-    // En-têtes, pieds de page, numéros
-    const n = slices.length;
-    pdf.setTextColor(102, 102, 102);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    for (let p = 1; p <= n; p++) {
-      pdf.setPage(p);
-      if (settings.header?.trim()) pdf.text(latin(settings.header), wmm / 2, (m.top * CM_MM) / 2 + 1, { align: 'center' });
-      let fy = hmm - (m.bottom * CM_MM) / 2;
-      if (settings.footer?.trim()) { pdf.text(latin(settings.footer), wmm / 2, fy - (settings.pageNumbers ? 4 : -1), { align: 'center' }); }
-      if (settings.pageNumbers) {
-        const x = settings.pageNumberAlign === 'left' ? m.left * CM_MM : settings.pageNumberAlign === 'right' ? wmm - m.right * CM_MM : wmm / 2;
-        pdf.text(`Page ${p} / ${n}`, x, fy + 1, { align: settings.pageNumberAlign || 'center' });
-      }
-    }
-    return pdf.output('blob');
-  } finally {
-    holder.remove();
+async function dataUrl(src) {
+  if (src.startsWith('data:image/png') || src.startsWith('data:image/jpeg') || src.startsWith('data:image/jpg')) {
+    const img = new Image(); await new Promise((r) => { img.onload = img.onerror = r; img.src = src; });
+    return { src, w: img.naturalWidth || 300, h: img.naturalHeight || 200 };
   }
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+  const cv = document.createElement('canvas'); cv.width = img.naturalWidth || 300; cv.height = img.naturalHeight || 200;
+  cv.getContext('2d').drawImage(img, 0, 0);
+  return { src: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
+}
+
+export async function buildPdf(json, settings, title, opts = {}) {
+  const pdfMake = (await import('pdfmake/build/pdfmake.js')).default;
+  const base = new URL(import.meta.env.BASE_URL || './', location.href).href;
+  const fonts = {};
+  const used = opts.families || ALL_FAMILIES;
+  for (const f of used) fonts[f] = Object.fromEntries(Object.entries(FILES(f)).map(([k, v]) => [k, base + 'fonts/' + v]));
+  pdfMake.addFonts(fonts);
+
+  const M = metrics(settings);
+  const m = settings.margins;
+  const pageW = M.wcm * PT_CM, pageH = M.hcm * PT_CM;
+  const contentW = pageW - (m.left + m.right) * PT_CM;
+  let headingId = 0;
+  const mctx = document.createElement('canvas').getContext('2d');
+  const measure = (t) => { mctx.font = '14.67px Calibri, Carlito, sans-serif'; return mctx.measureText(t).width * 0.75; };
+  const tocItems = [];
+
+  /* ----- inline ----- */
+  async function runs(nodes = [], base = {}) {
+    const out = [];
+    for (const n of nodes) {
+      if (n.type === 'hardBreak') { out.push({ text: '\n' }); continue; }
+      if (n.type === 'image') {
+        try {
+          const im = await dataUrl(n.attrs.src);
+          const w = Math.min((n.attrs.width || im.w) * 0.75, contentW);
+          out.push({ _image: { image: im.src, width: w, height: (w * im.h) / im.w } });
+        } catch { /* ignorée */ }
+        continue;
+      }
+      if (n.type !== 'text') continue;
+      const o = { text: n.text, ...base };
+      for (const mk of n.marks || []) {
+        const a = mk.attrs || {};
+        switch (mk.type) {
+          case 'bold': o.bold = true; break;
+          case 'italic': o.italics = true; break;
+          case 'underline': o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'underline']; break;
+          case 'strike': o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'lineThrough']; break;
+          case 'subscript': o.sub = true; break;
+          case 'superscript': o.sup = true; break;
+          case 'code': o.font = 'Cousine'; o.background = '#f1f3f5'; break;
+          case 'highlight': o.background = colorOf(a.color) || '#fff59d'; break;
+          case 'link': o.link = a.href; o.color = '#0563c1'; o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'underline']; break;
+          case 'textStyle':
+            if (a.color) o.color = colorOf(a.color);
+            if (a.fontFamily) o.font = famOf(a.fontFamily);
+            if (a.fontSize) o.fontSize = ptSize(a.fontSize);
+            if (a.backgroundColor) o.background = colorOf(a.backgroundColor);
+            break;
+          case 'comment': break;
+          case 'deletion': if (!opts.cleanTracked) { o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'lineThrough']; o.color = '#c0392b'; } break;
+          case 'insertion': if (!opts.cleanTracked) { o.color = '#1a7f37'; o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'underline']; } break;
+          default:
+        }
+      }
+      if (o._skip) continue;
+      out.push(o);
+    }
+    return out;
+  }
+
+  const plainText = (n) => (n.content || []).map((c) => (c.type === 'text' ? c.text : c.type === 'hardBreak' ? ' ' : plainText(c))).join('');
+
+  /* ----- blocs ----- */
+  async function para(node, o = {}) {
+    const a = node.attrs || {};
+    const isH = node.type === 'heading';
+    const sizes = { 1: 20, 2: 15, 3: 13 };
+    const base = { ...(o.run || {}) };
+    if (isH) { base.bold = true; base.color = base.color || '#1f3864'; base.fontSize = sizes[a.level] || 13; }
+    let items = await runs(node.content, base);
+    // images inline : on les sort sur leur propre ligne
+    const hasImg = items.some((i) => i._image);
+    let content;
+    if (hasImg) {
+      content = [];
+      let buf = [];
+      const flush = () => { if (buf.length) content.push({ text: buf, alignment: a.textAlign, margin: [0, 0, 0, 2] }); buf = []; };
+      for (const it of items) {
+        if (it._image) { flush(); content.push({ ...it._image, alignment: a.textAlign || 'left', margin: [0, 2, 0, 4] }); } else buf.push(it);
+      }
+      flush();
+      content = { stack: content };
+    } else {
+      content = { text: items.length ? items : ' ' };
+    }
+    const lh = a.lineHeight ? parseFloat(a.lineHeight) / 1.22 : LH;
+    const node2 = {
+      ...content,
+      alignment: a.textAlign === 'justify' ? 'justify' : a.textAlign || 'left',
+      lineHeight: lh,
+      margin: [(a.indent || 0) * 36 + (o.left || 0), a.spaceBefore != null ? a.spaceBefore : isH ? 12 : 0, 0, a.spaceAfter != null ? a.spaceAfter : o.after ?? (isH ? 5 : 8)],
+    };
+    if (isH) {
+      const id = 'h' + ++headingId;
+      node2.id = id;
+      node2.tocItem = true;
+      node2.tocStyle = { fontSize: 11 };
+      tocItems.push({ id, level: a.level, text: plainText(node) });
+      node2.headlineLevel = a.level;
+      node2.keepWithNext = true;
+      void id;
+    }
+    return node2;
+  }
+
+  async function blocks(nodes = [], o = {}) {
+    const out = [];
+    for (const n of nodes) { const r = await block(n, o); out.push(...r); }
+    return out;
+  }
+
+  async function block(n, o) {
+    switch (n.type) {
+      case 'paragraph': case 'heading': return [await para(n, o)];
+      case 'blockquote': {
+        const inner = await blocks(n.content, { ...o, run: { italics: true, color: '#595959', ...(o.run || {}) } });
+        return [{ table: { widths: [2.5, '*'], body: [[{ text: '', fillColor: '#b0b7c3' }, { stack: inner, margin: [8, 0, 0, 0] }]] }, layout: 'noBorders', margin: [(o.left || 0), 0, 0, 8] }];
+      }
+      case 'codeBlock': {
+        const text = (n.content || []).map((c) => c.text).join('');
+        return [{ table: { widths: ['*'], body: [[{ text: text || ' ', font: 'Cousine', fontSize: 10, lineHeight: 1, preserveLeadingSpaces: true }]] },
+          layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => '#f1f3f5', paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6 }, margin: [0, 0, 0, 8] }];
+      }
+      case 'horizontalRule':
+        return [{ canvas: [{ type: 'line', x1: 0, y1: 4, x2: contentW, y2: 4, lineWidth: 0.75, lineColor: '#9aa0a6' }], margin: [0, 4, 0, 6] }];
+      case 'pageBreak': return [{ text: '', pageBreak: 'after' }];
+      case 'tableOfContents': return [{ _toc: true }];
+      case 'bulletList': case 'orderedList': case 'taskList': return [await list(n, o)];
+      case 'table': return [await table(n), { text: '', margin: [0, 0, 0, 4] }];
+      case 'image': return [await para({ type: 'paragraph', attrs: {}, content: [n] }, o)];
+      default: return n.content ? blocks(n.content, o) : [];
+    }
+  }
+
+  async function list(node, o) {
+    const kind = node.type;
+    const items = [];
+    for (const item of node.content || []) {
+      const kids = [];
+      for (const c of item.content || []) {
+        if (['bulletList', 'orderedList', 'taskList'].includes(c.type)) kids.push(await list(c, { ...o, after: 2 }));
+        else kids.push(...(await block(c, { ...o, after: 3 })));
+      }
+      if (kind === 'taskList') {
+        const chk = item.attrs?.checked;
+        items.push({ columns: [{ width: 14, canvas: [
+          { type: 'rect', x: 0, y: 2, w: 9, h: 9, r: 1, lineWidth: 0.9, lineColor: '#444' },
+          ...(chk ? [{ type: 'polyline', lineWidth: 1.4, lineColor: '#0b63e5', points: [{ x: 1.8, y: 6.8 }, { x: 4.2, y: 9.2 }, { x: 8, y: 3.6 }] }] : []),
+        ] }, { width: '*', stack: kids }], margin: [0, 0, 0, 2] });
+      } else items.push({ stack: kids });
+    }
+    const common = { margin: [kind === 'taskList' ? 6 : 14, 0, 0, 8], markerColor: '#111' };
+    if (kind === 'orderedList') return { ol: items, type: 'decimal', ...common, start: node.attrs?.start || 1, lineHeight: LH };
+    if (kind === 'taskList') return { stack: items, margin: common.margin };
+    return { ul: items, ...common, lineHeight: LH };
+  }
+
+  async function table(node) {
+    const rows = node.content || [];
+    const cols = (rows[0]?.content || []).reduce((s, c) => s + (c.attrs?.colspan || 1), 0) || 1;
+    const widths = Array(cols).fill('*');
+    let ci = 0;
+    for (const c of rows[0]?.content || []) {
+      const span = c.attrs?.colspan || 1;
+      if (span === 1 && c.attrs?.colwidth?.[0]) widths[ci] = Math.max(20, c.attrs.colwidth[0] * 0.75);
+      ci += span;
+    }
+    const body = [];
+    const pending = []; // rowspans en cours : colonne -> lignes restantes
+    for (const row of rows) {
+      const line = [];
+      let col = 0;
+      const place = () => { while (pending[col] > 0) { line.push({ text: '' }); pending[col]--; col++; } };
+      for (const cell of row.content || []) {
+        place();
+        const isHead = cell.type === 'tableHeader';
+        const stack = await blocks(cell.content, { run: isHead ? { bold: true } : undefined, after: 2 });
+        const span = cell.attrs?.colspan || 1, rs = cell.attrs?.rowspan || 1;
+        const c = { stack: stack.length ? stack : [{ text: ' ' }], fillColor: cell.attrs?.backgroundColor ? colorOf(cell.attrs.backgroundColor) : isHead ? '#eef2f9' : undefined };
+        if (span > 1) c.colSpan = span;
+        if (rs > 1) c.rowSpan = rs;
+        line.push(c);
+        for (let k = 1; k < span; k++) line.push({});
+        for (let k = 0; k < span; k++) pending[col + k] = rs - 1;
+        col += span;
+      }
+      place();
+      while (line.length < cols) line.push({ text: '' });
+      body.push(line);
+    }
+    return {
+      table: { widths, body, headerRows: rows[0]?.content?.[0]?.type === 'tableHeader' ? 1 : 0, dontBreakRows: true },
+      layout: { hLineColor: () => '#a6a6a6', vLineColor: () => '#a6a6a6', hLineWidth: () => 0.75, vLineWidth: () => 0.75, paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 2 },
+      margin: [0, 0, 0, 8],
+    };
+  }
+
+  let content = await blocks(json.content || []);
+  // Table des matières : pdfmake calcule les vrais numéros de page
+  content = content.flatMap((c) => {
+    if (!c._toc) return [c];
+    const entries = tocItems.length ? tocItems : [];
+    if (!entries.length) return [{ text: '(Aucun titre dans le document)', italics: true, color: '#888', margin: [0, 0, 0, 8] }];
+    return [
+      { text: 'Table des matières', bold: true, fontSize: 15, color: '#1f3864', margin: [0, 0, 0, 6] },
+      ...entries.map((e) => {
+        const indent = (e.level - 1) * 14;
+        const tw = measure(e.text);
+        const dots = Math.max(10, contentW - indent - tw - 34 - 12);
+        return {
+          columns: [
+            { text: e.text, linkToDestination: e.id, width: 'auto' },
+            { width: dots + 8, canvas: [{ type: 'line', x1: 6, y1: 10, x2: dots + 2, y2: 10, lineWidth: 0.9, lineColor: '#777', dash: { length: 0.9, space: 2.6 }, lineCap: 'round' }] },
+            { pageReference: e.id, alignment: 'right', width: 30 },
+          ],
+          columnGap: 0, margin: [indent, 0, 0, 3], fontSize: 11,
+        };
+      }),
+      { text: '', margin: [0, 0, 0, 8] },
+    ];
+  });
+  if (!content.length) content = [{ text: ' ' }];
+
+  const hc = '#666666';
+  const docDef = {
+    pageSize: { width: pageW, height: pageH },
+    pageMargins: [m.left * PT_CM, m.top * PT_CM, m.right * PT_CM, m.bottom * PT_CM],
+    info: { title: title || 'Document', creator: 'Luma Office', producer: 'Luma Office' },
+    defaultStyle: { font: 'Carlito', fontSize: 11, lineHeight: LH },
+    content,
+    header: settings.header?.trim() ? () => ({ text: settings.header, alignment: 'center', fontSize: 9, color: hc, margin: [m.left * PT_CM, Math.max(10, (m.top * PT_CM) / 2 - 6), m.right * PT_CM, 0] }) : undefined,
+    footer: (settings.footer?.trim() || settings.pageNumbers) ? (cur, count) => ({
+      margin: [m.left * PT_CM, Math.max(4, (m.bottom * PT_CM) / 2 - 10), m.right * PT_CM, 0],
+      stack: [
+        settings.footer?.trim() ? { text: settings.footer, alignment: 'center', fontSize: 9, color: hc, margin: [0, 0, 0, 2] } : null,
+        settings.pageNumbers ? { text: `Page ${cur} / ${count}`, alignment: settings.pageNumberAlign || 'center', fontSize: 9, color: hc } : null,
+      ].filter(Boolean),
+    }) : undefined,
+  };
+  return pdfMake.createPdf(docDef).getBlob();
 }
 
 export function printDocument(settings, title) {

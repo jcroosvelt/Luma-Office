@@ -1,5 +1,6 @@
 // Écran d'édition : éditeur, pagination visuelle, zoom, recherche, boîtes de dialogue, enregistrement auto.
-import { Editor } from '@tiptap/core';
+import { Editor, findParentNode } from '@tiptap/core';
+import { TableMap } from '@tiptap/pm/tables';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
@@ -12,10 +13,10 @@ import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { ParagraphFormat, PageBreak, LumaImage, LumaCell, SearchReplace, searchKey } from './extensions.js';
+import { ParagraphFormat, PageBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
 import { h, icon, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
-import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS } from './layout.js';
+import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX } from './layout.js';
 import { putDoc, pref } from './storage.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
@@ -38,6 +39,7 @@ export function mountEditor(host, docRec, hooks) {
   let theme = pref.get('theme', 'auto');
   let saveTimer, layoutRaf, lastSig = '';
   let destroyed = false;
+  let comments = (docRec.comments || []).map((c) => ({ replies: [], resolved: false, ...c }));
 
   /* ---------- DOM ---------- */
   const titleInput = h('input', { class: 'title-input', value: title, 'aria-label': 'Titre du document', placeholder: 'Document sans titre', enterkeyhint: 'done',
@@ -74,7 +76,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
-      CharacterCount, ParagraphFormat, PageBreak, SearchReplace,
+      CharacterCount, ParagraphFormat, PageBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
       attributes: { class: 'doc-content', spellcheck: String(spell), lang: settings.lang.split('-')[0], autocapitalize: 'sentences', 'aria-label': 'Contenu du document', role: 'textbox', 'aria-multiline': 'true' },
@@ -91,7 +93,7 @@ export function mountEditor(host, docRec, hooks) {
     },
     onUpdate: () => { scheduleSave(); scheduleLayout(); },
     onSelectionUpdate: () => ribbon.refresh(),
-    onTransaction: () => { ribbon.refresh(); updateStatus(); undoBtn.disabled = !editor.can().undo(); redoBtn.disabled = !editor.can().redo(); },
+    onTransaction: () => { ribbon.refresh(); updateStatus(); scheduleHandles(); updatePill(); undoBtn.disabled = !editor.can().undo(); redoBtn.disabled = !editor.can().redo(); },
   });
 
   /* ---------- app : API partagée avec le ruban ---------- */
@@ -101,6 +103,9 @@ export function mountEditor(host, docRec, hooks) {
     get mode() { return mode; },
     get spell() { return spell; },
     get theme() { return theme; },
+    get tracking() { return editor.storage.trackChanges.enabled; },
+    get commentCount() { return comments.filter((c) => !c.resolved).length; },
+    addComment, openComments, toggleTrack, resolveChange, insertToc, openColWidth,
     updateSettings, pickColor, pickImage, sizeImage, editAlt, openLink, openTableSheet, openSymbols, openSpacing,
     openPageSheet, openMarginSheet, openHeaderSheet, toggleFind, openStats, toggleSpell,
     zoomBy, zoomFit, setMode,
@@ -108,7 +113,10 @@ export function mountEditor(host, docRec, hooks) {
   };
   const ribbon = buildRibbon(app);
 
-  root.append(topbar, findBar, scroller, ribbon.el, statusbar);
+  const pill = h('button', { class: 'cmt-pill', hidden: true, onclick: () => openComments(pill.dataset.id) });
+  const colLayer = h('div', { class: 'col-layer' });
+  sheetEl.append(colLayer);
+  root.append(topbar, findBar, scroller, pill, ribbon.el, statusbar);
   host.replaceChildren(root);
   applyTheme(theme);
 
@@ -123,7 +131,7 @@ export function mountEditor(host, docRec, hooks) {
     clearTimeout(saveTimer);
     if (destroyed) return;
     const text = editor.getText({ blockSeparator: ' ' }).trim();
-    docRec = { ...docRec, title, json: editor.getJSON(), settings, updated: Date.now(), preview: text.slice(0, 160), words: editor.storage.characterCount.words() };
+    docRec = { ...docRec, title, json: editor.getJSON(), settings, comments, updated: Date.now(), preview: text.slice(0, 160), words: editor.storage.characterCount.words() };
     try {
       await putDoc(docRec);
       saveState.textContent = 'Enregistré';
@@ -143,13 +151,15 @@ export function mountEditor(host, docRec, hooks) {
     const cc = editor.storage.characterCount;
     const words = cc.words();
     const z = mode === 'page' ? Math.round(curZoom() * 100) + ' %' : '';
-    statusbar.replaceChildren(
+    const nChanges = collectChanges(editor.state.doc).length;
+    statusbar.replaceChildren(...[
+      editor.storage.trackChanges.enabled || nChanges ? h('span', { class: 'track-flag' }, `${editor.storage.trackChanges.enabled ? '● Suivi' : 'Suivi'} : ${nChanges} modif.`) : null,
       h('span', {}, `${words} mot${words > 1 ? 's' : ''}`),
       h('span', {}, `${cc.characters()} caractères`),
       h('span', {}, mode === 'page' ? `${pageCount} page${pageCount > 1 ? 's' : ''}` : 'Mode adapté'),
       h('span', { class: 'grow' }),
       h('span', {}, z),
-    );
+    ].filter(Boolean));
   }
 
   /* ---------- Pagination visuelle, zoom ---------- */
@@ -209,6 +219,7 @@ export function mountEditor(host, docRec, hooks) {
       overlay.replaceChildren(...kids);
     }
     updateStatus();
+    scheduleHandles();
   }
 
   const ro = new ResizeObserver(() => scheduleLayout());
@@ -490,13 +501,13 @@ export function mountEditor(host, docRec, hooks) {
     toast(label, 60000);
     try { await fn(); } catch (e) { console.error(e); toast('Échec de l’export : ' + (e.message || 'erreur')); } finally { busy = false; }
   }
-  const makeDocx = () => buildDocx(editor.getJSON(), settings, title);
+  const makeDocx = () => { refreshToc(); return buildDocx(editor.getJSON(), settings, title, comments); };
   const exportDocx = () => withBusy('Création du fichier Word…', async () => { saveBlob(await makeDocx(), fileName('docx')); toast('Fichier Word exporté ✓'); });
-  const makePdf = () => buildPdf(editor, settings, title, (i, n) => toast(`Création du PDF… page ${i}/${n}`, 60000));
+  const makePdf = () => { refreshToc(); return buildPdf(editor.getJSON(), settings, title); };
   const exportPdf = () => withBusy('Création du PDF…', async () => { saveBlob(await makePdf(), fileName('pdf')); toast('PDF exporté ✓'); });
   const shareDocx = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makeDocx(), fileName('docx'), DOCX_MIME); toast('Terminé'); });
   const sharePdf = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makePdf(), fileName('pdf'), 'application/pdf'); toast('Terminé'); });
-  function doPrint() { findOpen && toggleFind(false); setTimeout(() => printDocument(settings, title), 80); }
+  function doPrint() { findOpen && toggleFind(false); refreshToc(); setTimeout(() => printDocument(settings, title), 80); }
 
   function openFileMenu() {
     const canShare = !!navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] });
@@ -512,9 +523,261 @@ export function mountEditor(host, docRec, hooks) {
       { sep: 'Document' },
       { icon: 'search', label: 'Rechercher et remplacer', run: () => toggleFind(true) },
       { icon: 'stats', label: 'Statistiques', run: openStats },
+      { icon: 'edit', label: 'Nom de l’auteur', hint: pref.get('author', '') || 'Utilisé pour les commentaires et le suivi', run: async () => { const a = await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', pref.get('author', ''), 'Enregistrer'); if (a?.trim()) { pref.set('author', a.trim()); editor.storage.trackChanges.author = a.trim(); } } },
       { icon: 'copy', label: 'Dupliquer le document', run: async () => { await save(); hooks.onDuplicate(docRec); } },
       { icon: 'trash', label: 'Supprimer le document', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${title} » définitivement ?`, 'Supprimer', true)) { destroyed = true; hooks.onDelete(docRec); } } },
     ], () => s.close()));
+  }
+
+  /* ---------- Auteur, commentaires, suivi ---------- */
+  editor.storage.trackChanges.author = pref.get('author', 'Auteur');
+  async function getAuthor() {
+    let a = pref.get('author', '');
+    if (!a) {
+      a = ((await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', '', 'Enregistrer')) || '').trim();
+      if (a) pref.set('author', a);
+    }
+    a = a || 'Auteur';
+    editor.storage.trackChanges.author = a;
+    return a;
+  }
+  const fmtDate = (d) => { try { return new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+
+  function commentRanges() {
+    const map = {};
+    editor.state.doc.descendants((node, pos) => {
+      node.marks.filter((m) => m.type.name === 'comment').forEach((m) => {
+        const r = (map[m.attrs.id] ||= { from: pos, to: pos, quote: '' });
+        r.to = pos + node.nodeSize;
+        if (node.isText) r.quote += node.text;
+      });
+    });
+    return map;
+  }
+  async function addComment() {
+    const { from, to } = editor.state.selection;
+    if (from === to) { toast('Sélectionnez d’abord le texte à commenter'); return; }
+    const author = await getAuthor();
+    const ta = h('textarea', { class: 'field', rows: '4', placeholder: 'Votre commentaire…' });
+    let sh;
+    sh = sheet('Nouveau commentaire', h('form', { class: 'form', onsubmit: (e) => {
+      e.preventDefault();
+      const text = ta.value.trim();
+      if (!text) return;
+      const id = 'c' + Date.now().toString(36);
+      comments.push({ id, author, date: new Date().toISOString(), text, replies: [], resolved: false });
+      sh.close();
+      editor.chain().focus().setTextSelection({ from, to }).addComment(id).run();
+      scheduleSave(); ribbon.refresh(); toast('Commentaire ajouté');
+    } }, ta, h('div', { class: 'row end' }, h('button', { type: 'submit', class: 'btn primary' }, 'Publier'))));
+    setTimeout(() => ta.focus(), 250);
+  }
+  function openComments(focusId) {
+    const list = h('div', { class: 'cmt-list' });
+    let sh;
+    const jump = (r) => { sh.close(); editor.chain().focus().setTextSelection({ from: r.from, to: r.to }).scrollIntoView().run(); };
+    const render = () => {
+      const ranges = commentRanges();
+      const sorted = [...comments].sort((a, b) => (a.resolved - b.resolved) || ((ranges[a.id]?.from ?? 1e9) - (ranges[b.id]?.from ?? 1e9)));
+      if (!sorted.length) { list.replaceChildren(h('p', { class: 'muted' }, 'Aucun commentaire. Sélectionnez du texte puis touchez « Commenter ».')); return; }
+      list.replaceChildren(...sorted.map((c) => {
+        const r = ranges[c.id];
+        const reply = h('input', { class: 'field', placeholder: 'Répondre…', enterkeyhint: 'send' });
+        const send = async () => { const t = reply.value.trim(); if (!t) return; c.replies.push({ author: await getAuthor(), date: new Date().toISOString(), text: t }); scheduleSave(); render(); };
+        reply.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+        return h('article', { class: 'cmt' + (c.resolved ? ' done' : '') + (c.id === focusId ? ' focus' : '') },
+          h('div', { class: 'cmt-head' }, h('b', {}, c.author), h('small', {}, fmtDate(c.date)), c.resolved ? h('small', { class: 'tag' }, 'Résolu') : null),
+          r ? h('button', { class: 'cmt-quote', onclick: () => jump(r) }, '« ' + (r.quote.length > 90 ? r.quote.slice(0, 90) + '…' : r.quote) + ' »') : h('div', { class: 'cmt-quote gone' }, '(texte supprimé)'),
+          h('p', {}, c.text),
+          ...c.replies.map((x) => h('div', { class: 'cmt-reply' }, h('b', {}, x.author), h('small', {}, fmtDate(x.date)), h('p', {}, x.text))),
+          c.resolved ? null : h('div', { class: 'frow' }, reply, h('button', { class: 'btn sm', onclick: send }, 'Répondre')),
+          h('div', { class: 'row end' },
+            c.resolved ? null : h('button', { class: 'btn sm', onclick: () => { c.resolved = true; editor.commands.removeComment(c.id); scheduleSave(); render(); ribbon.refresh(); } }, 'Résoudre'),
+            h('button', { class: 'btn sm danger', onclick: () => { comments = comments.filter((x) => x !== c); editor.commands.removeComment(c.id); scheduleSave(); render(); ribbon.refresh(); } }, 'Supprimer')));
+      }));
+      list.querySelector('.focus')?.scrollIntoView({ block: 'center' });
+    };
+    sh = sheet('Commentaires', h('div', { class: 'form' }, list,
+      h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => { sh.close(); addComment(); } }, 'Nouveau commentaire'))), { wide: true });
+    render();
+  }
+  function updatePill() {
+    if (!pill) return;
+    const id = editor.isActive('comment') ? editor.getAttributes('comment').id : null;
+    const c = id && comments.find((x) => x.id === id && !x.resolved);
+    if (!c) { pill.hidden = true; return; }
+    pill.dataset.id = id;
+    pill.replaceChildren(icon('comment', 16), h('b', {}, c.author + ' : '), (c.text.length > 60 ? c.text.slice(0, 60) + '…' : c.text));
+    pill.hidden = false;
+  }
+  async function toggleTrack() {
+    const st = editor.storage.trackChanges;
+    if (!st.enabled) { await getAuthor(); st.enabled = true; toast('Suivi des modifications activé'); }
+    else { st.enabled = false; toast('Suivi des modifications désactivé'); }
+    ribbon.refresh(); updateStatus();
+  }
+  function resolveChange(accept) {
+    const { from, to, empty } = editor.state.selection;
+    let range = empty ? null : { from, to };
+    if (empty) {
+      const list = collectChanges(editor.state.doc);
+      const c = list.find((x) => x.to >= from && x.from <= from) || list.find((x) => x.from > from) || list[0];
+      if (!c) { toast('Aucune modification à traiter'); return; }
+      range = { from: c.from, to: c.to };
+    }
+    const ok = editor.chain().focus()[accept ? 'acceptChanges' : 'rejectChanges'](range).run();
+    if (!ok) toast('Aucune modification dans la sélection');
+  }
+
+  /* ---------- Table des matières ---------- */
+  function estimateHeadingPages() {
+    const M = metrics(settings);
+    const W = Math.round(M.contentWpx), Hc = M.contentHpx;
+    const holder = h('div', { class: 'pdf-holder', style: { position: 'fixed', left: '0', top: '0', width: W + 'px', zIndex: '-9999', pointerEvents: 'none', visibility: 'hidden', background: '#fff' } });
+    const inner = h('div', { class: 'doc-content' });
+    inner.style.width = W + 'px';
+    inner.innerHTML = editor.getHTML();
+    holder.append(inner);
+    document.body.append(holder);
+    try {
+      const top0 = inner.getBoundingClientRect().top;
+      const total = inner.getBoundingClientRect().height;
+      const cands = [], forced = [];
+      const rel = (el) => el.getBoundingClientRect().bottom - top0;
+      for (const el of inner.children) {
+        if (el.hasAttribute('data-page-break')) { forced.push(el.getBoundingClientRect().top - top0); continue; }
+        cands.push(rel(el));
+        if (el.tagName === 'TABLE') el.querySelectorAll('tr').forEach((tr) => cands.push(rel(tr)));
+        if (el.tagName === 'UL' || el.tagName === 'OL') [...el.children].forEach((li) => cands.push(rel(li)));
+      }
+      const slices = [];
+      let y = 0;
+      while (y < total - 2) {
+        const limit = y + Hc;
+        const f = forced.find((t) => t > y + 1 && t <= limit);
+        let end;
+        if (f !== undefined) end = f;
+        else if (total <= limit) end = total;
+        else { const c = cands.filter((b) => b > y + 24 && b <= limit); end = c.length ? Math.max(...c) : limit; }
+        slices.push([y, end]);
+        y = Math.max(end, y + 1);
+      }
+      const last = Math.max(1, slices.length);
+      return [...inner.querySelectorAll('h1,h2,h3')].filter((e) => !e.closest('.toc')).map((e) => {
+        const yy = e.getBoundingClientRect().top - top0 + 1;
+        const i = slices.findIndex(([a, b]) => yy >= a && yy < b);
+        return i < 0 ? last : i + 1;
+      });
+    } finally { holder.remove(); }
+  }
+  function refreshToc() {
+    let has = false;
+    editor.state.doc.descendants((n) => { if (n.type.name === 'tableOfContents') has = true; return !has; });
+    if (!has) return false;
+    const heads = [];
+    editor.state.doc.descendants((n) => { if (n.type.name === 'heading') heads.push({ level: n.attrs.level, text: n.textContent.trim() }); });
+    for (let pass = 0; pass < 2; pass++) {
+      const pages = estimateHeadingPages();
+      editor.commands.updateToc(heads.map((hd, i) => ({ ...hd, page: pages[i] || 1 })));
+    }
+    return true;
+  }
+  function insertToc() {
+    let has = false;
+    editor.state.doc.descendants((n) => { if (n.type.name === 'tableOfContents') has = true; return !has; });
+    if (!has) editor.chain().focus().insertContent({ type: 'tableOfContents', attrs: { items: [] } }).run();
+    refreshToc();
+    toast(has ? 'Table des matières mise à jour' : 'Table des matières insérée');
+  }
+
+  /* ---------- Largeur des colonnes (poignées tactiles + saisie) ---------- */
+  const tableOf = () => findParentNode((n) => n.type.name === 'table')(editor.state.selection);
+  function setColWidths(map) {
+    const found = tableOf();
+    if (!found) return;
+    const { node: table, start } = found;
+    const tm = TableMap.get(table);
+    const tr = editor.state.tr;
+    for (const [c, w] of Object.entries(map)) {
+      const col = +c;
+      for (let row = 0; row < tm.height; row++) {
+        const idx = row * tm.width + col;
+        if (row && tm.map[idx] === tm.map[idx - tm.width]) continue;
+        const pos = tm.map[idx];
+        const cell = table.nodeAt(pos);
+        const i = cell.attrs.colspan === 1 ? 0 : col - tm.colCount(pos);
+        const cw = cell.attrs.colwidth ? cell.attrs.colwidth.slice() : Array(cell.attrs.colspan).fill(0);
+        cw[i] = w === null ? 0 : Math.round(w);
+        tr.setNodeMarkup(start + pos, null, { ...cell.attrs, colwidth: cw.every((x) => !x) ? null : cw });
+      }
+    }
+    tr.setMeta('trackIgnore', true);
+    editor.view.dispatch(tr);
+  }
+  const tableDom = () => {
+    const f = tableOf();
+    if (!f) return null;
+    const dom = editor.view.nodeDOM(f.pos);
+    return dom?.matches?.('table') ? dom : dom?.querySelector?.('table');
+  };
+  function colWidthsPx(table) {
+    const z = curZoom();
+    const out = [];
+    for (const cell of table.rows[0].cells) {
+      const w = cell.getBoundingClientRect().width / z;
+      const n = cell.colSpan || 1;
+      for (let k = 0; k < n; k++) out.push(w / n);
+    }
+    return out;
+  }
+  let handlesRaf, dragging = false;
+  function scheduleHandles() { cancelAnimationFrame(handlesRaf); handlesRaf = requestAnimationFrame(updateHandles); }
+  function updateHandles() {
+    if (destroyed || dragging) return;
+    const table = tableOf() && tableDom();
+    if (!table || !table.rows[0]) { colLayer.replaceChildren(); return; }
+    const z = curZoom();
+    const pr = sheetEl.getBoundingClientRect(), tr = table.getBoundingClientRect();
+    const kidsH = [];
+    let col = 0;
+    const cells = [...table.rows[0].cells];
+    cells.forEach((cell, i) => {
+      col += cell.colSpan || 1;
+      if (i === cells.length - 1) return;
+      const x = (cell.getBoundingClientRect().right - pr.left) / z;
+      const c = col - 1;
+      const hd = h('div', { class: 'col-handle', style: { left: x - 14 + 'px', top: (tr.top - pr.top) / z + 'px', height: tr.height / z + 'px' }, 'aria-label': 'Redimensionner la colonne' }, h('i', {}), h('b', {}));
+      hd.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        hd.setPointerCapture(e.pointerId);
+        hd.classList.add('drag'); dragging = true;
+        const x0 = e.clientX, ws = colWidthsPx(table), a0 = ws[c], b0 = ws[c + 1];
+        let dx = 0, raf = 0;
+        const apply = () => { raf = 0; const a = Math.max(30, Math.min(a0 + b0 - 30, a0 + dx)); setColWidths({ [c]: a, [c + 1]: a0 + b0 - a }); };
+        const mv = (ev) => { dx = (ev.clientX - x0) / curZoom(); if (!raf) raf = requestAnimationFrame(apply); };
+        const up = () => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up); cancelAnimationFrame(raf); apply(); dragging = false; scheduleHandles(); };
+        hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+      });
+      kidsH.push(hd);
+    });
+    colLayer.replaceChildren(...kidsH);
+  }
+  function openColWidth() {
+    const cellF = findParentNode((n) => n.type.name === 'tableCell' || n.type.name === 'tableHeader')(editor.state.selection);
+    const tf = tableOf();
+    if (!cellF || !tf) { toast('Placez le curseur dans un tableau'); return; }
+    const tm = TableMap.get(tf.node);
+    const col = tm.colCount(cellF.pos - tf.start);
+    const dom = editor.view.nodeDOM(cellF.pos);
+    const cur = dom ? (dom.getBoundingClientRect().width / curZoom() / CM_PX).toFixed(2) : '';
+    const input = h('input', { class: 'field', type: 'number', step: '0.1', min: '0.5', inputmode: 'decimal', value: cur });
+    let sh;
+    sh = sheet(`Largeur de la colonne ${col + 1}`, h('form', { class: 'form', onsubmit: (e) => { e.preventDefault(); const v = parseFloat(String(input.value).replace(',', '.')); if (v > 0) setColWidths({ [col]: v * CM_PX }); sh.close(); } },
+      h('label', {}, 'Largeur (cm)', input),
+      h('div', { class: 'row end' },
+        h('button', { type: 'button', class: 'btn', onclick: () => { const all = {}; for (let i = 0; i < tm.width; i++) all[i] = null; setColWidths(all); sh.close(); } }, 'Égaliser les colonnes'),
+        h('button', { type: 'submit', class: 'btn primary' }, 'Appliquer'))));
+    setTimeout(() => { input.focus(); input.select(); }, 250);
   }
 
   /* ---------- Démarrage ---------- */

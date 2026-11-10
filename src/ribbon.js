@@ -125,6 +125,7 @@ export function buildRibbon(app) {
         group(
           btn({ icon: 'hr', label: 'Ligne', run: run((c) => c.setHorizontalRule().run()) }),
           btn({ icon: 'pageBreak', label: 'Saut de page', run: run((c) => c.insertPageBreak().run()) }),
+          btn({ icon: 'toc', label: 'Sommaire', title: 'Table des matières', run: () => app.insertToc() }),
           btn({ icon: 'calendar', label: 'Date', run: run((c) => c.insertContent(new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })).run()) }),
           btn({ icon: 'symbol', label: 'Symboles', run: () => app.openSymbols() }),
         ),
@@ -153,6 +154,7 @@ export function buildRibbon(app) {
           btn({ icon: 'headerRow', label: 'En-tête', run: run((c) => c.toggleHeaderRow().run()) }),
           btn({ icon: 'fill', label: 'Fond', run: () => app.pickColor('cell') }),
         ),
+        group(btn({ icon: 'colw', label: 'Largeurs', run: () => app.openColWidth() })),
         group(btn({ icon: 'trash', label: 'Suppr. tableau', run: run((c) => c.deleteTable().run()) })),
       ],
     },
@@ -185,16 +187,25 @@ export function buildRibbon(app) {
     {
       id: 'review', label: 'Révision', build: () => [
         group(
+          btn({ icon: 'commentAdd', label: 'Commenter', run: () => app.addComment() }),
+          btn({ icon: 'comment', label: 'Commentaires', run: () => app.openComments(), dyn: () => `Commentaires${app.commentCount ? ' (' + app.commentCount + ')' : ''}` }),
+        ),
+        group(
+          btn({ icon: 'track', label: 'Suivi', title: 'Suivi des modifications', run: () => app.toggleTrack(), active: () => app.tracking }),
+          btn({ icon: 'up', label: 'Précédente', run: run((c) => c.prevChange().run()) }),
+          btn({ icon: 'down', label: 'Suivante', run: run((c) => c.nextChange().run()) }),
+          btn({ icon: 'accept', label: 'Accepter', run: () => app.resolveChange(true) }),
+          btn({ icon: 'reject', label: 'Rejeter', run: () => app.resolveChange(false) }),
+          btn({ icon: 'acceptAll', label: 'Tout accepter', run: run((c) => c.acceptChanges().run()) }),
+          btn({ icon: 'rejectAll', label: 'Tout rejeter', run: run((c) => c.rejectChanges().run()) }),
+        ),
+        group(
           btn({ icon: 'search', label: 'Rechercher', run: () => app.toggleFind() }),
           btn({ icon: 'stats', label: 'Statistiques', run: () => app.openStats() }),
         ),
         group(
           btn({ icon: 'spell', label: 'Orthographe', run: () => app.toggleSpell(), active: () => app.spell }),
           select({ title: 'Langue du document', w: 150, options: [['fr-FR', 'Français'], ['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['es-ES', 'Español'], ['de-DE', 'Deutsch'], ['it-IT', 'Italiano'], ['pt-PT', 'Português'], ['ar', 'العربية']], get: () => app.settings.lang, set: (v) => app.updateSettings({ lang: v }) }),
-        ),
-        group(
-          btn({ icon: 'undo', label: 'Annuler', run: run((c) => c.undo().run()), disabled: () => !editor.can().undo() }),
-          btn({ icon: 'redo', label: 'Rétablir', run: run((c) => c.redo().run()), disabled: () => !editor.can().redo() }),
         ),
       ],
     },

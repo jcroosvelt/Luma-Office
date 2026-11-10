@@ -17,8 +17,8 @@ let current = null;
 
 const go = (id) => { location.hash = id ? `#/doc/${id}` : ''; };
 
-async function createDoc({ title, html, settings }) {
-  const rec = { id: newId(), title, html, json: null, settings, created: Date.now(), updated: Date.now(), preview: '', words: 0 };
+async function createDoc({ title, html, settings, comments }) {
+  const rec = { id: newId(), title, html, json: null, settings, comments: comments || [], created: Date.now(), updated: Date.now(), preview: '', words: 0 };
   await putDoc(rec);
   go(rec.id);
 }
@@ -50,7 +50,8 @@ async function render() {
         try {
           toast('Importation…', 30000);
           const r = await importFile(f);
-          await createDoc({ title: r.title, html: r.html, settings: templateSettings(TEMPLATES[0]) });
+          const base = templateSettings(TEMPLATES[0]);
+          await createDoc({ title: r.title, html: r.html, comments: r.comments, settings: { ...base, ...(r.settings || {}), margins: { ...base.margins, ...(r.settings?.margins || {}) } } });
           toast('Document importé ✓');
         } catch (e) { console.error(e); toast('Impossible d’importer ce fichier'); }
       } });

@@ -89,6 +89,15 @@ const P = {
   sizeDown: '<path d="m4 20 5-14 5 14"/><path d="M5.8 15h6.4"/><path d="M14 11h6"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
   edit: '<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  comment: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/>',
+  commentAdd: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6M9 10h6"/>',
+  track: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  accept: '<path d="M20 6 9 17l-5-5"/>',
+  reject: '<path d="M18 6 6 18M6 6l12 12"/>',
+  acceptAll: '<path d="M18 7 7 18l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>',
+  rejectAll: '<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>',
+  toc: '<path d="M4 6h11M4 12h13M4 18h10"/><path d="M19 6h1M20 12h1M18 18h2"/>',
+  colw: '<path d="M3 12h18"/><path d="m7 8-4 4 4 4M17 8l4 4-4 4"/>',
   fullimg: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
 };
 

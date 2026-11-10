@@ -1,4 +1,5 @@
-import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import { Extension, Node, Mark, mergeAttributes } from '@tiptap/core';
+import { ReplaceStep, Mapping } from '@tiptap/pm/transform';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import Image from '@tiptap/extension-image';
@@ -189,6 +190,182 @@ export const SearchReplace = Extension.create({
         const st = searchKey.getState(state);
         if (!st.matches.length) return false;
         if (dispatch) [...st.matches].reverse().forEach((m) => tr.insertText(text, m.from, m.to));
+        return true;
+      },
+    };
+  },
+});
+
+/* ---------- Table des matières ---------- */
+export const TableOfContents = Node.create({
+  name: 'tableOfContents',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      items: {
+        default: [],
+        parseHTML: (el) => { try { return JSON.parse(el.getAttribute('data-items') || '[]'); } catch { return []; } },
+        renderHTML: (a) => ({ 'data-items': JSON.stringify(a.items || []) }),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'div[data-toc]' }]; },
+  renderHTML({ node, HTMLAttributes }) {
+    const items = node.attrs.items || [];
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-toc': '', class: 'toc' }),
+      ['div', { class: 'toc-title' }, 'Table des matières'],
+      ...(items.length
+        ? items.map((it) => ['div', { class: 'toc-item l' + it.level }, ['span', { class: 't' }, it.text || ' '], ['span', { class: 'dots' }], ['span', { class: 'p' }, String(it.page)]])
+        : [['div', { class: 'toc-empty' }, 'Ajoutez des titres (Titre 1, 2, 3), puis touchez « Table des matières » pour mettre à jour.']])];
+  },
+});
+
+/* ---------- Commentaires ---------- */
+export const CommentMark = Mark.create({
+  name: 'comment',
+  inclusive: false,
+  excludes: '',
+  priority: 100,
+  addAttributes() {
+    return { id: { default: null, parseHTML: (el) => el.getAttribute('data-comment-id'), renderHTML: (a) => ({ 'data-comment-id': a.id }) } };
+  },
+  parseHTML() { return [{ tag: 'span[data-comment-id]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { class: 'comment-mark' }), 0]; },
+});
+
+/* ---------- Suivi des modifications ---------- */
+const trackAttrs = {
+  author: { default: 'Auteur', parseHTML: (el) => el.getAttribute('data-author') || 'Auteur', renderHTML: (a) => ({ 'data-author': a.author }) },
+  date: { default: '', parseHTML: (el) => el.getAttribute('data-date') || '', renderHTML: (a) => ({ 'data-date': a.date }) },
+};
+const fmt = (d) => { try { return new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); } catch { return ''; } };
+export const InsertionMark = Mark.create({
+  name: 'insertion', inclusive: false, excludes: '', priority: 100,
+  addAttributes() { return trackAttrs; },
+  parseHTML() { return [{ tag: 'ins' }]; },
+  renderHTML({ HTMLAttributes }) { return ['ins', mergeAttributes(HTMLAttributes, { class: 'tc-ins', title: `Ajout — ${HTMLAttributes['data-author']} ${fmt(HTMLAttributes['data-date'])}` }), 0]; },
+});
+export const DeletionMark = Mark.create({
+  name: 'deletion', inclusive: false, excludes: '', priority: 101,
+  addAttributes() { return trackAttrs; },
+  parseHTML() { return [{ tag: 'del', priority: 101 }]; },
+  renderHTML({ HTMLAttributes }) { return ['del', mergeAttributes(HTMLAttributes, { class: 'tc-del', title: `Suppression — ${HTMLAttributes['data-author']} ${fmt(HTMLAttributes['data-date'])}` }), 0]; },
+});
+
+const hasInline = (slice) => {
+  let found = false;
+  slice.content.descendants((n) => { if (n.isText || (n.isInline && n.isLeaf)) found = true; return !found; });
+  return found;
+};
+
+export function collectChanges(doc, from = 0, to = doc.content.size) {
+  const out = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isInline) return true;
+    for (const mk of node.marks) {
+      if (mk.type.name !== 'insertion' && mk.type.name !== 'deletion') continue;
+      const a = Math.max(pos, from), b = Math.min(pos + node.nodeSize, to);
+      const last = out[out.length - 1];
+      if (last && last.type === mk.type.name && last.author === mk.attrs.author && last.to === a) last.to = b;
+      else out.push({ type: mk.type.name, from: a, to: b, author: mk.attrs.author, date: mk.attrs.date });
+    }
+    return false;
+  });
+  return out;
+}
+
+export const TrackChanges = Extension.create({
+  name: 'trackChanges',
+  addStorage() { return { enabled: false, author: 'Auteur' }; },
+  addProseMirrorPlugins() {
+    const ext = this;
+    return [new Plugin({
+      key: new PluginKey('luma-track'),
+      appendTransaction(trs, oldState, newState) {
+        const st = ext.storage;
+        if (!st.enabled) return null;
+        const tracked = (t) => t.docChanged && !t.getMeta('luma-track') && !t.getMeta('trackIgnore') && !t.getMeta('history$') && !t.getMeta('collab');
+        if (!trs.some(tracked)) return null;
+        const { insertion, deletion } = newState.schema.marks;
+        const stamp = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString(); // à la minute : fusionne les marques voisines
+        const mkIns = () => insertion.create({ author: st.author, date: stamp });
+        const mkDel = () => deletion.create({ author: st.author, date: stamp });
+        const items = [];
+        const maps = [];
+        for (const tr of trs) tr.steps.forEach((step, i) => { items.push({ step, before: tr.docs[i], on: tracked(tr) }); maps.push(tr.mapping.maps[i]); });
+
+        const tr2 = newState.tr;
+        tr2.setMeta('luma-track', true);
+        let caret = null;
+        items.forEach((it, k) => {
+          if (!it.on || !(it.step instanceof ReplaceStep)) return;
+          const { from, to, slice } = it.step;
+          const rest = new Mapping(maps.slice(k + 1));
+          const markInline = (a, b, fn) => tr2.doc.nodesBetween(a, b, (node, pos) => { if (node.isInline) { fn(Math.max(pos, a), Math.min(pos + node.nodeSize, b), node); return false; } return true; });
+          if (slice.size > 0) {
+            const s = tr2.mapping.map(rest.map(from, 1)), e = tr2.mapping.map(rest.map(from + slice.size, -1));
+            if (e > s) markInline(s, e, (a, b) => { tr2.removeMark(a, b, deletion); tr2.addMark(a, b, mkIns()); });
+            caret = e;
+          }
+          if (to > from) {
+            const removed = it.before.slice(from, to);
+            if (hasInline(removed)) {
+              const p = tr2.mapping.map(rest.map(from + slice.size, 1));
+              const sizeBefore = tr2.doc.content.size;
+              tr2.replace(p, p, removed);
+              const re = p + (tr2.doc.content.size - sizeBefore);
+              const kill = [];
+              markInline(p, re, (a, b, node) => {
+                if (node.marks.some((m) => m.type === insertion && m.attrs.author === st.author)) kill.push([a, b]);
+                else tr2.addMark(a, b, mkDel());
+              });
+              kill.reverse().forEach(([a, b]) => tr2.delete(a, b));
+              const back = oldState.selection.empty && oldState.selection.from === to && slice.size === 0;
+              if (slice.size === 0) caret = back ? p : Math.max(p, re - kill.reduce((n, [a, b]) => n + (b - a), 0));
+            }
+          }
+        });
+        if (!tr2.docChanged && !tr2.steps.length) return null;
+        if (caret != null) { try { tr2.setSelection(TextSelection.create(tr2.doc, Math.min(caret, tr2.doc.content.size))); } catch { /* ignore */ } }
+        return tr2;
+      },
+    })];
+  },
+  addCommands() {
+    const apply = (accept) => (range) => ({ state, tr, dispatch }) => {
+      const { insertion, deletion } = state.schema.marks;
+      const list = collectChanges(state.doc, range?.from ?? 0, range?.to ?? state.doc.content.size);
+      if (!list.length) return false;
+      if (dispatch) {
+        tr.setMeta('luma-track', true);
+        for (const c of [...list].reverse()) {
+          const del = (c.type === 'deletion') === accept; // accepter une suppression / rejeter un ajout => supprimer le texte
+          if (del) tr.delete(c.from, c.to);
+          else tr.removeMark(c.from, c.to, c.type === 'insertion' ? insertion : deletion);
+        }
+      }
+      return true;
+    };
+    const go = (dir) => () => ({ state, tr, dispatch }) => {
+      const list = collectChanges(state.doc);
+      if (!list.length) return false;
+      const cur = state.selection;
+      const target = dir > 0 ? (list.find((c) => c.from >= cur.to && c.from !== cur.from) || list[0]) : ([...list].reverse().find((c) => c.to <= cur.from) || list[list.length - 1]);
+      if (dispatch) tr.setSelection(TextSelection.create(tr.doc, target.from, target.to)).scrollIntoView();
+      return true;
+    };
+    return {
+      acceptChanges: apply(true), rejectChanges: apply(false),
+      nextChange: go(1), prevChange: go(-1),
+      addComment: (id) => ({ commands }) => commands.setMark('comment', { id }),
+      removeComment: (id) => ({ state, tr, dispatch }) => {
+        if (dispatch) state.doc.descendants((node, pos) => { node.marks.filter((m) => m.type.name === 'comment' && m.attrs.id === id).forEach((m) => tr.removeMark(pos, pos + node.nodeSize, m)); });
+        return true;
+      },
+      updateToc: (items) => ({ state, tr, dispatch }) => {
+        if (dispatch) { state.doc.descendants((n, pos) => { if (n.type.name === 'tableOfContents') tr.setNodeMarkup(pos, undefined, { items }); }); tr.setMeta('trackIgnore', true); }
         return true;
       },
     };
