@@ -20,7 +20,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--bg); color: var(--text);
   font: 15px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
-#app { position: fixed; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+#app { position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .in-editor #app { overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -257,7 +257,9 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 .home-head { box-shadow: 0 3px 0 -0px transparent; }
 .home-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; background: linear-gradient(90deg, var(--yellow), var(--accent) 45%, var(--accent2) 70%, var(--brand)); }
 .logo { height: 46px; display: block; }
-.home-main { max-width: 1000px; margin: 0 auto; padding: 18px 16px 130px; display: grid; gap: 28px; }
+.home-main { max-width: 1000px; margin: 0 auto; padding: 18px 16px 130px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.home-main > * { min-width: 0; }
+.home, .home-main { max-width: 100%; }
 .home h2 { margin: 0 0 12px; font-size: 18px; }
 .tplrow { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; scrollbar-width: none; }
 .tpl { flex: 0 0 172px; min-height: 152px; display: grid; align-content: start; gap: 4px; text-align: left; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); scroll-snap-align: start; }
@@ -279,7 +281,7 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 .home .search { margin-bottom: 12px; }
 .empty { display: grid; justify-items: center; gap: 6px; padding: 36px 12px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 16px; }
 .empty p { margin: 4px 0 0; }
-.tip { margin: 0; font-size: 12.5px; color: var(--muted); }
+.tip { margin: 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
 .fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); height: 58px; padding: 0 24px 0 18px; border-radius: 29px; border: 0;
   background: linear-gradient(180deg, var(--yellow), var(--accent) 60%, var(--accent2)); color: var(--navy); display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; box-shadow: 0 6px 20px rgba(250, 126, 1, .45); z-index: 6; }
 .fab:active { transform: scale(.96); }
