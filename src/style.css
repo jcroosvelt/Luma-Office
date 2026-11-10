@@ -297,7 +297,16 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 .ib-actions { grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end; }
 .ib-go { background: linear-gradient(180deg, var(--yellow), var(--accent)); border-color: var(--accent2); color: var(--navy); font-weight: 800; }
 .ib-later { background: transparent; }
-.home-main { padding-bottom: 190px; }
+.home-main { padding-bottom: 24px; }
+.home-foot { max-width: 1000px; margin: 0 auto; padding: 8px 16px 150px; display: grid; justify-items: center; gap: 4px; }
+.powered { text-align: center; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+.powered b { color: var(--navy); font-weight: 800; }
+:root[data-theme='dark'] .powered b { color: var(--yellow); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .powered b { color: var(--yellow); } }
+.linkbtn { background: none; border: 0; color: var(--brand); font-size: 12.5px; text-decoration: underline; padding: 6px; }
+.about .powered { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); width: 100%; }
+.about .store { font-weight: 600; color: var(--text); }
+.splash .powered { position: absolute; left: 0; right: 0; bottom: 26px; }
 
 /* ---------- Impression ---------- */
 @media print {

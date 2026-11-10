@@ -12,7 +12,7 @@ import { applyTheme, h, toast } from './ui.js';
 try {
   if (!sessionStorage.getItem('luma:splash')) {
     sessionStorage.setItem('luma:splash', '1');
-    const sp = h('div', { class: 'splash' }, h('img', { src: './logo.png', alt: 'Luma Office' }));
+    const sp = h('div', { class: 'splash' }, h('img', { src: './logo.png', alt: 'Luma Office' }), h('footer', { class: 'powered' }, 'Powered by ', h('b', {}, 'JC Multimedia')));
     document.body.append(sp);
     setTimeout(() => sp.classList.add('out'), 900);
     setTimeout(() => sp.remove(), 1500);

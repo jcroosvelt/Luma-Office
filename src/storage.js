@@ -31,9 +31,22 @@ export const deleteDoc = (id) => tx('readwrite', (s) => s.delete(id));
 export const newId = () =>
   globalThis.crypto?.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-export function persist() {
-  try { navigator.storage?.persist?.(); } catch { /* ignore */ }
+// Demande au navigateur de ne jamais effacer les documents (stockage persistant)
+export async function persist() {
+  try {
+    if (await navigator.storage?.persisted?.()) return true;
+    return !!(await navigator.storage?.persist?.());
+  } catch { return false; }
 }
+
+export async function storageInfo() {
+  try {
+    const est = (await navigator.storage?.estimate?.()) || {};
+    return { persisted: !!(await navigator.storage?.persisted?.()), usage: est.usage || 0, quota: est.quota || 0 };
+  } catch { return { persisted: false, usage: 0, quota: 0 }; }
+}
+
+export const fmtBytes = (n) => (n > 1e9 ? (n / 1e9).toFixed(1) + ' Go' : n > 1e6 ? (n / 1e6).toFixed(1) + ' Mo' : Math.max(1, Math.round(n / 1e3)) + ' Ko');
 
 export const pref = {
   get: (k, d) => { try { const v = localStorage.getItem('luma:' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },

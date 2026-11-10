@@ -16,7 +16,8 @@ Export **Word (.docx)** et **PDF vectoriel (texte sélectionnable)**, import fid
 - **Tableaux** : largeur des colonnes réglable au doigt (poignées) ou en centimètres, fusion, en-tête, couleur de fond
 - **Modèles** : lettre, rapport, compte rendu, CV, note de service
 - **Mobile d'abord** : ruban à onglets sous les doigts (au-dessus du clavier sur téléphone), mode « Adapté » pour écrire confortablement sur petit écran, mode « Page » avec pagination et zoom (pincer), thème clair / sombre
-- **Enregistrement automatique** sur l'appareil (IndexedDB), aucun compte requis
+- **Enregistrement automatique** sur l'appareil (IndexedDB, stockage persistant demandé au navigateur), bouton Enregistrer, aucun compte requis
+- **Hors ligne** : documents et images conservés localement ; les images distantes sont copiées dans le document et mises en cache
 
 ## Développement
 
@@ -41,3 +42,6 @@ Vite · TipTap (ProseMirror) · `docx` (export Word) · pdfmake (PDF vectoriel, 
 - PDF : polices latines uniquement (français, anglais, langues européennes) ; Verdana / Tahoma sont remplacées par une police équivalente. Les emoji et alphabets non latins ne s'affichent pas dans le PDF.
 - Table des matières : statique (mise à jour par le bouton), pas un champ Word dynamique. Les numéros de page du `.docx` sont estimés ; ceux du PDF sont exacts.
 - Import `.docx` : ne reprend pas les zones de texte, équations, notes de bas de page ni les images flottantes (elles deviennent des images en ligne).
+
+---
+Powered by **JC Multimedia**

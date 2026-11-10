@@ -11,6 +11,14 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,woff2,ttf,svg,webmanifest}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            // images distantes d'un document : gardées en cache pour rester visibles hors ligne
+            urlPattern: ({ request, url }) => request.destination === 'image' && url.origin !== self.location.origin,
+            handler: 'CacheFirst',
+            options: { cacheName: 'luma-images', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+        ],
       },
       manifest: {
         name: 'Luma Office',

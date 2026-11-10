@@ -17,7 +17,8 @@ import { ParagraphFormat, PageBreak, LumaImage, LumaCell, SearchReplace, searchK
 import { buildRibbon } from './ribbon.js';
 import { h, icon, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX } from './layout.js';
-import { putDoc, pref } from './storage.js';
+import { putDoc, pref, persist } from './storage.js';
+import { openAbout } from './about.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
 
@@ -39,6 +40,8 @@ export function mountEditor(host, docRec, hooks) {
   let theme = pref.get('theme', 'auto');
   let saveTimer, layoutRaf, lastSig = '';
   let destroyed = false;
+  let persisted = false;
+  let inlineTimer;
   let comments = (docRec.comments || []).map((c) => ({ replies: [], resolved: false, ...c }));
 
   /* ---------- DOM ---------- */
@@ -92,7 +95,7 @@ export function mountEditor(host, docRec, hooks) {
         return false;
       },
     },
-    onUpdate: () => { scheduleSave(); scheduleLayout(); },
+    onUpdate: () => { scheduleSave(); scheduleLayout(); scheduleInline(); },
     onSelectionUpdate: () => ribbon.refresh(),
     onTransaction: () => { ribbon.refresh(); updateStatus(); scheduleHandles(); updatePill(); undoBtn.disabled = !editor.can().undo(); redoBtn.disabled = !editor.can().redo(); },
   });
@@ -136,8 +139,10 @@ export function mountEditor(host, docRec, hooks) {
     try {
       await putDoc(docRec);
       saveState.textContent = 'Enregistré';
-    } catch {
+      if (!persisted) persist().then((ok) => { persisted = ok; });
+    } catch (err) {
       saveState.textContent = 'Échec de l’enregistrement';
+      toast(err?.name === 'QuotaExceededError' ? 'Espace de stockage plein : supprimez des documents ou des images.' : 'Impossible d’enregistrer le document sur cet appareil.', 5000);
     }
     saveState.classList.remove('busy');
   }
@@ -533,7 +538,7 @@ export function mountEditor(host, docRec, hooks) {
       { icon: 'search', label: 'Rechercher et remplacer', run: () => toggleFind(true) },
       { icon: 'stats', label: 'Statistiques', run: openStats },
       { icon: 'edit', label: 'Nom de l’auteur', hint: pref.get('author', '') || 'Utilisé pour les commentaires et le suivi', run: async () => { const a = await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', pref.get('author', ''), 'Enregistrer'); if (a?.trim()) { pref.set('author', a.trim()); editor.storage.trackChanges.author = a.trim(); } } },
-      { icon: 'info', label: 'À propos de Luma Office', run: () => sheet('À propos', h('div', { class: 'about' }, h('img', { src: './logo.png', alt: 'Luma Office' }), h('p', {}, 'Luma Office — traitement de texte professionnel pour téléphone et tablette.'), h('p', {}, 'Vos documents restent sur cet appareil. Export Word (.docx) et PDF.'))) },
+      { icon: 'info', label: 'À propos de Luma Office', run: openAbout },
       { icon: 'copy', label: 'Dupliquer le document', run: async () => { await save(); hooks.onDuplicate(docRec); } },
       { icon: 'trash', label: 'Supprimer le document', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${title} » définitivement ?`, 'Supprimer', true)) { destroyed = true; hooks.onDelete(docRec); } } },
     ], () => s.close()));
@@ -790,12 +795,35 @@ export function mountEditor(host, docRec, hooks) {
     setTimeout(() => { input.focus(); input.select(); }, 250);
   }
 
+  /* ---------- Images distantes : copiées dans le document pour rester disponibles hors ligne ---------- */
+  function scheduleInline(delay = 1200) { clearTimeout(inlineTimer); inlineTimer = setTimeout(inlineRemoteImages, delay); }
+  const toDataUrl = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+  async function inlineRemoteImages() {
+    if (destroyed) return;
+    const remote = [];
+    editor.state.doc.descendants((n) => { if (n.type.name === 'image' && /^https?:/i.test(n.attrs.src || '')) remote.push(n.attrs.src); });
+    for (const src of [...new Set(remote)]) {
+      try {
+        const r = await fetch(src, { mode: 'cors', cache: 'force-cache' });
+        if (!r.ok) continue;
+        const blob = await r.blob();
+        if (!blob.type.startsWith('image/') || blob.size > 8e6) continue;
+        const data = await toDataUrl(blob);
+        const tr = editor.state.tr;
+        editor.state.doc.descendants((n, pos) => { if (n.type.name === 'image' && n.attrs.src === src) tr.setNodeMarkup(pos, undefined, { ...n.attrs, src: data }); });
+        tr.setMeta('trackIgnore', true);
+        editor.view.dispatch(tr);
+      } catch { /* hors ligne ou refus CORS : le cache du navigateur prend le relais */ }
+    }
+  }
+
   /* ---------- Démarrage ---------- */
   applyPageVars(root, settings);
   scheduleLayout();
   updateStatus();
   undoBtn.disabled = true; redoBtn.disabled = true;
   if (!docRec.json) scheduleSave(100);
+  scheduleInline(1500);
   if (editor.isEmpty) setTimeout(() => editor.commands.focus('end'), 300);
 
   return {
@@ -803,6 +831,7 @@ export function mountEditor(host, docRec, hooks) {
     destroy() {
       destroyed = true;
       clearTimeout(saveTimer);
+      clearTimeout(inlineTimer);
       ro.disconnect();
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onHide);

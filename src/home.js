@@ -3,6 +3,7 @@ import { h, icon, sheet, menuList, confirmDialog, promptDialog, applyTheme } fro
 import { listDocs, deleteDoc, putDoc, newId, pref } from './storage.js';
 import { TEMPLATES } from './templates.js';
 import { canInstall, onInstallAvailable, promptInstall } from './install.js';
+import { poweredBy, openAbout } from './about.js';
 
 const fmtDate = (t) => {
   const d = new Date(t), now = new Date();
@@ -72,6 +73,7 @@ export async function showHome(host, { onOpen, onNew, onImport }) {
         list),
       isIOS && !standalone ? h('p', { class: 'tip' }, 'Astuce : pour installer Luma Office sur votre iPhone / iPad, touchez Partager puis « Sur l’écran d’accueil ».') : null,
       h('p', { class: 'tip' }, 'Vos documents sont enregistrés sur cet appareil et fonctionnent hors ligne. Exportez-les en Word ou en PDF depuis le menu ⋯ de l’éditeur.')),
+    h('div', { class: 'home-foot' }, poweredBy(), h('button', { class: 'linkbtn', onclick: openAbout }, 'À propos')),
     h('button', { class: 'fab', onclick: () => onNew(TEMPLATES[0]) }, icon('plus', 24), h('span', {}, 'Nouveau')));
   host.replaceChildren(view);
   onInstallAvailable(() => { const b = view.querySelector('[data-install]'); if (b) b.hidden = !canInstall(); });
