@@ -17,7 +17,7 @@ import { ParagraphFormat, PageBreak, LumaImage, LumaCell, SearchReplace, searchK
 import { buildRibbon } from './ribbon.js';
 import { h, icon, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX } from './layout.js';
-import { putDoc, pref, persist } from './storage.js';
+import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
@@ -33,7 +33,8 @@ const SYMBOLS = '© ® ™ € £ ¥ $ ¢ § ¶ † ‡ ° ± × ÷ ≠ ≈ ≤ 
 export function mountEditor(host, docRec, hooks) {
   let settings = mergeSettings(docRec.settings);
   let title = docRec.title || 'Document sans titre';
-  let mode = pref.get('mode', innerWidth < 700 ? 'reflow' : 'page');
+  const pm = pref.get('mode', 'auto');
+  let mode = pm === 'page' || pm === 'reflow' ? pm : innerWidth < 700 ? 'reflow' : 'page';
   let zoomMode = 'fit';
   let pageCount = 1;
   let spell = pref.get('spell', true);
@@ -539,6 +540,7 @@ export function mountEditor(host, docRec, hooks) {
       { icon: 'stats', label: 'Statistiques', run: openStats },
       { icon: 'edit', label: 'Nom de l’auteur', hint: pref.get('author', '') || 'Utilisé pour les commentaires et le suivi', run: async () => { const a = await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', pref.get('author', ''), 'Enregistrer'); if (a?.trim()) { pref.set('author', a.trim()); editor.storage.trackChanges.author = a.trim(); } } },
       { icon: 'info', label: 'À propos de Luma Office', run: openAbout },
+      { icon: 'star', label: 'Enregistrer comme modèle', hint: 'Le retrouver dans la page Modèles', run: async () => { const n = await promptDialog('Nouveau modèle', 'Nom du modèle', title, 'Enregistrer'); if (n?.trim()) { await putDoc({ id: newId(), kind: 'template', title: n.trim(), html: editor.getHTML(), settings, updated: Date.now() }); toast('Modèle enregistré ✓'); } } },
       { icon: 'copy', label: 'Dupliquer le document', run: async () => { await save(); hooks.onDuplicate(docRec); } },
       { icon: 'trash', label: 'Supprimer le document', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${title} » définitivement ?`, 'Supprimer', true)) { destroyed = true; hooks.onDelete(docRec); } } },
     ], () => s.close()));

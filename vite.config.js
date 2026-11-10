@@ -9,7 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo.png', 'icons/apple-touch-icon.png'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,woff2,ttf,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,png,woff2,ttf,mjs,svg,webmanifest}'],
+        importScripts: ['share-target-sw.js'],
+        navigateFallbackDenylist: [/share-target/],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {
@@ -38,8 +40,18 @@ export default defineConfig({
           { name: 'Nouveau document', short_name: 'Nouveau', description: 'Créer un document vierge', url: './#/new', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
         ],
         file_handlers: [
-          { action: './', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'], 'text/plain': ['.txt'] } },
+          { action: './', accept: {
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+            'application/pdf': ['.pdf'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'],
+            'text/csv': ['.csv'],
+            'text/plain': ['.txt'],
+          } },
         ],
+        share_target: {
+          action: './share-target', method: 'POST', enctype: 'multipart/form-data',
+          params: { files: [{ name: 'files', accept: ['application/pdf', '.pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx', '.xlsm', 'text/csv', '.csv', 'text/plain', '.txt'] }] },
+        },
         screenshots: [
           { src: 'screens/phone.png', sizes: '824x1678', type: 'image/png', form_factor: 'narrow', label: 'Éditeur sur téléphone' },
           { src: 'screens/tablet.png', sizes: '1600x1000', type: 'image/png', form_factor: 'wide', label: 'Éditeur sur tablette' },

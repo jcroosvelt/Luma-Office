@@ -17,6 +17,11 @@ Export **Word (.docx)** et **PDF vectoriel (texte sélectionnable)**, import fid
 - **Modèles** : lettre, rapport, compte rendu, CV, note de service
 - **Mobile d'abord** : ruban à onglets sous les doigts (au-dessus du clavier sur téléphone), mode « Adapté » pour écrire confortablement sur petit écran, mode « Page » avec pagination et zoom (pincer), thème clair / sombre
 - **Enregistrement automatique** sur l'appareil (IndexedDB, stockage persistant demandé au navigateur), bouton Enregistrer, aucun compte requis
+- **Lecteurs PDF et Excel** : lecture de PDF (pages à la demande, texte sélectionnable, zoom au pincement, recherche, conversion en document modifiable), de classeurs `.xlsx` / `.csv` (dates, montants, pourcentages, cellules fusionnées, onglets, barre de formule, recherche) et de documents Word
+- **Recherche** : plein texte (titre et contenu, sans accents ni casse) dans tous vos documents, PDF et classeurs ; recherche de fichiers dans les dossiers de l'appareil, par nom ou dans le contenu
+- **Ouvrir avec Luma Office** : ordinateur (Chrome / Edge, application installée) via « Ouvrir avec » ; Android via « Partager » ; partout via le bouton Importer
+- **Page Modèles** : 16 modèles classés par catégorie avec aperçu, et vos propres modèles (« Enregistrer comme modèle »)
+- **Page Paramètres** : thème, affichage, orthographe, auteur, valeurs par défaut des nouveaux documents, dossiers de recherche, sauvegarde / restauration (.zip), installation
 - **Hors ligne** : documents et images conservés localement ; les images distantes sont copiées dans le document et mises en cache
 
 ## Développement
@@ -41,6 +46,8 @@ Vite · TipTap (ProseMirror) · `docx` (export Word) · pdfmake (PDF vectoriel, 
 - Suivi des modifications : le texte saisi ou supprimé est suivi ; les changements de structure (couper / fusionner des paragraphes, changer de style) ne le sont pas.
 - PDF : polices latines uniquement (français, anglais, langues européennes) ; Verdana / Tahoma sont remplacées par une police équivalente. Les emoji et alphabets non latins ne s'affichent pas dans le PDF.
 - Table des matières : statique (mise à jour par le bouton), pas un champ Word dynamique. Les numéros de page du `.docx` sont estimés ; ceux du PDF sont exacts.
+- Anciens formats `.doc` et `.xls` : non pris en charge (enregistrez-les en `.docx` / `.xlsx`).
+- « Ouvrir avec » directement depuis le gestionnaire de fichiers : possible sur ordinateur ; sur Android seul le menu « Partager » est proposé, et iPhone / iPad ne permettent rien de tel pour une application web.
 - Import `.docx` : ne reprend pas les zones de texte, équations, notes de bas de page ni les images flottantes (elles deviennent des images en ligne).
 
 ---

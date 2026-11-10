@@ -1,0 +1,75 @@
+// Page « Paramètres » : apparence, écriture, valeurs par défaut des nouveaux documents, recherche, stockage, application.
+import { h, icon, toast, saveBlob, confirmDialog, applyTheme } from './ui.js';
+import { pref, storageInfo, fmtBytes, persist } from './storage.js';
+import { PAGE_SIZES, MARGIN_PRESETS, DEFAULT_SETTINGS } from './layout.js';
+import { shell } from './shell.js';
+import { poweredBy, openAbout } from './about.js';
+import { canInstall, promptInstall, onInstallAvailable } from './install.js';
+import { allFolders, addFolder, removeFolder, hasDirPicker } from './device-search.js';
+import { exportBackup, importBackup, wipeAll } from './backup.js';
+import pkg from '../package.json';
+
+const seg = (opts, get, set) => {
+  const el = h('div', { class: 'segmented', role: 'radiogroup' }, opts.map(([v, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(get() === v), class: get() === v ? 'on' : '', onclick: () => { set(v); [...el.children].forEach((b, i) => { b.classList.toggle('on', opts[i][0] === v); b.setAttribute('aria-checked', opts[i][0] === v); }); } }, l)));
+  return el;
+};
+const toggle = (get, set) => {
+  const b = h('button', { type: 'button', role: 'switch', class: 'switch', 'aria-checked': String(!!get()), onclick: () => { const v = !(b.getAttribute('aria-checked') === 'true'); b.setAttribute('aria-checked', v); set(v); } }, h('i', {}));
+  return b;
+};
+const row = (label, ctrl, hint) => h('div', { class: 'srow' }, h('div', { class: 'srow-t' }, h('b', {}, label), hint ? h('small', {}, hint) : null), h('div', { class: 'srow-c' }, ctrl));
+const group = (title, ...rows) => h('section', { class: 'sgroup' }, h('h2', {}, title), h('div', { class: 'scard' }, rows));
+
+export async function showSettings(host, { refresh }) {
+  const defaults = () => ({ size: DEFAULT_SETTINGS.size, orientation: 'portrait', margins: { ...DEFAULT_SETTINGS.margins }, lang: DEFAULT_SETTINGS.lang, pageNumbers: true, ...(pref.get('defaults', {}) || {}) });
+  const setDef = (patch) => pref.set('defaults', { ...defaults(), ...patch });
+  const d = defaults();
+  const marginKey = Object.entries(MARGIN_PRESETS).find(([, p]) => JSON.stringify(p.v) === JSON.stringify(d.margins))?.[0] || 'normal';
+
+  const select = (opts, value, onchange) => h('select', { class: 'rs sel', onchange: (e) => onchange(e.target.value) }, opts.map(([v, l]) => h('option', { value: v, selected: v === value }, l)));
+  const mode = pref.get('mode', 'auto');
+
+  const author = h('input', { class: 'field', value: pref.get('author', ''), placeholder: 'Votre nom', autocomplete: 'name', onchange: (e) => { pref.set('author', e.target.value.trim()); toast('Nom enregistré'); } });
+  const foldersEl = h('div', { class: 'folders' });
+  async function renderFolders() {
+    const fs = await allFolders();
+    foldersEl.replaceChildren(...fs.map((f) => h('span', { class: 'fchip' }, icon('folder', 16), f.name, f.session || f.mem ? h('small', {}, ' (session)') : null, h('button', { class: 'x', 'aria-label': 'Retirer', onclick: async () => { await removeFolder(f); renderFolders(); } }, '×'))),
+      h('button', { class: 'btn sm', onclick: async () => { if (await addFolder()) renderFolders(); } }, icon('plus', 16), 'Ajouter un dossier'));
+  }
+  const store = h('small', {}, 'Calcul…');
+  storageInfo().then((s) => { store.textContent = `${s.persisted ? '🔒 Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`; });
+  const restoreIn = h('input', { type: 'file', accept: '.zip', hidden: true, onchange: async () => { const f = restoreIn.files[0]; restoreIn.value = ''; if (!f) return; try { toast('Restauration…', 60000); const n = await importBackup(f); toast(`${n} élément${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''} ✓`); } catch (e) { toast(e.message || 'Restauration impossible', 5000); } } });
+  const installBtn = h('button', { class: 'btn sm', onclick: async () => { if (canInstall()) await promptInstall(); else toast(matchMedia('(display-mode: standalone)').matches ? 'L’application est déjà installée ✓' : 'Utilisez le menu du navigateur : « Installer l’application » ou « Sur l’écran d’accueil ».', 5000); } }, icon('download', 18), 'Installer');
+  onInstallAvailable(() => { installBtn.title = canInstall() ? 'Prêt à installer' : ''; });
+
+  const content = h('main', { class: 'home-main' },
+    h('h1', { class: 'ptitle' }, 'Paramètres'),
+    group('Apparence',
+      row('Thème', seg([['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']], () => pref.get('theme', 'auto'), (v) => { pref.set('theme', v); applyTheme(v); }), 'La page du document reste toujours blanche.'),
+      row('Affichage de l’éditeur', seg([['auto', 'Auto'], ['page', 'Page'], ['reflow', 'Adapté']], () => (mode === 'page' || mode === 'reflow' ? mode : 'auto'), (v) => pref.set('mode', v)), 'Auto : « Adapté » sur téléphone, « Page » sur tablette.')),
+    group('Écriture',
+      row('Correcteur orthographique', toggle(() => pref.get('spell', true), (v) => pref.set('spell', v))),
+      row('Langue des nouveaux documents', select([['fr-FR', 'Français'], ['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['es-ES', 'Español'], ['de-DE', 'Deutsch'], ['it-IT', 'Italiano'], ['pt-PT', 'Português'], ['ar', 'العربية']], d.lang, (v) => setDef({ lang: v }))),
+      row('Nom de l’auteur', author, 'Affiché sur vos commentaires et vos modifications suivies.')),
+    group('Nouveaux documents',
+      row('Format de page', select(Object.entries(PAGE_SIZES).map(([k, v]) => [k, v.label]), d.size, (v) => setDef({ size: v }))),
+      row('Orientation', seg([['portrait', 'Portrait'], ['landscape', 'Paysage']], () => defaults().orientation, (v) => setDef({ orientation: v }))),
+      row('Marges', select(Object.entries(MARGIN_PRESETS).map(([k, p]) => [k, p.label]), marginKey, (v) => setDef({ margins: { ...MARGIN_PRESETS[v].v } }))),
+      row('Numéroter les pages', toggle(() => defaults().pageNumbers, (v) => setDef({ pageNumbers: v })), 'S’applique aux documents créés ensuite ; certains modèles ont leurs propres réglages.')),
+    group('Recherche sur l’appareil',
+      row('Dossiers explorés', foldersEl, hasDirPicker() ? 'Luma Office retient ces dossiers pour retrouver vos fichiers Word, PDF et Excel.' : 'Ce navigateur ne mémorise pas les dossiers : ils sont à resélectionner à chaque visite.')),
+    group('Stockage et sauvegarde',
+      row('Vos données', store, 'Documents, PDF et classeurs sont gardés sur cet appareil, sans compte.'),
+      row('Sauvegarder', h('button', { class: 'btn sm', onclick: async () => { try { toast('Création de la sauvegarde…', 60000); const { blob, count } = await exportBackup(); saveBlob(blob, `Luma-Office-sauvegarde-${new Date().toISOString().slice(0, 10)}.zip`); toast(`Sauvegarde de ${count} élément${count > 1 ? 's' : ''} ✓`); } catch { toast('Sauvegarde impossible'); } } }, icon('download', 18), 'Tout sauvegarder (.zip)'), 'Conservez ce fichier pour changer d’appareil ou par précaution.'),
+      row('Restaurer', h('div', {}, h('button', { class: 'btn sm', onclick: () => restoreIn.click() }, icon('upload', 18), 'Restaurer une sauvegarde'), restoreIn)),
+      row('Protéger les données', h('button', { class: 'btn sm', onclick: async () => { const ok = await persist(); toast(ok ? 'Stockage protégé ✓' : 'Le navigateur refuse pour l’instant : installez l’application, puis réessayez.', 5000); } }, '🔒 Demander la protection')),
+      row('Tout effacer', h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmDialog('Supprimer TOUS vos documents, modèles et réglages de cet appareil ? Cette action est définitive.', 'Tout supprimer', true)) { await wipeAll(); toast('Données effacées'); refresh(); } } }, icon('trash', 18), 'Effacer mes données'))),
+    group('Application',
+      row('Installer Luma Office', installBtn, 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),
+      row('Invitation d’installation', h('button', { class: 'btn sm', onclick: () => { pref.set('installDismissed', 0); pref.set('installed', false); toast('L’invitation s’affichera à la prochaine visite'); } }, 'Réafficher')),
+      row('Version', h('span', { class: 'ver' }, pkg.version)),
+      row('À propos', h('button', { class: 'btn sm', onclick: openAbout }, icon('info', 18), 'Ouvrir'))),
+  );
+  host.replaceChildren(shell('#/parametres', h('div', { class: 'page' }, content, h('div', { class: 'home-foot' }, poweredBy()))));
+  renderFolders();
+}
