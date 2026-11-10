@@ -98,6 +98,7 @@ const P = {
   rejectAll: '<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>',
   toc: '<path d="M4 6h11M4 12h13M4 18h10"/><path d="M19 6h1M20 12h1M18 18h2"/>',
   colw: '<path d="M3 12h18"/><path d="m7 8-4 4 4 4M17 8l4 4-4 4"/>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
   fullimg: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
 };
 
@@ -110,9 +111,12 @@ export function icon(name, size = 22) {
 
 /* ---------- Feuille modale (bottom sheet sur mobile, dialogue sur tablette) ---------- */
 let openSheets = 0;
+const sheetStack = [];
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheetStack.length) { e.preventDefault(); sheetStack[sheetStack.length - 1](); } });
 export function sheet(title, content, { onClose, wide } = {}) {
   const back = h('div', { class: 'sheet-back' });
   const close = () => {
+    const i = sheetStack.indexOf(close); if (i >= 0) sheetStack.splice(i, 1);
     back.classList.remove('in');
     setTimeout(() => back.remove(), 180);
     openSheets--;
@@ -128,6 +132,7 @@ export function sheet(title, content, { onClose, wide } = {}) {
   back.addEventListener('pointerdown', (e) => { if (e.target === back) close(); });
   document.body.append(back);
   openSheets++;
+  sheetStack.push(close);
   requestAnimationFrame(() => back.classList.add('in'));
   return { close, el: panel };
 }
@@ -201,5 +206,5 @@ export function applyTheme(t) {
   const r = document.documentElement;
   if (t === 'light' || t === 'dark') r.dataset.theme = t; else delete r.dataset.theme;
   const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#0b1020' : '#0a2463');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#000f3a' : '#001e6c');
 }

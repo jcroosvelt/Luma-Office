@@ -48,9 +48,10 @@ export function mountEditor(host, docRec, hooks) {
   const saveState = h('span', { class: 'save-state' }, 'Enregistré');
   const undoBtn = h('button', { class: 'icon-btn', 'aria-label': 'Annuler', onmousedown: (e) => e.preventDefault(), onclick: () => editor.chain().focus().undo().run() }, icon('undo', 22));
   const redoBtn = h('button', { class: 'icon-btn', 'aria-label': 'Rétablir', onmousedown: (e) => e.preventDefault(), onclick: () => editor.chain().focus().redo().run() }, icon('redo', 22));
+  const saveBtn = h('button', { class: 'save-btn', 'aria-label': 'Enregistrer le document', title: 'Enregistrer (Ctrl+S)', onclick: () => manualSave() }, icon('save', 20), h('span', {}, 'Enregistrer'));
   const topbar = h('header', { class: 'topbar' },
-    h('button', { class: 'icon-btn', 'aria-label': 'Mes documents', onclick: () => leave() }, icon('home', 22)),
-    titleInput, saveState, undoBtn, redoBtn,
+    h('button', { class: 'mark-btn', 'aria-label': 'Mes documents', title: 'Mes documents', onclick: () => leave() }, h('img', { src: './icons/icon-192.png', alt: 'Luma Office' })),
+    titleInput, saveState, saveBtn, undoBtn, redoBtn,
     h('button', { class: 'icon-btn', 'aria-label': 'Menu fichier', onclick: () => openFileMenu() }, icon('more', 22)));
 
   const pmHost = h('div', { class: 'pm-host' });
@@ -145,6 +146,13 @@ export function mountEditor(host, docRec, hooks) {
   addEventListener('pagehide', save);
 
   async function leave() { await save(); hooks.onBack(); }
+  async function manualSave() {
+    await save();
+    saveBtn.classList.add('ok');
+    saveBtn.replaceChildren(icon('accept', 20), h('span', {}, 'Enregistré'));
+    toast('Document enregistré sur cet appareil ✓');
+    setTimeout(() => { saveBtn.classList.remove('ok'); saveBtn.replaceChildren(icon('save', 20), h('span', {}, 'Enregistrer')); }, 1800);
+  }
 
   /* ---------- Statistiques / barre d'état ---------- */
   function updateStatus() {
@@ -260,7 +268,7 @@ export function mountEditor(host, docRec, hooks) {
   const onKey = (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
     const k = e.key.toLowerCase();
-    if (k === 's') { e.preventDefault(); save().then(() => toast('Document enregistré')); }
+    if (k === 's') { e.preventDefault(); manualSave(); }
     else if (k === 'f') { e.preventDefault(); toggleFind(true); }
     else if (k === 'p') { e.preventDefault(); doPrint(); }
   };
@@ -513,6 +521,7 @@ export function mountEditor(host, docRec, hooks) {
     const canShare = !!navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] });
     let s;
     s = sheet('Fichier', menuList([
+      { icon: 'save', label: 'Enregistrer', hint: 'Sauvegarde sur cet appareil (automatique aussi)', run: manualSave },
       { sep: 'Exporter' },
       { icon: 'word', label: 'Exporter en Word (.docx)', hint: 'Modifiable dans Word, Google Docs, LibreOffice', run: exportDocx },
       { icon: 'pdf', label: 'Exporter en PDF', hint: 'Mise en page fidèle, prêt à envoyer', run: exportPdf },
@@ -524,6 +533,7 @@ export function mountEditor(host, docRec, hooks) {
       { icon: 'search', label: 'Rechercher et remplacer', run: () => toggleFind(true) },
       { icon: 'stats', label: 'Statistiques', run: openStats },
       { icon: 'edit', label: 'Nom de l’auteur', hint: pref.get('author', '') || 'Utilisé pour les commentaires et le suivi', run: async () => { const a = await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', pref.get('author', ''), 'Enregistrer'); if (a?.trim()) { pref.set('author', a.trim()); editor.storage.trackChanges.author = a.trim(); } } },
+      { icon: 'info', label: 'À propos de Luma Office', run: () => sheet('À propos', h('div', { class: 'about' }, h('img', { src: './logo.png', alt: 'Luma Office' }), h('p', {}, 'Luma Office — traitement de texte professionnel pour téléphone et tablette.'), h('p', {}, 'Vos documents restent sur cet appareil. Export Word (.docx) et PDF.'))) },
       { icon: 'copy', label: 'Dupliquer le document', run: async () => { await save(); hooks.onDuplicate(docRec); } },
       { icon: 'trash', label: 'Supprimer le document', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${title} » définitivement ?`, 'Supprimer', true)) { destroyed = true; hooks.onDelete(docRec); } } },
     ], () => s.close()));

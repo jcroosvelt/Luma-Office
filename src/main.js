@@ -7,7 +7,18 @@ import { TEMPLATES, templateSettings } from './templates.js';
 import { importFile } from './import.js';
 import { applyTheme, h, toast } from './ui.js';
 
-registerSW({ immediate: true });
+// Écran d'accueil animé avec le logo (une fois par session)
+try {
+  if (!sessionStorage.getItem('luma:splash')) {
+    sessionStorage.setItem('luma:splash', '1');
+    const sp = h('div', { class: 'splash' }, h('img', { src: './logo.png', alt: 'Luma Office' }));
+    document.body.append(sp);
+    setTimeout(() => sp.classList.add('out'), 900);
+    setTimeout(() => sp.remove(), 1500);
+  }
+} catch { /* ignore */ }
+
+registerSW({ immediate: true, onOfflineReady() { toast('Luma Office est prêt à fonctionner hors ligne ✓', 3500); } });
 persist();
 applyTheme(pref.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(pref.get('theme', 'auto')));
@@ -26,6 +37,7 @@ async function createDoc({ title, html, settings, comments }) {
 async function render() {
   if (current) { try { await current.flush(); } catch { /* ignore */ } current.destroy(); current = null; }
   document.documentElement.classList.remove('in-editor');
+  if (location.hash === '#/new') { const t = TEMPLATES[0]; const rec = { id: newId(), title: 'Document sans titre', html: t.html(), json: null, settings: templateSettings(t), comments: [], created: Date.now(), updated: Date.now(), preview: '', words: 0 }; await putDoc(rec); history.replaceState(null, '', `#/doc/${rec.id}`); }
   const m = location.hash.match(/^#\/doc\/(.+)$/);
   if (m) {
     const rec = await getDoc(m[1]);
@@ -58,6 +70,19 @@ async function render() {
       document.body.append(input);
       input.click();
     },
+  });
+}
+
+// Ouverture de fichiers .docx depuis le système (PWA installée)
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async (params) => {
+    for (const fh of params.files || []) {
+      try {
+        const r = await importFile(await fh.getFile());
+        const base = templateSettings(TEMPLATES[0]);
+        await createDoc({ title: r.title, html: r.html, comments: r.comments, settings: { ...base, ...(r.settings || {}), margins: { ...base.margins, ...(r.settings?.margins || {}) } } });
+      } catch { toast('Impossible d’ouvrir ce fichier'); }
+    }
   });
 }
 

@@ -27,7 +27,8 @@ npm run build    # build de production dans dist/
 npm run preview  # prévisualiser le build
 ```
 
-Déployez le dossier `dist/` sur n'importe quel hébergement statique (HTTPS requis pour l'installation PWA).
+**Vercel** : importez le dépôt, aucun réglage n'est nécessaire (`vercel.json` fourni : framework Vite, sortie `dist/`, en-têtes du service worker).
+Sinon, déployez le dossier `dist/` sur n'importe quel hébergement statique (HTTPS requis pour l'installation PWA).
 Sur Android : menu du navigateur → « Installer l'application ». Sur iPhone / iPad : Partager → « Sur l'écran d'accueil ».
 
 ## Pile technique
