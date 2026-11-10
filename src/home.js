@@ -2,6 +2,7 @@
 import { h, icon, sheet, menuList, confirmDialog, promptDialog, applyTheme } from './ui.js';
 import { listDocs, deleteDoc, putDoc, newId, pref } from './storage.js';
 import { TEMPLATES } from './templates.js';
+import { canInstall, onInstallAvailable, promptInstall } from './install.js';
 
 const fmtDate = (t) => {
   const d = new Date(t), now = new Date();
@@ -12,8 +13,6 @@ const fmtDate = (t) => {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
 };
 
-let installEvent = null;
-addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; document.querySelector('[data-install]')?.removeAttribute('hidden'); });
 
 export async function showHome(host, { onOpen, onNew, onImport }) {
   const docs = await listDocs();
@@ -58,7 +57,7 @@ export async function showHome(host, { onOpen, onNew, onImport }) {
     h('header', { class: 'home-head' },
       h('div', { class: 'logo-wrap' }, h('img', { src: './logo.png', alt: 'Luma Office', class: 'logo' })),
       h('div', { class: 'grow' }),
-      h('button', { class: 'btn sm', 'data-install': '', hidden: !installEvent, onclick: async () => { installEvent?.prompt(); installEvent = null; } }, icon('download', 18), ' Installer'),
+      h('button', { class: 'btn sm', 'data-install': '', hidden: !canInstall(), onclick: () => promptInstall() }, icon('download', 18), ' Installer'),
       themeBtn),
     h('main', { class: 'home-main' },
       h('section', {},
@@ -75,5 +74,6 @@ export async function showHome(host, { onOpen, onNew, onImport }) {
       h('p', { class: 'tip' }, 'Vos documents sont enregistrés sur cet appareil et fonctionnent hors ligne. Exportez-les en Word ou en PDF depuis le menu ⋯ de l’éditeur.')),
     h('button', { class: 'fab', onclick: () => onNew(TEMPLATES[0]) }, icon('plus', 24), h('span', {}, 'Nouveau')));
   host.replaceChildren(view);
+  onInstallAvailable(() => { const b = view.querySelector('[data-install]'); if (b) b.hidden = !canInstall(); });
   renderList();
 }

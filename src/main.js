@@ -1,4 +1,5 @@
 import './style.css';
+import './install.js';
 import { registerSW } from 'virtual:pwa-register';
 import { mountEditor } from './editor-view.js';
 import { showHome } from './home.js';
