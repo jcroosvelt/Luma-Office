@@ -159,6 +159,24 @@ button { cursor: pointer; }
 .doc-content.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 @keyframes blink { to { visibility: hidden; } }
 
+/* ---------- Menu déroulant sobre ---------- */
+.dd { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; height: 40px; padding: 0 8px 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font-size: 14px; flex: none; margin: 0 2px; max-width: 100%; text-align: left; }
+.dd:active { background: var(--brand-tint); }
+.dd[aria-expanded='true'] { border-color: var(--brand); background: var(--brand-tint); }
+.dd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.dd .ic { color: var(--muted); flex: none; }
+.dd.full { width: 100%; height: 46px; font-size: 16px; margin: 0; }
+.dd-pop { position: fixed; z-index: 700; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 6px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  box-shadow: 0 14px 44px rgba(0, 20, 80, .28), 0 2px 8px rgba(0, 20, 80, .12); animation: ddIn .12s ease-out; transform-origin: top left; }
+.dd-pop.up { transform-origin: bottom left; }
+@keyframes ddIn { from { opacity: 0; transform: scale(.97) translateY(-4px); } to { opacity: 1; transform: none; } }
+.dd-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; background: none; border-radius: 9px; color: var(--text); font-size: 15px; text-align: left; }
+.dd-item .dd-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-item:hover, .dd-item.act { background: var(--surface2); }
+.dd-item:active { background: var(--brand-tint); }
+.dd-item.sel { background: var(--brand-tint); color: var(--brand); font-weight: 600; }
+.dd-item .ic { color: var(--brand); flex: none; }
+
 /* ---------- Cartes de choix (mise en page) ---------- */
 .ccards { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
 .ccard { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface2); color: var(--muted); text-align: center; }
@@ -182,6 +200,13 @@ button { cursor: pointer; }
 .wm { position: absolute; left: 0; right: 0; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
 .wm span { transform: rotate(-45deg); font: 800 100px/1 Calibri, Carlito, sans-serif; white-space: nowrap; opacity: .38; letter-spacing: .06em; }
 .pborder { position: absolute; pointer-events: none; box-sizing: border-box; }
+.pborder.art { border: 0; }
+.pborder.art svg { display: block; }
+.motifs { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.motif { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 2px solid var(--line); background: #fff; color: var(--muted); }
+.motif small { font-size: 11px; color: var(--muted); }
+.motif.on { border-color: var(--brand); background: var(--brand-tint); }
+.motif:active { transform: scale(.96); }
 .hf .hf-line { white-space: pre; }
 
 /* ---------- Commentaires, suivi, sommaire, colonnes ---------- */
@@ -458,7 +483,8 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
   .page-break span, .column-break span { display: none; }
   .column-break { height: 0 !important; border: 0; margin: 0; }
   .paper[data-wm]::before { content: attr(data-wm); position: fixed; left: 0; right: 0; top: 42%; text-align: center; transform: rotate(-45deg); font: 800 110px/1 Calibri, Carlito, sans-serif; opacity: .35; color: var(--wm-color, #b8bfcc); white-space: nowrap; z-index: 0; pointer-events: none; }
-  .paper[data-pb]::after { content: ''; position: fixed; inset: var(--pb-off, 1cm); border: var(--pb-border); pointer-events: none; z-index: 0; }
+  .paper[data-pb]::after { content: ''; position: fixed; inset: calc(var(--pb-off, 1cm) - var(--mt, 0cm)) calc(var(--pb-off, 1cm) - var(--mr, 0cm)) calc(var(--pb-off, 1cm) - var(--mb, 0cm)) calc(var(--pb-off, 1cm) - var(--ml, 0cm)); border: var(--pb-border); pointer-events: none; z-index: 0; }
+  .paper[data-pb='art']::after { border: 0; background: var(--pb-art) center / 100% 100% no-repeat; }
   tr, img { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
   .search-hit { background: none !important; }

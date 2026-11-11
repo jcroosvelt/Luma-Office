@@ -222,3 +222,80 @@ export function applyTheme(t) {
   const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#000f3a' : '#001e6c');
 }
+
+/* ---------- Menu déroulant sobre (remplace le <select> natif) ---------- */
+// options : [valeur, libellé, { style }] ; le menu s'ancre au bouton, s'ouvre vers le haut si besoin
+// et ne prend jamais le focus (le clavier du téléphone et la sélection du texte restent en place).
+export function dropdown({ options, get, set, title = '', width, cls = '', labelFont = false }) {
+  let pop = null, off = null, act = -1;
+  const label = h('span', { class: 'dd-label' });
+  const btn = h('button', {
+    type: 'button', class: 'dd ' + cls, 'aria-haspopup': 'listbox', 'aria-expanded': 'false', title, 'aria-label': title || undefined,
+    style: width ? { width: width + 'px' } : null, onmousedown: (e) => e.preventDefault(), onclick: () => (pop ? close() : open()),
+  }, label, icon('down', 16));
+
+  function update() {
+    const v = String(get() ?? '');
+    const o = options.find((x) => String(x[0]) === v);
+    label.textContent = o ? o[1] : v;
+    label.style.fontFamily = labelFont ? (o?.[2]?.style?.fontFamily || v) : '';
+  }
+  function close() {
+    if (!pop) return;
+    pop.remove(); pop = null; act = -1;
+    btn.setAttribute('aria-expanded', 'false');
+    off?.(); off = null;
+  }
+  function pick(v) { set(v); update(); close(); }
+  function place(first) {
+    if (!pop) return;
+    const r = btn.getBoundingClientRect(), vw = innerWidth, vh = window.visualViewport?.height || innerHeight;
+    if (!first && (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw)) { close(); return; } // le bouton a quitté l'écran
+    pop.style.minWidth = Math.max(r.width, 150) + 'px';
+    pop.style.maxHeight = ''; pop.style.top = ''; pop.style.bottom = '';
+    const below = vh - r.bottom - 10, above = r.top - 10;
+    const natural = Math.min(pop.scrollHeight, 380);
+    const up = first ? below < Math.min(natural, 260) && above > below : pop.classList.contains('up');
+    pop.classList.toggle('up', up);
+    pop.style.maxHeight = Math.max(120, Math.min(380, up ? above : below)) + 'px';
+    const w = pop.offsetWidth;
+    pop.style.left = Math.min(Math.max(8, r.left), Math.max(8, vw - w - 8)) + 'px';
+    if (up) pop.style.bottom = vh - r.top + 6 + 'px'; else pop.style.top = r.bottom + 6 + 'px';
+    if (first) { const selEl = pop.querySelector('.sel'); if (selEl) pop.scrollTop = selEl.offsetTop - pop.clientHeight / 2 + selEl.offsetHeight / 2; }
+  }
+  function open() {
+    const cur = String(get() ?? '');
+    pop = h('div', { class: 'dd-pop', role: 'listbox', 'aria-label': title || undefined });
+    options.forEach(([v, l, ex], i) => {
+      const sel = String(v) === cur;
+      pop.append(h('button', { type: 'button', class: 'dd-item' + (sel ? ' sel' : ''), role: 'option', 'aria-selected': String(sel), 'data-i': i, onmousedown: (e) => e.preventDefault(), onclick: () => pick(v) },
+        h('span', { class: 'dd-t', style: ex?.style || null }, l), sel ? icon('check', 16) : null));
+      if (sel) act = i;
+    });
+    document.body.append(pop);
+    btn.setAttribute('aria-expanded', 'true');
+    place(true);
+    // fermeture + clavier (tablettes avec clavier)
+    const onDown = (e) => { if (!pop?.contains(e.target) && !btn.contains(e.target)) close(); };
+    const onKey = (e) => {
+      if (!pop) return;
+      const items = [...pop.querySelectorAll('.dd-item')];
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); e.stopImmediatePropagation();
+        act = Math.max(0, Math.min(items.length - 1, act + (e.key === 'ArrowDown' ? 1 : -1)));
+        items.forEach((x, i) => x.classList.toggle('act', i === act));
+        items[act]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && act >= 0) { e.preventDefault(); e.stopImmediatePropagation(); pick(options[act][0]); }
+    };
+    const onScroll = (e) => { if (pop && !pop.contains(e.target)) place(false); };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('scroll', onScroll, true);
+    const onResize = () => place(false);
+    window.addEventListener('resize', onResize);
+    off = () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey, true); window.removeEventListener('scroll', onScroll, true); window.removeEventListener('resize', onResize); };
+  }
+  update();
+  return { el: btn, refresh: update, close };
+}

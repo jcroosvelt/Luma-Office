@@ -1,5 +1,5 @@
 // Page « Paramètres » : apparence, écriture, valeurs par défaut des nouveaux documents, recherche, stockage, application.
-import { h, icon, toast, saveBlob, confirmDialog, applyTheme } from './ui.js';
+import { h, icon, toast, saveBlob, confirmDialog, applyTheme, dropdown } from './ui.js';
 import { pref, storageInfo, fmtBytes, persist } from './storage.js';
 import { PAGE_SIZES, MARGIN_PRESETS, DEFAULT_SETTINGS } from './layout.js';
 import { shell } from './shell.js';
@@ -26,7 +26,7 @@ export async function showSettings(host, { refresh }) {
   const d = defaults();
   const marginKey = Object.entries(MARGIN_PRESETS).find(([, p]) => JSON.stringify(p.v) === JSON.stringify(d.margins))?.[0] || 'normal';
 
-  const select = (opts, value, onchange) => h('select', { class: 'rs sel', onchange: (e) => onchange(e.target.value) }, opts.map(([v, l]) => h('option', { value: v, selected: v === value }, l)));
+  const select = (opts, value, onchange) => { let cur = value; return dropdown({ options: opts, get: () => cur, set: (v) => { cur = v; onchange(v); } }).el; };
   const mode = pref.get('mode', 'auto');
 
   const author = h('input', { class: 'field', value: pref.get('author', ''), placeholder: 'Votre nom', autocomplete: 'name', onchange: (e) => { pref.set('author', e.target.value.trim()); toast('Nom enregistré'); } });

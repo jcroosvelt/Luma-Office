@@ -21,7 +21,7 @@ export const NUMBER_FORMATS = { 'page-of': 'Page 1 / 5', of: '1 / 5', plain: '1'
 export const pageNumberText = (fmt, i, n) => ({ 'page-of': `Page ${i} / ${n}`, of: `${i} / ${n}`, plain: `${i}`, dash: `– ${i} –`, 'page-only': `Page ${i}` }[fmt] || `Page ${i} / ${n}`);
 
 export const WATERMARK_PRESETS = ['CONFIDENTIEL', 'BROUILLON', 'COPIE', 'URGENT', 'NE PAS DIFFUSER'];
-export const BORDER_STYLES = { none: 'Aucune', single: 'Simple', double: 'Double', dashed: 'Pointillée' };
+export const BORDER_STYLES = { none: 'Aucune', single: 'Simple', double: 'Double', dashed: 'Pointillée' }; // + 'art' (motifs décoratifs, voir borders.js)
 
 export const DEFAULT_SETTINGS = {
   size: 'A4',
@@ -41,7 +41,7 @@ export const DEFAULT_SETTINGS = {
   pageNumberFormat: 'page-of',
   hyphenate: false,
   watermark: { text: '', color: '#b8bfcc' },
-  pageBorder: { style: 'none', color: '#1f3864', width: 1.5, offset: 1 },
+  pageBorder: { style: 'none', color: '#1f3864', width: 1.5, offset: 1, art: 'heart', artSize: 18 },
   lang: 'fr-FR',
 };
 

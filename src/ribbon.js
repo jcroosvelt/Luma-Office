@@ -1,5 +1,5 @@
 // Ruban d'outils façon Office, adapté au tactile : onglets + groupes défilables.
-import { h, icon } from './ui.js';
+import { h, icon, dropdown } from './ui.js';
 
 export const FONTS = ['Calibri', 'Cambria', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Trebuchet MS', 'Garamond', 'Courier New', 'Tahoma'];
 export const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 72];
@@ -34,14 +34,9 @@ export function buildRibbon(app) {
   };
 
   const select = (o) => {
-    const s = h('select', { class: 'rs', title: o.title, 'aria-label': o.title, style: { width: o.w + 'px' }, onchange: () => { o.set(s.value); } },
-      o.options.map(([v, l]) => h('option', { value: String(v) }, l)));
-    refreshers.push(() => {
-      const v = String(o.get());
-      if (![...s.options].some((x) => x.value === v)) s.append(h('option', { value: v }, v));
-      if (s.value !== v) s.value = v;
-    });
-    return s;
+    const d = dropdown({ options: o.options, get: o.get, set: o.set, title: o.title, width: o.w, labelFont: o.labelFont });
+    refreshers.push(d.refresh);
+    return d.el;
   };
 
   const group = (...items) => h('div', { class: 'rg' }, items);
@@ -84,8 +79,8 @@ export function buildRibbon(app) {
     {
       id: 'home', label: 'Accueil', build: () => [
         group(
-          select({ title: 'Style de paragraphe', w: 118, options: [['p', 'Normal'], ['h1', 'Titre 1'], ['h2', 'Titre 2'], ['h3', 'Titre 3'], ['quote', 'Citation'], ['code', 'Bloc de code']], get: getStyle, set: setStyle }),
-          select({ title: 'Police', w: 132, options: FONTS.map((f) => [f, f]), get: () => norm(textAttr('fontFamily')) || DEFAULT_FONT, set: (v) => editor.chain().focus().setFontFamily(v).run() }),
+          select({ title: 'Style de paragraphe', w: 118, options: [['p', 'Normal', { style: { fontSize: '15px' } }], ['h1', 'Titre 1', { style: { fontSize: '22px', fontWeight: 700, color: '#1f3864' } }], ['h2', 'Titre 2', { style: { fontSize: '18px', fontWeight: 700, color: '#1f3864' } }], ['h3', 'Titre 3', { style: { fontSize: '16px', fontWeight: 700, color: '#1f3864' } }], ['quote', 'Citation', { style: { fontStyle: 'italic', color: '#595959' } }], ['code', 'Bloc de code', { style: { fontFamily: 'Consolas, "Courier New", monospace', fontSize: '14px' } }]], get: getStyle, set: setStyle }),
+          select({ title: 'Police', w: 140, labelFont: true, options: FONTS.map((f) => [f, f, { style: { fontFamily: f } }]), get: () => norm(textAttr('fontFamily')) || DEFAULT_FONT, set: (v) => editor.chain().focus().setFontFamily(v).run() }),
           select({ title: 'Taille de police', w: 66, options: SIZES.map((s) => [s, String(s).replace('.', ',')]), get: () => curSize(), set: (v) => editor.chain().focus().setFontSize(v + 'pt').run() }),
           btn({ icon: 'size', title: 'Agrandir la police', run: () => stepSize(1) }),
           btn({ icon: 'sizeDown', title: 'Réduire la police', run: () => stepSize(-1) }),

@@ -1,5 +1,6 @@
 // Export PDF vectoriel (texte sélectionnable, polices intégrées) via pdfmake, et impression native.
 import { metrics, columnWidthCm, pageNumberText } from './layout.js';
+import { artBorderSvg } from './borders.js';
 
 const PT_CM = 72 / 2.54;
 const FAMILY = {
@@ -319,7 +320,10 @@ export async function buildPdf(json, settings, title, opts = {}) {
   const hasHeader = !!settings.header?.trim() || (settings.pageNumbers && settings.pageNumberPos === 'top');
   const hasFooter = !!settings.footer?.trim() || (settings.pageNumbers && settings.pageNumberPos !== 'top');
   const bd = settings.pageBorder || { style: 'none' };
-  const background = bd.style === 'none' ? undefined : (cur, size) => {
+  const background = bd.style === 'none' ? undefined : bd.style === 'art' ? (cur, size) => {
+    const off = bd.offset * PT_CM, w = size.width - 2 * off, hh = size.height - 2 * off;
+    return { svg: artBorderSvg(w, hh, bd.art, bd.color, bd.artSize || 18), width: w, height: hh, absolutePosition: { x: off, y: off } };
+  } : (cur, size) => {
     const off = bd.offset * PT_CM, lw = Math.max(0.5, bd.width);
     const rect = (inset, w) => ({ type: 'rect', x: inset, y: inset, w: size.width - 2 * inset, h: size.height - 2 * inset, lineWidth: w, lineColor: bd.color, ...(bd.style === 'dashed' ? { dash: { length: 6, space: 4 } } : {}) });
     return { canvas: bd.style === 'double' ? [rect(off, lw), rect(off + lw * 2.4, lw)] : [rect(off, lw)] };

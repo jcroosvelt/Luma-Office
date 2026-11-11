@@ -1,5 +1,6 @@
 // Conversion du document (JSON ProseMirror) vers un vrai fichier Word (.docx).
 import { metrics, CM_TWIP, CM_PX, columnWidthCm } from './layout.js';
+import { MOTIFS } from './borders.js';
 
 const TW_PX = 15; // 1 px = 15 twips
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -362,7 +363,10 @@ export async function buildDocx(json, settings, title, commentList = []) {
   const bd = settings.pageBorder || { style: 'none' };
   const pageBorders = (() => {
     if (bd.style === 'none') return undefined;
-    const side = { style: bd.style === 'double' ? BorderStyle.DOUBLE : bd.style === 'dashed' ? BorderStyle.DASHED : BorderStyle.SINGLE, size: Math.max(2, Math.round(bd.width * 8)), color: (toHex(bd.color) || '000000'), space: Math.min(31, Math.round(bd.offset * 28.35)) };
+    // bordure décorative : bordure artistique native de Word (taille en points) ; sinon trait simple, double ou pointillé
+    const side = bd.style === 'art'
+      ? { style: (MOTIFS[bd.art] || MOTIFS.heart).word, size: Math.max(4, Math.min(31, Math.round(bd.artSize || 18))), color: toHex(bd.color) || '000000', space: Math.min(31, Math.round(bd.offset * 28.35)) }
+      : { style: bd.style === 'double' ? BorderStyle.DOUBLE : bd.style === 'dashed' ? BorderStyle.DASHED : BorderStyle.SINGLE, size: Math.max(2, Math.round(bd.width * 8)), color: (toHex(bd.color) || '000000'), space: Math.min(31, Math.round(bd.offset * 28.35)) };
     return { pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.PAGE, zOrder: PageBorderZOrder.FRONT }, pageBorderTop: side, pageBorderRight: side, pageBorderBottom: side, pageBorderLeft: side };
   })();
 

@@ -1,5 +1,6 @@
 // Lecteur .docx : convertit un fichier Word en HTML fidèle (alignements, polices, couleurs, tableaux, images, listes, en-têtes…).
 import JSZip from 'jszip';
+import { WORD_TO_MOTIF, MOTIFS } from './borders.js';
 
 const EMU_PX = 9525;
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -359,7 +360,8 @@ export async function docxToHtml(buffer) {
     const pbs = pb && (kid(pb, 'top') || kid(pb, 'left'));
     if (pbs && attr(pbs, 'val') && attr(pbs, 'val') !== 'nil' && attr(pbs, 'val') !== 'none') {
       const v = attr(pbs, 'val');
-      settings.pageBorder = { style: v === 'double' ? 'double' : /dash|dot/.test(v) ? 'dashed' : 'single', color: attr(pbs, 'color') && attr(pbs, 'color') !== 'auto' ? '#' + attr(pbs, 'color').toLowerCase() : '#000000', width: Math.max(0.5, +(attr(pbs, 'sz') || 8) / 8), offset: Math.max(0.3, Math.min(3, +(attr(pbs, 'space') || 24) / 28.35)) };
+      const art = WORD_TO_MOTIF[v];
+      settings.pageBorder = art ? { style: 'art', art, artSize: Math.max(10, Math.min(40, +(attr(pbs, 'sz') || 18))), color: attr(pbs, 'color') && attr(pbs, 'color') !== 'auto' ? '#' + attr(pbs, 'color').toLowerCase() : MOTIFS[art].color, offset: Math.max(0.3, Math.min(3, +(attr(pbs, 'space') || 24) / 28.35)) } : { style: v === 'double' ? 'double' : /dash|dot/.test(v) ? 'dashed' : 'single', color: attr(pbs, 'color') && attr(pbs, 'color') !== 'auto' ? '#' + attr(pbs, 'color').toLowerCase() : '#000000', width: Math.max(0.5, +(attr(pbs, 'sz') || 8) / 8), offset: Math.max(0.3, Math.min(3, +(attr(pbs, 'space') || 24) / 28.35)) };
     }
     const refText = async (kind) => {
       const ref = kids(sect, kind + 'Reference').find((r) => attr(r, 'type') === 'default') || kids(sect, kind + 'Reference')[0];

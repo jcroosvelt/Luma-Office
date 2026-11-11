@@ -15,7 +15,8 @@ import CharacterCount from '@tiptap/extension-character-count';
 
 import { ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
-import { h, icon, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
+import { h, icon, dropdown, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
+import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX, NUMBER_FORMATS, pageNumberText, WATERMARK_PRESETS, BORDER_STYLES, columnWidthCm } from './layout.js';
 import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
@@ -194,7 +195,12 @@ export function mountEditor(host, docRec, hooks) {
     const bs = settings.pageBorder;
     const cssBorder = bs.style === 'none' ? '' : `${bs.style === 'double' ? Math.max(3, bs.width * 2.2) : bs.width}pt ${bs.style === 'dashed' ? 'dashed' : bs.style === 'double' ? 'double' : 'solid'} ${bs.color}`;
     if (bs.style === 'none') delete sheetEl.dataset.pb; else sheetEl.dataset.pb = bs.style;
-    sheetEl.style.setProperty('--pb-border', cssBorder || 'none');
+    sheetEl.style.setProperty('--pb-border', bs.style === 'art' ? 'none' : (cssBorder || 'none'));
+    if (bs.style === 'art') {
+      const Mx = metrics(settings);
+      const svg = artBorderSvg((Mx.wcm - 2 * bs.offset) * CM_PX, (Mx.hcm - 2 * bs.offset) * CM_PX, bs.art, bs.color, (bs.artSize || 18) * (96 / 72));
+      sheetEl.style.setProperty('--pb-art', svgDataUrl(svg));
+    } else sheetEl.style.removeProperty('--pb-art');
     sheetEl.style.setProperty('--pb-off', bs.offset + 'cm');
   }
 
@@ -241,7 +247,8 @@ export function mountEditor(host, docRec, hooks) {
       for (let i = 0; i < pageCount; i++) {
         if (i > 0) kids.push(h('div', { class: 'page-sep', style: { top: i * H + 'px' } }, h('span', {}, `Page ${i + 1}`)));
         if (wm) kids.push(h('div', { class: 'wm', style: { top: i * H + 'px', height: H + 'px' } }, h('span', { style: { color: settings.watermark.color, fontSize: wmSize + 'px' } }, wm)));
-        if (bs.style !== 'none') kids.push(h('div', { class: 'pborder', style: { top: i * H + bs.offset * CM_PX + 'px', left: bs.offset * CM_PX + 'px', right: bs.offset * CM_PX + 'px', height: H - 2 * bs.offset * CM_PX + 'px', border: cssBorder } }));
+        if (bs.style === 'art') kids.push(h('div', { class: 'pborder art', style: { top: i * H + bs.offset * CM_PX + 'px', left: bs.offset * CM_PX + 'px', width: M.wpx - 2 * bs.offset * CM_PX + 'px', height: H - 2 * bs.offset * CM_PX + 'px' }, html: artBorderSvg(M.wpx - 2 * bs.offset * CM_PX, H - 2 * bs.offset * CM_PX, bs.art, bs.color, (bs.artSize || 18) * (96 / 72)) }));
+        else if (bs.style !== 'none') kids.push(h('div', { class: 'pborder', style: { top: i * H + bs.offset * CM_PX + 'px', left: bs.offset * CM_PX + 'px', right: bs.offset * CM_PX + 'px', height: H - 2 * bs.offset * CM_PX + 'px', border: cssBorder } }));
         const hideHF = settings.firstPageDifferent && i === 0;
         if (hideHF) continue;
         const pn = settings.pageNumbers ? h('div', { class: 'pn', style: { textAlign: settings.pageNumberAlign } }, pageNumberText(settings.pageNumberFormat, i + 1, pageCount)) : null;
@@ -425,23 +432,46 @@ export function mountEditor(host, docRec, hooks) {
       h('p', { class: 'muted small' }, 'Le filigrane apparaît en diagonale sur chaque page : aperçu, PDF et impression.')));
   }
 
-  // ----- Bordures de page -----
+  // ----- Bordures de page (traits et motifs décoratifs) -----
   function openBordersSheet() {
+    const PALETTE = ['#e0245e', '#d92d20', '#fc9a0b', '#f2b705', '#2e9e44', '#1ab5c9', '#0157e0', '#001e6c', '#7b4de0', '#ec6ba6', '#8a93a6', '#000000'];
+    const motifWrap = h('div', { class: 'motifs' });
+    const lineBox = h('div', { class: 'grid2' });
+    const artBox = h('div', { class: 'form' });
+    const drawMotifs = () => {
+      motifWrap.replaceChildren(...Object.entries(MOTIFS).map(([id, m]) => h('button', {
+        type: 'button', class: 'motif' + (settings.pageBorder.style === 'art' && settings.pageBorder.art === id ? ' on' : ''),
+        onclick: () => {
+          const same = settings.pageBorder.art === id && settings.pageBorder.style === 'art';
+          updateSettings({ pageBorder: { style: 'art', art: id, color: same ? settings.pageBorder.color : m.color } });
+          drawMotifs(); sync(); chips.querySelectorAll('.chip').forEach((c) => c.classList.remove('on'));
+        },
+      }, h('span', { html: motifIcon(id, settings.pageBorder.style === 'art' && settings.pageBorder.art === id ? settings.pageBorder.color : m.color, 38) }), h('small', {}, m.label))));
+    };
+    const chips = radioList(Object.entries(BORDER_STYLES), () => (settings.pageBorder.style === 'art' ? '' : settings.pageBorder.style), (v) => { updateSettings({ pageBorder: { style: v } }); drawMotifs(); sync(); });
+    const colors = swatches(PALETTE, () => settings.pageBorder.color, (c) => { updateSettings({ pageBorder: { color: c } }); drawMotifs(); });
+    lineBox.append(
+      cmField('Épaisseur (pt)', settings.pageBorder.width, (v) => updateSettings({ pageBorder: { width: v } }), { min: 0.5, max: 8, step: 0.5 }),
+      cmField('Distance du bord (cm)', settings.pageBorder.offset, (v) => updateSettings({ pageBorder: { offset: v } }), { min: 0.3, max: 3 }));
+    artBox.append(
+      cmField('Taille des motifs (pt)', settings.pageBorder.artSize, (v) => updateSettings({ pageBorder: { artSize: v } }), { min: 10, max: 40, step: 1 }),
+      cmField('Distance du bord (cm)', settings.pageBorder.offset, (v) => updateSettings({ pageBorder: { offset: v } }), { min: 0.3, max: 3 }));
+    const sync = () => { const art = settings.pageBorder.style === 'art'; artBox.hidden = !art; lineBox.hidden = art || settings.pageBorder.style === 'none'; };
     sheet('Bordures de page', h('div', { class: 'form' },
-      radioList(Object.entries(BORDER_STYLES), () => settings.pageBorder.style, (v) => updateSettings({ pageBorder: { style: v } })),
-      h('h3', {}, 'Couleur'), swatches(['#001e6c', '#0157e0', '#fc9a0b', '#d92d20', '#1a7f37', '#8a93a6', '#000000'], () => settings.pageBorder.color, (c) => updateSettings({ pageBorder: { color: c } })),
-      h('div', { class: 'grid2' },
-        cmField('Épaisseur (pt)', settings.pageBorder.width, (v) => updateSettings({ pageBorder: { width: v } }), { min: 0.5, max: 8, step: 0.5 }),
-        cmField('Distance du bord (cm)', settings.pageBorder.offset, (v) => updateSettings({ pageBorder: { offset: v } }), { min: 0.3, max: 3 }))));
+      h('h3', {}, 'Trait'), chips,
+      h('h3', {}, 'Motifs décoratifs'), motifWrap,
+      h('h3', {}, 'Couleur'), colors, lineBox, artBox,
+      h('p', { class: 'muted small' }, 'Dans Word, les motifs sont exportés comme bordures artistiques de Word (leurs couleurs d’origine peuvent différer).')));
+    drawMotifs(); sync();
   }
 
   /* ---------- Interligne / espacement ---------- */
   function openSpacing() {
     const a = editor.getAttributes(editor.isActive('heading') ? 'heading' : 'paragraph');
     const set = (p) => editor.chain().focus().setParagraphProps(p).run();
-    const selOpts = (vals, cur, fmt) => vals.map((v) => h('option', { value: v, selected: String(cur ?? '') === String(v) }, fmt(v)));
-    const before = h('select', { class: 'field', onchange: (e) => set({ spaceBefore: e.target.value === '' ? null : +e.target.value }) }, h('option', { value: '' }, 'Automatique'), selOpts([0, 6, 12, 18, 24, 36], a.spaceBefore, (v) => v + ' pt'));
-    const after = h('select', { class: 'field', onchange: (e) => set({ spaceAfter: e.target.value === '' ? null : +e.target.value }) }, h('option', { value: '' }, 'Automatique (8 pt)'), selOpts([0, 4, 6, 10, 12, 18, 24, 36], a.spaceAfter, (v) => v + ' pt'));
+    const pickDd = (vals, cur, auto, key) => { let c = String(cur ?? ''); return dropdown({ cls: 'full', options: [['', auto], ...vals.map((v) => [String(v), v + ' pt'])], get: () => c, set: (v) => { c = v; set({ [key]: v === '' ? null : +v }); } }).el; };
+    const before = pickDd([0, 6, 12, 18, 24, 36], a.spaceBefore, 'Automatique', 'spaceBefore');
+    const after = pickDd([0, 4, 6, 10, 12, 18, 24, 36], a.spaceAfter, 'Automatique (8 pt)', 'spaceAfter');
     sheet('Interligne et espacement', h('div', { class: 'form' },
       h('h3', {}, 'Interligne'),
       radioList([['1', '1,0'], ['1.15', '1,15'], ['1.5', '1,5'], ['2', '2,0'], ['2.5', '2,5'], ['3', '3,0']],
