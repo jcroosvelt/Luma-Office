@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-11.
 
 ## Dernière modification
+- **Lecteur PDF enrichi** : miniatures des pages, sommaire (signets), liens cliquables (internes et web), pivoter de 90°, mode nuit, ajuster à la largeur / à la page, double-tap pour zoomer, reprise à la dernière page lue, plein écran, imprimer, propriétés du document. Correctif précédent : polices standard de pdf.js (le texte des PDF s'affiche).
 - **Zoom en bas de page (comme Word)** : boutons − / +, curseur 30–300 %, clic sur le pourcentage = ajuster à la largeur.
 - **Plus de petite fenêtre police/taille** au clic ou au survol d'un mot : la police et la taille s'affichent uniquement dans le ruban du haut (comme Word). Le rappel dans la barre d'état est aussi retiré.
 
