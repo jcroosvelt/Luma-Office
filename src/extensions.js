@@ -80,6 +80,17 @@ export const PageBreak = Node.create({
   },
 });
 
+/* ---------- Saut de colonne ---------- */
+export const ColumnBreak = Node.create({
+  name: 'columnBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  parseHTML() { return [{ tag: 'div[data-column-break]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-column-break': '', class: 'column-break' }), ['span', 'Saut de colonne']]; },
+  addCommands() { return { insertColumnBreak: () => ({ chain }) => chain().insertContent([{ type: 'columnBreak' }, { type: 'paragraph' }]).run() }; },
+});
+
 /* ---------- Image : largeur ajustable ---------- */
 export const LumaImage = Image.extend({
   addAttributes() {

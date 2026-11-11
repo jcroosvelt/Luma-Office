@@ -13,10 +13,10 @@ import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { ParagraphFormat, PageBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
+import { ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
 import { h, icon, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
-import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX } from './layout.js';
+import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX, NUMBER_FORMATS, pageNumberText, WATERMARK_PRESETS, BORDER_STYLES, columnWidthCm } from './layout.js';
 import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
@@ -81,7 +81,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
-      CharacterCount, ParagraphFormat, PageBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
+      CharacterCount, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
       attributes: { class: 'doc-content', spellcheck: String(spell), lang: settings.lang.split('-')[0], autocapitalize: 'sentences', 'aria-label': 'Contenu du document', role: 'textbox', 'aria-multiline': 'true' },
@@ -112,7 +112,7 @@ export function mountEditor(host, docRec, hooks) {
     get commentCount() { return comments.filter((c) => !c.resolved).length; },
     addComment, openComments, toggleTrack, resolveChange, insertToc, openColWidth,
     updateSettings, pickColor, pickImage, sizeImage, editAlt, openLink, openTableSheet, openSymbols, openSpacing,
-    openPageSheet, openMarginSheet, openHeaderSheet, toggleFind, openStats, toggleSpell,
+    openSizeSheet, openMarginSheet, openHeaderSheet, openColumnsSheet, openNumberSheet, openWatermarkSheet, openBordersSheet, toggleFind, openStats, toggleSpell,
     zoomBy, zoomFit, setMode,
     cycleTheme() { theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme]; pref.set('theme', theme); applyTheme(theme); ribbon.refresh(); },
   };
@@ -187,9 +187,21 @@ export function mountEditor(host, docRec, hooks) {
   }
   function scheduleLayout() { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(layoutPages); }
 
+  function applyDecor() {
+    sheetEl.dataset.wm = settings.watermark.text || '';
+    if (!settings.watermark.text) delete sheetEl.dataset.wm;
+    sheetEl.style.setProperty('--wm-color', settings.watermark.color);
+    const bs = settings.pageBorder;
+    const cssBorder = bs.style === 'none' ? '' : `${bs.style === 'double' ? Math.max(3, bs.width * 2.2) : bs.width}pt ${bs.style === 'dashed' ? 'dashed' : bs.style === 'double' ? 'double' : 'solid'} ${bs.color}`;
+    if (bs.style === 'none') delete sheetEl.dataset.pb; else sheetEl.dataset.pb = bs.style;
+    sheetEl.style.setProperty('--pb-border', cssBorder || 'none');
+    sheetEl.style.setProperty('--pb-off', bs.offset + 'cm');
+  }
+
   function layoutPages() {
     if (destroyed) return;
     const M = applyPageVars(root, settings);
+    applyDecor();
     root.classList.toggle('mode-reflow', mode !== 'page');
     if (mode !== 'page') {
       sheetEl.style.transform = '';
@@ -218,17 +230,25 @@ export function mountEditor(host, docRec, hooks) {
     stage.style.width = M.wpx * z + 'px';
     stage.style.height = pageCount * H * z + 'px';
 
-    const sig = [pageCount, settings.header, settings.footer, settings.pageNumbers, settings.pageNumberAlign, settings.size, settings.orientation, JSON.stringify(settings.margins)].join('|');
+    const sig = [pageCount, JSON.stringify(settings)].join('|');
+    const bs = settings.pageBorder;
+    const cssBorder = bs.style === 'none' ? '' : `${bs.style === 'double' ? Math.max(3, bs.width * 2.2) : bs.width}pt ${bs.style === 'dashed' ? 'dashed' : bs.style === 'double' ? 'double' : 'solid'} ${bs.color}`;
     if (sig !== lastSig) {
       lastSig = sig;
       const kids = [];
+      const wm = settings.watermark.text.trim();
+      const wmSize = wm ? Math.min(190, (M.wpx * 1.05) / (wm.length * 0.62)) : 0;
       for (let i = 0; i < pageCount; i++) {
         if (i > 0) kids.push(h('div', { class: 'page-sep', style: { top: i * H + 'px' } }, h('span', {}, `Page ${i + 1}`)));
-        if (settings.header.trim()) kids.push(h('div', { class: 'hf hf-head', style: { top: i * H + M.mtpx / 2 - 9 + 'px' } }, settings.header));
-        const foot = [];
-        if (settings.footer.trim()) foot.push(h('div', {}, settings.footer));
-        if (settings.pageNumbers) foot.push(h('div', { class: 'pn', style: { textAlign: settings.pageNumberAlign } }, `Page ${i + 1} / ${pageCount}`));
-        if (foot.length) kids.push(h('div', { class: 'hf hf-foot', style: { top: (i + 1) * H - M.mbpx / 2 - 8 * foot.length + 'px' } }, foot));
+        if (wm) kids.push(h('div', { class: 'wm', style: { top: i * H + 'px', height: H + 'px' } }, h('span', { style: { color: settings.watermark.color, fontSize: wmSize + 'px' } }, wm)));
+        if (bs.style !== 'none') kids.push(h('div', { class: 'pborder', style: { top: i * H + bs.offset * CM_PX + 'px', left: bs.offset * CM_PX + 'px', right: bs.offset * CM_PX + 'px', height: H - 2 * bs.offset * CM_PX + 'px', border: cssBorder } }));
+        const hideHF = settings.firstPageDifferent && i === 0;
+        if (hideHF) continue;
+        const pn = settings.pageNumbers ? h('div', { class: 'pn', style: { textAlign: settings.pageNumberAlign } }, pageNumberText(settings.pageNumberFormat, i + 1, pageCount)) : null;
+        const top = [settings.header.trim() ? h('div', { style: { textAlign: settings.headerAlign } }, settings.header) : null, settings.pageNumberPos === 'top' ? pn : null].filter(Boolean);
+        const bottom = [settings.footer.trim() ? h('div', { style: { textAlign: settings.footerAlign } }, settings.footer) : null, settings.pageNumberPos !== 'top' ? pn : null].filter(Boolean);
+        if (top.length) kids.push(h('div', { class: 'hf hf-head', style: { top: i * H + M.mtpx / 2 - 9 * top.length + 'px' } }, top));
+        if (bottom.length) kids.push(h('div', { class: 'hf hf-foot', style: { top: (i + 1) * H - M.mbpx / 2 - 8 * bottom.length + 'px' } }, bottom));
       }
       overlay.replaceChildren(...kids);
     }
@@ -282,7 +302,13 @@ export function mountEditor(host, docRec, hooks) {
 
   /* ---------- Réglages de page ---------- */
   function updateSettings(patch) {
-    settings = mergeSettings({ ...settings, ...patch, margins: { ...settings.margins, ...(patch.margins || {}) } });
+    settings = mergeSettings({
+      ...settings, ...patch,
+      margins: { ...settings.margins, ...(patch.margins || {}) },
+      columns: { ...settings.columns, ...(patch.columns || {}) },
+      watermark: { ...settings.watermark, ...(patch.watermark || {}) },
+      pageBorder: { ...settings.pageBorder, ...(patch.pageBorder || {}) },
+    });
     editor.view.dom.setAttribute('lang', settings.lang.split('-')[0]);
     lastSig = '';
     scheduleLayout(); scheduleSave(); ribbon.refresh();
@@ -294,38 +320,119 @@ export function mountEditor(host, docRec, hooks) {
     ribbon.refresh(); toast(spell ? 'Correcteur orthographique activé' : 'Correcteur orthographique désactivé');
   }
 
+  // ----- aides d'interface -----
+  const cmField = (label, value, onchange, { min = 0, max = 15, step = 0.1 } = {}) => h('label', { class: 'num' }, label,
+    h('input', { type: 'number', step: String(step), min: String(min), max: String(max), inputmode: 'decimal', value: String(value), class: 'field', onchange: (e) => onchange(Math.max(min, Math.min(max, parseFloat(String(e.target.value).replace(',', '.')) || 0))) }));
+  const switchRow = (label, get, set, hint) => {
+    const b = h('button', { type: 'button', role: 'switch', class: 'switch', 'aria-checked': String(!!get()), onclick: () => { const v = !(b.getAttribute('aria-checked') === 'true'); b.setAttribute('aria-checked', String(v)); set(v); } }, h('i', {}));
+    return h('div', { class: 'srow plain' }, h('div', { class: 'srow-t' }, h('b', {}, label), hint ? h('small', {}, hint) : null), h('div', { class: 'srow-c' }, b));
+  };
+  const swatches = (colors, get, set) => {
+    const wrap = h('div', { class: 'swrow s8' }, colors.map((c) => h('button', { type: 'button', class: 'sw' + (get().toLowerCase() === c ? ' on' : ''), style: { background: c }, 'aria-label': c, onclick: () => { set(c); wrap.querySelectorAll('.sw').forEach((x) => x.classList.toggle('on', x.getAttribute('aria-label') === c)); } })));
+    return wrap;
+  };
+  const miniPage = (inner) => `<svg viewBox="0 0 40 52" width="34" height="44" aria-hidden="true"><rect x="1" y="1" width="38" height="50" rx="2" fill="#fff" stroke="currentColor" stroke-width="2"/>${inner}</svg>`;
+  const choiceCards = (items, get, set) => {
+    const wrap = h('div', { class: 'ccards' }, items.map(([v, label, sub, svg]) => {
+      const b = h('button', { type: 'button', class: 'ccard' + (get() === v ? ' on' : ''), onclick: () => { set(v); wrap.querySelectorAll('.ccard').forEach((c) => c.classList.remove('on')); b.classList.add('on'); } },
+        h('span', { class: 'ccard-ic', html: svg }), h('b', {}, label), sub ? h('small', {}, sub) : null);
+      return b;
+    }));
+    return wrap;
+  };
   const radioList = (opts, get, set) => h('div', { class: 'choice' }, opts.map(([v, l]) => {
     const b = h('button', { type: 'button', class: 'chip' + (get() === v ? ' on' : ''), onclick: () => { set(v); b.parentNode.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); b.classList.add('on'); } }, l);
     return b;
   }));
-  const numField = (label, value, onchange) => h('label', { class: 'num' }, label,
-    h('input', { type: 'number', step: '0.1', min: '0', max: '15', inputmode: 'decimal', value: String(value), class: 'field', onchange: (e) => onchange(Math.max(0, Math.min(15, parseFloat(e.target.value.replace(',', '.')) || 0))) }));
+  const GRAYS = ['#b8bfcc', '#8a93a6', '#d92d20', '#fc9a0b', '#0157e0', '#1a7f37', '#001e6c', '#000000'];
 
-  function openPageSheet() {
-    sheet('Format de page', h('div', { class: 'form' },
-      h('h3', {}, 'Taille du papier'),
-      radioList(Object.entries(PAGE_SIZES).map(([k, v]) => [k, v.label]), () => settings.size, (v) => updateSettings({ size: v })),
+  // ----- Taille et orientation -----
+  function openSizeSheet() {
+    const cw = cmField('Largeur (cm)', settings.customW, (v) => updateSettings({ size: 'custom', customW: v }), { min: 5, max: 100 });
+    const ch = cmField('Hauteur (cm)', settings.customH, (v) => updateSettings({ size: 'custom', customH: v }), { min: 5, max: 100 });
+    const custom = h('div', { class: 'grid2' }, cw, ch);
+    sheet('Taille et orientation', h('div', { class: 'form' },
       h('h3', {}, 'Orientation'),
-      radioList([['portrait', 'Portrait'], ['landscape', 'Paysage']], () => settings.orientation, (v) => updateSettings({ orientation: v }))));
+      choiceCards([['portrait', 'Portrait', null, miniPage('<path d="M8 12h24M8 18h24M8 24h24M8 30h16" stroke="currentColor" stroke-width="2"/>')], ['landscape', 'Paysage', null, '<svg viewBox="0 0 52 40" width="44" height="34"><rect x="1" y="1" width="50" height="38" rx="2" fill="#fff" stroke="currentColor" stroke-width="2"/><path d="M8 11h36M8 17h36M8 23h24" stroke="currentColor" stroke-width="2"/></svg>']], () => settings.orientation, (v) => updateSettings({ orientation: v })),
+      h('h3', {}, 'Taille du papier'),
+      radioList([...Object.entries(PAGE_SIZES).map(([k, v]) => [k, v.label]), ['custom', 'Personnalisée…']], () => settings.size, (v) => { updateSettings({ size: v }); custom.hidden = v !== 'custom'; }),
+      custom));
+    custom.hidden = settings.size !== 'custom';
   }
+
+  // ----- Marges -----
   function openMarginSheet() {
     const fields = {};
-    const mk = (k, l) => { const f = numField(l, settings.margins[k], (v) => updateSettings({ margins: { [k]: v } })); fields[k] = f.querySelector('input'); return f; };
+    const mk = (k, l) => { const f = cmField(l, settings.margins[k], (v) => updateSettings({ margins: { [k]: v } })); fields[k] = f.querySelector('input'); return f; };
+    const cards = Object.entries(MARGIN_PRESETS).map(([k, p]) => [k, p.label, p.sub, miniPage(`<rect x="${4 + p.v.left * 2.2}" y="${4 + p.v.top * 2.2}" width="${32 - (p.v.left + p.v.right) * 2.2}" height="${44 - (p.v.top + p.v.bottom) * 2.2}" fill="none" stroke="currentColor" stroke-dasharray="3 2" stroke-width="1.6"/>`)]);
+    const current = () => Object.entries(MARGIN_PRESETS).find(([, p]) => JSON.stringify(p.v) === JSON.stringify(settings.margins))?.[0];
     const grid = h('div', { class: 'grid2' }, mk('top', 'Haut (cm)'), mk('bottom', 'Bas (cm)'), mk('left', 'Gauche (cm)'), mk('right', 'Droite (cm)'));
+    const gut = cmField('Reliure (cm)', settings.gutter, (v) => updateSettings({ gutter: v }), { max: 5 });
     sheet('Marges', h('div', { class: 'form' },
-      h('div', { class: 'choice col' }, Object.entries(MARGIN_PRESETS).map(([k, p]) =>
-        h('button', { class: 'chip', onclick: () => { updateSettings({ margins: p.v }); Object.entries(p.v).forEach(([kk, vv2]) => { fields[kk].value = vv2; }); } }, p.label))),
-      h('h3', {}, 'Personnalisées'), grid));
+      choiceCards(cards, current, (k) => { updateSettings({ margins: MARGIN_PRESETS[k].v }); Object.entries(MARGIN_PRESETS[k].v).forEach(([kk, vv]) => { fields[kk].value = vv; }); }),
+      h('h3', {}, 'Marges personnalisées'), grid,
+      h('h3', {}, 'Reliure'), gut, h('p', { class: 'muted small' }, 'La marge de reliure s’ajoute à la marge gauche (pour relier ou perforer).')));
   }
+
+  // ----- Colonnes -----
+  function openColumnsSheet() {
+    const colIcon = (n) => miniPage(Array.from({ length: n }, (_, i) => { const w = (32 - (n - 1) * 3) / n; const x = 4 + i * (w + 3); return `<rect x="${x}" y="8" width="${w}" height="36" rx="1" fill="currentColor" opacity=".35"/>`; }).join(''));
+    const info = h('p', { class: 'muted small' });
+    const refresh = () => { info.textContent = `Largeur de chaque colonne : ${columnWidthCm(settings).toFixed(1).replace('.', ',')} cm. L’aperçu affiche les colonnes en continu ; l’export Word et PDF les répartit page par page.`; };
+    refresh();
+    const gap = cmField('Espace entre colonnes (cm)', settings.columns.gap, (v) => { updateSettings({ columns: { gap: v } }); refresh(); }, { max: 5 });
+    sheet('Colonnes', h('div', { class: 'form' },
+      choiceCards([[1, 'Une', null, colIcon(1)], [2, 'Deux', null, colIcon(2)], [3, 'Trois', null, colIcon(3)], [4, 'Quatre', null, colIcon(4)]], () => settings.columns.count, (v) => { updateSettings({ columns: { count: v } }); refresh(); }),
+      gap,
+      switchRow('Ligne entre les colonnes', () => settings.columns.rule, (v) => updateSettings({ columns: { rule: v } })),
+      h('button', { class: 'btn', onclick: () => { editor.chain().focus().insertColumnBreak().run(); toast('Saut de colonne inséré'); } }, icon('colbreak', 18), 'Insérer un saut de colonne ici'),
+      info));
+  }
+
+  // ----- En-tête et pied de page -----
   function openHeaderSheet() {
     const hd = h('input', { class: 'field', value: settings.header, placeholder: 'Texte en haut de chaque page', oninput: (e) => updateSettings({ header: e.target.value }) });
     const ft = h('input', { class: 'field', value: settings.footer, placeholder: 'Texte en bas de chaque page', oninput: (e) => updateSettings({ footer: e.target.value }) });
-    const pn = h('input', { type: 'checkbox', checked: settings.pageNumbers, onchange: (e) => updateSettings({ pageNumbers: e.target.checked }) });
     sheet('En-tête et pied de page', h('div', { class: 'form' },
-      h('label', {}, 'En-tête', hd), h('label', {}, 'Pied de page', ft),
-      h('label', { class: 'check' }, pn, 'Numéroter les pages (Page 1 / N)'),
-      h('h3', {}, 'Position du numéro'),
-      radioList([['left', 'Gauche'], ['center', 'Centre'], ['right', 'Droite']], () => settings.pageNumberAlign, (v) => updateSettings({ pageNumberAlign: v }))));
+      h('label', {}, 'En-tête', hd),
+      radioList([['left', 'Gauche'], ['center', 'Centre'], ['right', 'Droite']], () => settings.headerAlign, (v) => updateSettings({ headerAlign: v })),
+      h('label', {}, 'Pied de page', ft),
+      radioList([['left', 'Gauche'], ['center', 'Centre'], ['right', 'Droite']], () => settings.footerAlign, (v) => updateSettings({ footerAlign: v })),
+      switchRow('Première page différente', () => settings.firstPageDifferent, (v) => updateSettings({ firstPageDifferent: v }), 'Pas d’en-tête, de pied de page ni de numéro sur la première page (page de garde).'),
+      h('button', { class: 'btn', onclick: () => openNumberSheet() }, icon('hash', 18), 'Numéros de page…')));
+  }
+
+  // ----- Numéros de page -----
+  function openNumberSheet() {
+    sheet('Numéros de page', h('div', { class: 'form' },
+      switchRow('Numéroter les pages', () => settings.pageNumbers, (v) => updateSettings({ pageNumbers: v })),
+      h('h3', {}, 'Position'),
+      radioList([['bottom', 'Bas de page'], ['top', 'Haut de page']], () => settings.pageNumberPos, (v) => updateSettings({ pageNumberPos: v })),
+      h('h3', {}, 'Alignement'),
+      radioList([['left', 'Gauche'], ['center', 'Centre'], ['right', 'Droite']], () => settings.pageNumberAlign, (v) => updateSettings({ pageNumberAlign: v })),
+      h('h3', {}, 'Format'),
+      radioList(Object.entries(NUMBER_FORMATS), () => settings.pageNumberFormat, (v) => updateSettings({ pageNumberFormat: v }))));
+  }
+
+  // ----- Filigrane -----
+  function openWatermarkSheet() {
+    const txt = h('input', { class: 'field', value: settings.watermark.text, placeholder: 'Texte du filigrane', maxlength: '40', oninput: (e) => updateSettings({ watermark: { text: e.target.value } }) });
+    sheet('Filigrane', h('div', { class: 'form' },
+      h('label', {}, 'Texte', txt),
+      h('div', { class: 'choice' }, WATERMARK_PRESETS.map((t) => h('button', { type: 'button', class: 'chip', onclick: () => { txt.value = t; updateSettings({ watermark: { text: t } }); } }, t))),
+      h('h3', {}, 'Couleur'), swatches(GRAYS, () => settings.watermark.color, (c) => updateSettings({ watermark: { color: c } })),
+      h('div', { class: 'row end' }, h('button', { class: 'btn danger', onclick: () => { txt.value = ''; updateSettings({ watermark: { text: '' } }); toast('Filigrane supprimé'); } }, 'Supprimer le filigrane')),
+      h('p', { class: 'muted small' }, 'Le filigrane apparaît en diagonale sur chaque page : aperçu, PDF et impression.')));
+  }
+
+  // ----- Bordures de page -----
+  function openBordersSheet() {
+    sheet('Bordures de page', h('div', { class: 'form' },
+      radioList(Object.entries(BORDER_STYLES), () => settings.pageBorder.style, (v) => updateSettings({ pageBorder: { style: v } })),
+      h('h3', {}, 'Couleur'), swatches(['#001e6c', '#0157e0', '#fc9a0b', '#d92d20', '#1a7f37', '#8a93a6', '#000000'], () => settings.pageBorder.color, (c) => updateSettings({ pageBorder: { color: c } })),
+      h('div', { class: 'grid2' },
+        cmField('Épaisseur (pt)', settings.pageBorder.width, (v) => updateSettings({ pageBorder: { width: v } }), { min: 0.5, max: 8, step: 0.5 }),
+        cmField('Distance du bord (cm)', settings.pageBorder.offset, (v) => updateSettings({ pageBorder: { offset: v } }), { min: 0.3, max: 3 }))));
   }
 
   /* ---------- Interligne / espacement ---------- */
@@ -517,7 +624,7 @@ export function mountEditor(host, docRec, hooks) {
   }
   const makeDocx = () => { refreshToc(); return buildDocx(editor.getJSON(), settings, title, comments); };
   const exportDocx = () => withBusy('Création du fichier Word…', async () => { saveBlob(await makeDocx(), fileName('docx')); toast('Fichier Word exporté ✓'); });
-  const makePdf = () => { refreshToc(); return buildPdf(editor.getJSON(), settings, title); };
+  const makePdf = () => { refreshToc(); return buildPdf(editor.getJSON(), settings, title, { html: editor.getHTML() }); };
   const exportPdf = () => withBusy('Création du PDF…', async () => { saveBlob(await makePdf(), fileName('pdf')); toast('PDF exporté ✓'); });
   const shareDocx = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makeDocx(), fileName('docx'), DOCX_MIME); toast('Terminé'); });
   const sharePdf = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makePdf(), fileName('pdf'), 'application/pdf'); toast('Terminé'); });

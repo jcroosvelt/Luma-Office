@@ -8,7 +8,7 @@ Export **Word (.docx)** et **PDF vectoriel (texte sélectionnable)**, import fid
 - **Mise en forme** : styles (Titre 1-3, Citation, Code), polices (Calibri, Cambria, Arial, Times New Roman…), taille, gras/italique/souligné/barré, indice/exposant, couleur du texte, surlignage, effacer la mise en forme
 - **Paragraphes** : alignement (dont justifié), listes à puces / numérotées / de tâches, retraits, interligne, espacement avant/après
 - **Insertion** : tableaux (lignes, colonnes, fusion, en-tête, couleur de fond), images (galerie, appareil photo, collage), liens, ligne horizontale, saut de page, date, symboles
-- **Mise en page** : A4 / A5 / A3 / Lettre / Légal, portrait ou paysage, marges, en-tête, pied de page, numérotation « Page X / N »
+- **Mise en page** (onglet complet, comme Word) : marges prédéfinies ou personnalisées + reliure, portrait / paysage, 8 formats de papier + format personnalisé, 1 à 4 colonnes (espacement, ligne de séparation, saut de colonne), saut de page, filigrane, bordures de page (simple, double, pointillée), en-tête / pied de page alignables, première page différente, numéros de page (position, alignement, format), césure automatique
 - **Révision** : rechercher & remplacer, correcteur orthographique (langue au choix), statistiques
 - **Commentaires** : sur une sélection, avec réponses, résolution et suppression (exportés dans le .docx, relus à l'import)
 - **Suivi des modifications** : ajouts / suppressions de texte attribués à leur auteur, accepter / rejeter (un par un ou tout), navigation, export et import Word (`w:ins` / `w:del`)
@@ -46,9 +46,11 @@ Vite · TipTap (ProseMirror) · `docx` (export Word) · pdfmake (PDF vectoriel, 
 - Suivi des modifications : le texte saisi ou supprimé est suivi ; les changements de structure (couper / fusionner des paragraphes, changer de style) ne le sont pas.
 - PDF : polices latines uniquement (français, anglais, langues européennes) ; Verdana / Tahoma sont remplacées par une police équivalente. Les emoji et alphabets non latins ne s'affichent pas dans le PDF.
 - Table des matières : statique (mise à jour par le bouton), pas un champ Word dynamique. Les numéros de page du `.docx` sont estimés ; ceux du PDF sont exacts.
+- Colonnes : l'aperçu les affiche en continu ; Word les répartit page par page, et le PDF place les blocs entier par colonne (pas de coupure en milieu de paragraphe). Le filigrane est exporté dans Word sous forme d'image d'en-tête (non réimporté). Pas de numérotation des lignes ni de sections multiples.
+- Colonnes : l'aperçu les affiche en continu ; Word les répartit page par page, et le PDF place les blocs entiers par colonne (pas de coupure en milieu de paragraphe). Le filigrane est exporté dans Word sous forme d'image d'en-tête (non réimporté). Pas de numérotation des lignes ni de sections multiples.
 - Anciens formats `.doc` et `.xls` : non pris en charge (enregistrez-les en `.docx` / `.xlsx`).
 - « Ouvrir avec » directement depuis le gestionnaire de fichiers : possible sur ordinateur ; sur Android seul le menu « Partager » est proposé, et iPhone / iPad ne permettent rien de tel pour une application web.
 - Import `.docx` : ne reprend pas les zones de texte, équations, notes de bas de page ni les images flottantes (elles deviennent des images en ligne).
 
 ---
-Powered by **JC Multimedia**
+Powered by **[JC Multimedia](https://www.jcmultimedia.online)**

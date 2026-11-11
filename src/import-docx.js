@@ -140,7 +140,7 @@ export async function docxToHtml(buffer) {
         case 't': case 'delText': out += esc(c.textContent); break;
         case 'tab': out += '&emsp;'; break;
         case 'noBreakHyphen': out += '‑'; break;
-        case 'br': { const t = attr(c, 'type'); if (t === 'page') out += '\u0001PB\u0001'; else out += '<br>'; break; }
+        case 'br': { const t = attr(c, 'type'); if (t === 'page') out += '\u0001PB\u0001'; else if (t === 'column') out += '\u0001CB\u0001'; else out += '<br>'; break; }
         case 'drawing': case 'pict': {
           const blip = c.getElementsByTagName('a:blip')[0] || c.getElementsByTagName('v:imagedata')[0];
           const rid = blip?.getAttribute('r:embed') || blip?.getAttribute('r:id');
@@ -157,7 +157,7 @@ export async function docxToHtml(buffer) {
       }
     }
     if (!out) return '';
-    if (out.includes('\u0001PB\u0001') && out.replace(/\u0001PB\u0001/g, '') === '') return out;
+    if (/\u0001(PB|CB)\u0001/.test(out) && out.replace(/\u0001(PB|CB)\u0001/g, '') === '') return out;
     // Mise en forme
     const st = [];
     const hb = ctxMarks.heading;
@@ -238,8 +238,10 @@ export async function docxToHtml(buffer) {
     const attrs = `${styleParts.length ? ` style="${styleParts.join(';')}"` : ''}${indent ? ` data-indent="${indent}"` : ''}`;
     const tag = level ? `h${level}` : 'p';
 
-    // coupe aux sauts de page
-    const parts = inner.split('\u0001PB\u0001');
+    // coupe aux sauts de page et de colonne
+    const segs = inner.split(/(\u0001PB\u0001|\u0001CB\u0001)/);
+    const parts = segs.filter((x, i) => i % 2 === 0);
+    const marks = segs.filter((x, i) => i % 2 === 1);
     const build = (content) => `<${tag}${attrs}>${content}</${tag}>`;
     if (isList) {
       const lv = abstracts[nums[eff.numId]][String(eff.ilvl)] || { fmt: 'bullet', start: 1 };
@@ -249,7 +251,7 @@ export async function docxToHtml(buffer) {
     }
     closeAll();
     parts.forEach((part, i) => {
-      if (i > 0) html += '<div data-page-break></div>';
+      if (i > 0) html += marks[i - 1].includes('CB') ? '<div data-column-break></div>' : '<div data-page-break></div>';
       if (part || parts.length === 1 || i === 0) { if (!(parts.length > 1 && !part)) html += build(part); }
     });
     void out;
@@ -342,12 +344,22 @@ export async function docxToHtml(buffer) {
       const land = attr(pg, 'orient') === 'landscape' || w > hh;
       if (land) [w, hh] = [Math.min(w, hh), Math.max(w, hh)];
       const hit = Object.entries(SIZES).find(([, [sw, sh]]) => Math.abs(sw - w) < 120 && Math.abs(sh - hh) < 120);
-      settings.size = hit ? hit[0] : 'A4';
+      if (hit) settings.size = hit[0]; else { settings.size = 'custom'; settings.customW = Math.round((w / 567) * 100) / 100; settings.customH = Math.round((hh / 567) * 100) / 100; }
       settings.orientation = land ? 'landscape' : 'portrait';
     }
     if (mar) {
       const cm = (n) => Math.round((+attr(mar, n) / 567) * 100) / 100;
       settings.margins = { top: cm('top'), bottom: cm('bottom'), left: cm('left'), right: cm('right') };
+      if (attr(mar, 'gutter')) settings.gutter = cm('gutter');
+    }
+    const cols = kid(sect, 'cols');
+    if (cols && +(attr(cols, 'num') || 1) > 1) settings.columns = { count: Math.min(4, +attr(cols, 'num')), gap: Math.round((+(attr(cols, 'space') || 720) / 567) * 100) / 100, rule: ['1', 'true', 'on'].includes(attr(cols, 'sep') || '') };
+    if (kid(sect, 'titlePg')) settings.firstPageDifferent = true;
+    const pb = kid(sect, 'pgBorders');
+    const pbs = pb && (kid(pb, 'top') || kid(pb, 'left'));
+    if (pbs && attr(pbs, 'val') && attr(pbs, 'val') !== 'nil' && attr(pbs, 'val') !== 'none') {
+      const v = attr(pbs, 'val');
+      settings.pageBorder = { style: v === 'double' ? 'double' : /dash|dot/.test(v) ? 'dashed' : 'single', color: attr(pbs, 'color') && attr(pbs, 'color') !== 'auto' ? '#' + attr(pbs, 'color').toLowerCase() : '#000000', width: Math.max(0.5, +(attr(pbs, 'sz') || 8) / 8), offset: Math.max(0.3, Math.min(3, +(attr(pbs, 'space') || 24) / 28.35)) };
     }
     const refText = async (kind) => {
       const ref = kids(sect, kind + 'Reference').find((r) => attr(r, 'type') === 'default') || kids(sect, kind + 'Reference')[0];
@@ -369,6 +381,9 @@ export async function docxToHtml(buffer) {
       settings.footer = texts.join(' ');
     }
   }
+  const wset = await read('word/settings.xml');
+  const hy = wset?.getElementsByTagName('w:autoHyphenation')[0];
+  if (hy && !['0', 'false', 'off'].includes((hy.getAttribute('w:val') || 'true').toLowerCase())) settings.hyphenate = true;
   const used = [...usedComments].map((id) => ({ id: 'w' + id, ...comments[id], replies: [], resolved: false }));
   return { html: html || '<p></p>', settings, comments: used };
 }

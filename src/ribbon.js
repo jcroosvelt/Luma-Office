@@ -173,14 +173,28 @@ export function buildRibbon(app) {
     {
       id: 'layout', label: 'Mise en page', build: () => [
         group(
-          btn({ icon: 'file', label: 'Format', run: () => app.openPageSheet() }),
-          btn({ icon: 'orient', label: 'Orientation', run: () => app.updateSettings({ orientation: app.settings.orientation === 'portrait' ? 'landscape' : 'portrait' }), dyn: () => (app.settings.orientation === 'portrait' ? 'Portrait' : 'Paysage') }),
           btn({ icon: 'margins', label: 'Marges', run: () => app.openMarginSheet() }),
+          btn({ icon: 'portrait', label: 'Portrait', run: () => app.updateSettings({ orientation: 'portrait' }), active: () => app.settings.orientation === 'portrait' }),
+          btn({ icon: 'landscape', label: 'Paysage', run: () => app.updateSettings({ orientation: 'landscape' }), active: () => app.settings.orientation === 'landscape' }),
+          btn({ icon: 'ruler', label: 'Taille', title: 'Taille du papier', run: () => app.openSizeSheet() }),
+          btn({ icon: 'columns', label: 'Colonnes', run: () => app.openColumnsSheet(), active: () => app.settings.columns.count > 1, dyn: () => (app.settings.columns.count > 1 ? `${app.settings.columns.count} colonnes` : 'Colonnes') }),
         ),
         group(
-          btn({ icon: 'header', label: 'En-tête / pied', run: () => app.openHeaderSheet() }),
-          btn({ icon: 'hash', label: 'N° de page', run: () => app.updateSettings({ pageNumbers: !app.settings.pageNumbers }), active: () => app.settings.pageNumbers }),
           btn({ icon: 'pageBreak', label: 'Saut de page', run: run((c) => c.insertPageBreak().run()) }),
+          btn({ icon: 'colbreak', label: 'Saut de colonne', run: run((c) => c.insertColumnBreak().run()) }),
+        ),
+        group(
+          btn({ icon: 'watermark', label: 'Filigrane', run: () => app.openWatermarkSheet(), active: () => !!app.settings.watermark.text }),
+          btn({ icon: 'pborder', label: 'Bordures', title: 'Bordures de page', run: () => app.openBordersSheet(), active: () => app.settings.pageBorder.style !== 'none' }),
+        ),
+        group(
+          btn({ icon: 'header', label: 'En-tête / pied', run: () => app.openHeaderSheet(), active: () => !!(app.settings.header || app.settings.footer) }),
+          btn({ icon: 'hash', label: 'N° de page', run: () => app.openNumberSheet(), active: () => app.settings.pageNumbers }),
+          btn({ icon: 'firstpage', label: '1re page', title: 'Première page différente', run: () => app.updateSettings({ firstPageDifferent: !app.settings.firstPageDifferent }), active: () => app.settings.firstPageDifferent }),
+        ),
+        group(
+          btn({ icon: 'hyphen', label: 'Césure', title: 'Coupure automatique des mots', run: () => app.updateSettings({ hyphenate: !app.settings.hyphenate }), active: () => app.settings.hyphenate }),
+          btn({ icon: 'pilcrow', label: 'Paragraphe', title: 'Interligne et espacement', run: () => app.openSpacing() }),
         ),
       ],
     },

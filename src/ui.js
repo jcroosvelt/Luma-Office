@@ -103,6 +103,16 @@ const P = {
   layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+  columns: '<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/>',
+  colbreak: '<path d="M12 3v5M12 16v5"/><path d="m9 12 3 0"/><rect x="3" y="3" width="6" height="18" rx="1" stroke-dasharray="2 2"/><rect x="15" y="3" width="6" height="18" rx="1"/>',
+  watermark: '<path d="M12 2.7c4 4.2 6.5 7.3 6.5 10.3a6.5 6.5 0 0 1-13 0c0-3 2.5-6.1 6.5-10.3z"/>',
+  pborder: '<rect x="3" y="3" width="18" height="18" rx="1"/><rect x="7" y="7" width="10" height="10"/>',
+  hyphen: '<path d="M4 8h7M4 12h5M4 16h7"/><path d="M14 12h6"/>',
+  ruler: '<path d="M3 17 17 3l4 4L7 21z"/><path d="m8 12 2 2M11 9l2 2M14 6l2 2"/>',
+  portrait: '<rect x="6" y="3" width="12" height="18" rx="2"/>',
+  landscape: '<rect x="3" y="6" width="18" height="12" rx="2"/>',
+  firstpage: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M8 7h8"/><path d="M8 11h5"/><circle cx="16" cy="16" r="2.5"/>',
+  pilcrow: '<path d="M13 4v16M17 4v16M19 4h-9.5a4.5 4.5 0 0 0 0 9H13"/>',
   fullimg: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
 };
 

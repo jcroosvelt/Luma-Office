@@ -1,5 +1,5 @@
 // Export PDF vectoriel (texte sélectionnable, polices intégrées) via pdfmake, et impression native.
-import { metrics } from './layout.js';
+import { metrics, columnWidthCm, pageNumberText } from './layout.js';
 
 const PT_CM = 72 / 2.54;
 const FAMILY = {
@@ -41,7 +41,10 @@ export async function buildPdf(json, settings, title, opts = {}) {
   const M = metrics(settings);
   const m = settings.margins;
   const pageW = M.wcm * PT_CM, pageH = M.hcm * PT_CM;
-  const contentW = pageW - (m.left + m.right) * PT_CM;
+  const nCols = Math.max(1, settings.columns?.count || 1);
+  const gapPt = (settings.columns?.gap ?? 1.27) * PT_CM;
+  const leftPt = (m.left + (settings.gutter || 0)) * PT_CM;
+  const contentW = columnWidthCm(settings) * PT_CM; // largeur d'une colonne
   let headingId = 0;
   const mctx = document.createElement('canvas').getContext('2d');
   const measure = (t) => { mctx.font = '14.67px Calibri, Carlito, sans-serif'; return mctx.measureText(t).width * 0.75; };
@@ -157,7 +160,8 @@ export async function buildPdf(json, settings, title, opts = {}) {
       }
       case 'horizontalRule':
         return [{ canvas: [{ type: 'line', x1: 0, y1: 4, x2: contentW, y2: 4, lineWidth: 0.75, lineColor: '#9aa0a6' }], margin: [0, 4, 0, 6] }];
-      case 'pageBreak': return [{ text: '', pageBreak: 'after' }];
+      case 'pageBreak': return [{ _pagebreak: true }];
+      case 'columnBreak': return [{ _colbreak: true }];
       case 'tableOfContents': return [{ _toc: true }];
       case 'bulletList': case 'orderedList': case 'taskList': return [await list(n, o)];
       case 'table': return [await table(n), { text: '', margin: [0, 0, 0, 4] }];
@@ -229,11 +233,13 @@ export async function buildPdf(json, settings, title, opts = {}) {
     };
   }
 
-  let content = await blocks(json.content || []);
-  // Table des matières : pdfmake calcule les vrais numéros de page
-  content = content.flatMap((c) => {
+  // Conversion nœud par nœud (nécessaire pour répartir en colonnes)
+  const perNode = [];
+  for (const n of json.content || []) perNode.push(await block(n, {}));
+
+  const expandToc = (arr) => arr.flatMap((c) => {
     if (!c._toc) return [c];
-    const entries = tocItems.length ? tocItems : [];
+    const entries = tocItems;
     if (!entries.length) return [{ text: '(Aucun titre dans le document)', italics: true, color: '#888', margin: [0, 0, 0, 8] }];
     return [
       { text: 'Table des matières', bold: true, fontSize: 15, color: '#1f3864', margin: [0, 0, 0, 6] },
@@ -253,21 +259,91 @@ export async function buildPdf(json, settings, title, opts = {}) {
       { text: '', margin: [0, 0, 0, 8] },
     ];
   });
+
+  // Hauteur (pt) de chaque bloc à la largeur d'une colonne, mesurée dans le navigateur
+  function measureBlocks() {
+    if (!opts.html) return null;
+    const holder = document.createElement('div');
+    holder.className = 'pdf-holder';
+    holder.style.cssText = `position:fixed;left:0;top:0;width:${contentW / 0.75}px;z-index:-9999;visibility:hidden;pointer-events:none`;
+    const inner = document.createElement('div');
+    inner.className = 'doc-content';
+    inner.style.cssText = `width:${contentW / 0.75}px;column-count:1`;
+    inner.innerHTML = opts.html;
+    holder.append(inner);
+    document.body.append(holder);
+    try {
+      const kids = [...inner.children];
+      if (kids.length !== perNode.length) return null;
+      return kids.map((el) => (el.getBoundingClientRect().height + parseFloat(getComputedStyle(el).marginBottom || '0')) * 0.75);
+    } finally { holder.remove(); }
+  }
+
+  let content;
+  if (nCols > 1) {
+    const heights = measureBlocks() || perNode.map((arr) => 40 + arr.length * 10);
+    const cap = (M.hcm - m.top - m.bottom) * PT_CM * 0.9;
+    const pages = [];
+    let page = { cols: Array.from({ length: nCols }, () => []), used: Array(nCols).fill(0) };
+    let ci = 0;
+    const newPage = () => { pages.push(page); page = { cols: Array.from({ length: nCols }, () => []), used: Array(nCols).fill(0) }; ci = 0; };
+    const nextCol = () => { ci++; if (ci >= nCols) newPage(); };
+    perNode.forEach((arr, i) => {
+      if (arr[0]?._pagebreak) { newPage(); return; }
+      if (arr[0]?._colbreak) { nextCol(); return; }
+      const hgt = heights[i] || 20;
+      if (page.used[ci] > 0 && page.used[ci] + hgt > cap) nextCol();
+      page.cols[ci].push(...expandToc(arr));
+      page.used[ci] += hgt;
+    });
+    pages.push(page);
+    content = pages.filter((pg) => pg.cols.some((c) => c.length)).map((pg, idx) => {
+      const cols = [];
+      const tallest = Math.min(cap, Math.max(...pg.used, 10));
+      pg.cols.forEach((stack, k) => {
+        if (k > 0) cols.push({ width: gapPt, canvas: settings.columns.rule ? [{ type: 'line', x1: gapPt / 2, y1: 0, x2: gapPt / 2, y2: tallest, lineWidth: 0.75, lineColor: '#8a93a6' }] : [] });
+        cols.push({ width: contentW, stack: stack.length ? stack : [{ text: ' ' }] });
+      });
+      return { columns: cols, columnGap: 0, ...(idx > 0 ? { pageBreak: 'before' } : {}) };
+    });
+  } else {
+    content = expandToc(perNode.flat()).flatMap((c) => (c._pagebreak || c._colbreak ? [{ text: '', pageBreak: 'after' }] : [c]));
+  }
   if (!content.length) content = [{ text: ' ' }];
 
+  // En-tête, pied de page, numéros, filigrane et bordures
   const hc = '#666666';
+  const first = !!settings.firstPageDifferent;
+  const marginsHF = (y) => [leftPt, y, m.right * PT_CM, 0];
+  const num = (cur, count) => ({ text: pageNumberText(settings.pageNumberFormat, cur, count), alignment: settings.pageNumberAlign || 'center', fontSize: 9, color: hc });
+  const hasHeader = !!settings.header?.trim() || (settings.pageNumbers && settings.pageNumberPos === 'top');
+  const hasFooter = !!settings.footer?.trim() || (settings.pageNumbers && settings.pageNumberPos !== 'top');
+  const bd = settings.pageBorder || { style: 'none' };
+  const background = bd.style === 'none' ? undefined : (cur, size) => {
+    const off = bd.offset * PT_CM, lw = Math.max(0.5, bd.width);
+    const rect = (inset, w) => ({ type: 'rect', x: inset, y: inset, w: size.width - 2 * inset, h: size.height - 2 * inset, lineWidth: w, lineColor: bd.color, ...(bd.style === 'dashed' ? { dash: { length: 6, space: 4 } } : {}) });
+    return { canvas: bd.style === 'double' ? [rect(off, lw), rect(off + lw * 2.4, lw)] : [rect(off, lw)] };
+  };
   const docDef = {
     pageSize: { width: pageW, height: pageH },
-    pageMargins: [m.left * PT_CM, m.top * PT_CM, m.right * PT_CM, m.bottom * PT_CM],
+    pageMargins: [leftPt, m.top * PT_CM, m.right * PT_CM, m.bottom * PT_CM],
     info: { title: title || 'Document', creator: 'Luma Office', producer: 'Luma Office' },
     defaultStyle: { font: 'Carlito', fontSize: 11, lineHeight: LH },
     content,
-    header: settings.header?.trim() ? () => ({ text: settings.header, alignment: 'center', fontSize: 9, color: hc, margin: [m.left * PT_CM, Math.max(10, (m.top * PT_CM) / 2 - 6), m.right * PT_CM, 0] }) : undefined,
-    footer: (settings.footer?.trim() || settings.pageNumbers) ? (cur, count) => ({
-      margin: [m.left * PT_CM, Math.max(4, (m.bottom * PT_CM) / 2 - 10), m.right * PT_CM, 0],
+    background,
+    watermark: settings.watermark?.text?.trim() ? { text: settings.watermark.text.trim(), color: settings.watermark.color || '#b8bfcc', opacity: 0.35, bold: true, angle: -45, font: 'Carlito' } : undefined,
+    header: hasHeader ? (cur, count) => (first && cur === 1 ? null : {
+      margin: marginsHF(Math.max(10, (m.top * PT_CM) / 2 - 6)),
       stack: [
-        settings.footer?.trim() ? { text: settings.footer, alignment: 'center', fontSize: 9, color: hc, margin: [0, 0, 0, 2] } : null,
-        settings.pageNumbers ? { text: `Page ${cur} / ${count}`, alignment: settings.pageNumberAlign || 'center', fontSize: 9, color: hc } : null,
+        settings.header?.trim() ? { text: settings.header, alignment: settings.headerAlign || 'center', fontSize: 9, color: hc, margin: [0, 0, 0, 2] } : null,
+        settings.pageNumbers && settings.pageNumberPos === 'top' ? num(cur, count) : null,
+      ].filter(Boolean),
+    }) : undefined,
+    footer: hasFooter ? (cur, count) => (first && cur === 1 ? null : {
+      margin: marginsHF(Math.max(4, (m.bottom * PT_CM) / 2 - 10)),
+      stack: [
+        settings.footer?.trim() ? { text: settings.footer, alignment: settings.footerAlign || 'center', fontSize: 9, color: hc, margin: [0, 0, 0, 2] } : null,
+        settings.pageNumbers && settings.pageNumberPos !== 'top' ? num(cur, count) : null,
       ].filter(Boolean),
     }) : undefined,
   };
@@ -277,13 +353,18 @@ export async function buildPdf(json, settings, title, opts = {}) {
 export function printDocument(settings, title) {
   const M = metrics(settings);
   const m = settings.margins;
-  const esc = (s) => (s || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ');
-  const pos = settings.pageNumberAlign === 'left' ? '@bottom-left' : settings.pageNumberAlign === 'right' ? '@bottom-right' : '@bottom-center';
-  const box = 'font:9pt Calibri,Carlito,sans-serif;color:#666;';
-  let css = `@page{size:${M.wcm}cm ${M.hcm}cm;margin:${m.top}cm ${m.right}cm ${m.bottom}cm ${m.left}cm;`;
-  if (settings.header?.trim()) css += `@top-center{content:"${esc(settings.header)}";${box}}`;
-  if (settings.pageNumbers) css += `${pos}{content:"Page " counter(page) " / " counter(pages);${box}}`;
-  css += '}';
+  const esc = (t) => (t || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ');
+  const box = 'font:9pt Calibri,Carlito,sans-serif;color:#666;white-space:pre-line;';
+  const where = (a) => (a === 'left' ? 'left' : a === 'right' ? 'right' : 'center');
+  const numContent = { 'page-of': '"Page " counter(page) " / " counter(pages)', of: 'counter(page) " / " counter(pages)', plain: 'counter(page)', dash: '"– " counter(page) " –"', 'page-only': '"Page " counter(page)' }[settings.pageNumberFormat] || 'counter(page)';
+  const boxes = {};
+  const add = (pos, part) => { (boxes[pos] ||= []).push(part); };
+  if (settings.header?.trim()) add(`@top-${where(settings.headerAlign)}`, `"${esc(settings.header)}"`);
+  if (settings.pageNumbers) add(`@${settings.pageNumberPos === 'top' ? 'top' : 'bottom'}-${where(settings.pageNumberAlign)}`, numContent);
+  if (settings.footer?.trim()) add(`@bottom-${where(settings.footerAlign)}`, `"${esc(settings.footer)}"`);
+  const rules = (list) => Object.entries(list).map(([pos, parts]) => `${pos}{content:${parts.join(' "\\A" ')};${box}}`).join('');
+  let css = `@page{size:${M.wcm}cm ${M.hcm}cm;margin:${m.top}cm ${m.right}cm ${m.bottom}cm ${M.leftCm}cm;${rules(boxes)}}`;
+  if (settings.firstPageDifferent) css += '@page :first{@top-left{content:none}@top-center{content:none}@top-right{content:none}@bottom-left{content:none}@bottom-center{content:none}@bottom-right{content:none}}';
   let st = document.getElementById('print-page-style');
   if (!st) { st = document.createElement('style'); st.id = 'print-page-style'; document.head.append(st); }
   st.textContent = css;

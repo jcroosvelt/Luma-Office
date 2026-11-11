@@ -1,5 +1,5 @@
 // Conversion du document (JSON ProseMirror) vers un vrai fichier Word (.docx).
-import { metrics, CM_TWIP, CM_PX } from './layout.js';
+import { metrics, CM_TWIP, CM_PX, columnWidthCm } from './layout.js';
 
 const TW_PX = 15; // 1 px = 15 twips
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -54,10 +54,12 @@ export async function buildDocx(json, settings, title, commentList = []) {
     Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, ImageRun,
     PageBreak, Header, Footer, PageNumber, LevelFormat, BorderStyle, ShadingType, ExternalHyperlink, Tab,
     PageOrientation, LineRuleType, TableLayoutType, InsertedTextRun, DeletedTextRun, CommentRangeStart, CommentRangeEnd, CommentReference, TabStopType, LeaderType,
+    ColumnBreak, PageBorderDisplay, PageBorderOffsetFrom, PageBorderZOrder, HorizontalPositionRelativeFrom, HorizontalPositionAlign, VerticalPositionRelativeFrom, VerticalPositionAlign, TextWrappingType,
   } = D;
 
   const M = metrics(settings);
-  const contentTw = Math.round((M.wcm - settings.margins.left - settings.margins.right) * CM_TWIP);
+  const nCols = Math.max(1, settings.columns?.count || 1);
+  const contentTw = Math.round(columnWidthCm(settings) * CM_TWIP);
   const ctx = { orderedInstance: 0, trackId: 1 };
   const cIdx = new Map();
   const liveComments = (commentList || []).filter((c) => !c.resolved);
@@ -178,6 +180,8 @@ export async function buildDocx(json, settings, title, commentList = []) {
         return [new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: '9AA0A6', space: 1 } }, spacing: { before: 120, after: 120 } })];
       case 'pageBreak':
         return [new Paragraph({ children: [new PageBreak()] })];
+      case 'columnBreak':
+        return [new Paragraph({ children: [nCols > 1 ? new ColumnBreak() : new PageBreak()] })];
       case 'bulletList':
       case 'orderedList':
       case 'taskList':
@@ -302,25 +306,65 @@ export async function buildDocx(json, settings, title, commentList = []) {
   });
   const hStyle = (id, name, halfpt, outline, extra = {}) => ({ id, name, basedOn: 'Normal', next: 'Normal', quickFormat: true, ...sz(halfpt, '1F3864', 240, 100, outline), ...extra });
 
-  const footerAlign = ALIGN[settings.pageNumberAlign] || AlignmentType.CENTER;
-  const hf = {};
-  if (settings.header?.trim()) {
-    hf.headers = { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: settings.header, size: 18, color: '666666' })] })] }) };
+  const grey = { size: 18, color: '666666' };
+  const numRuns = () => {
+    const c = () => new TextRun({ children: [PageNumber.CURRENT], ...grey });
+    const t = () => new TextRun({ children: [PageNumber.TOTAL_PAGES], ...grey });
+    const x = (text) => new TextRun({ text, ...grey });
+    switch (settings.pageNumberFormat) {
+      case 'of': return [c(), x(' / '), t()];
+      case 'plain': return [c()];
+      case 'dash': return [x('– '), c(), x(' –')];
+      case 'page-only': return [x('Page '), c()];
+      default: return [x('Page '), c(), x(' / '), t()];
+    }
+  };
+  const textPara = (text, align) => new Paragraph({ alignment: ALIGN[align] || AlignmentType.CENTER, children: [new TextRun({ text, ...grey })] });
+  const numPara = () => new Paragraph({ alignment: ALIGN[settings.pageNumberAlign] || AlignmentType.CENTER, children: numRuns() });
+
+  // filigrane : image diagonale translucide, flottante derrière le texte, dans l'en-tête (affichée sur chaque page)
+  async function watermarkPara() {
+    const wm = settings.watermark?.text?.trim();
+    if (!wm) return null;
+    const S = 1400, cv = document.createElement('canvas');
+    cv.width = cv.height = S;
+    const g = cv.getContext('2d');
+    g.translate(S / 2, S / 2); g.rotate(-Math.PI / 4);
+    let fs = 260; g.font = `800 ${fs}px Calibri, Carlito, sans-serif`;
+    const w = g.measureText(wm).width; if (w > S * 1.05) { fs = (fs * S * 1.05) / w; g.font = `800 ${fs}px Calibri, Carlito, sans-serif`; }
+    g.fillStyle = settings.watermark.color || '#b8bfcc'; g.globalAlpha = 0.42; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(wm, 0, 0);
+    const bytes = Uint8Array.from(atob(cv.toDataURL('image/png').split(',')[1]), (ch) => ch.charCodeAt(0));
+    const size = Math.round(Math.min(M.wcm, M.hcm) * 0.9 * 37.8);
+    return new Paragraph({ children: [new ImageRun({ type: 'png', data: bytes, transformation: { width: size, height: size },
+      altText: { name: 'Filigrane', title: 'Filigrane', description: wm },
+      floating: { horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, align: HorizontalPositionAlign.CENTER }, verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, align: VerticalPositionAlign.CENTER }, behindDocument: true, allowOverlap: true, wrap: { type: TextWrappingType.NONE } } })] });
   }
+  const wmPara = await watermarkPara();
+
+  const headKids = [];
+  if (settings.header?.trim()) headKids.push(textPara(settings.header, settings.headerAlign));
+  if (settings.pageNumbers && settings.pageNumberPos === 'top') headKids.push(numPara());
   const footKids = [];
-  if (settings.footer?.trim()) footKids.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: settings.footer, size: 18, color: '666666' })] }));
-  if (settings.pageNumbers) {
-    footKids.push(new Paragraph({
-      alignment: footerAlign,
-      children: [
-        new TextRun({ text: 'Page ', size: 18, color: '666666' }),
-        new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '666666' }),
-        new TextRun({ text: ' / ', size: 18, color: '666666' }),
-        new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, color: '666666' }),
-      ],
-    }));
-  }
+  if (settings.footer?.trim()) footKids.push(textPara(settings.footer, settings.footerAlign));
+  if (settings.pageNumbers && settings.pageNumberPos !== 'top') footKids.push(numPara());
+  const hf = {};
+  const hk = [...(wmPara ? [wmPara] : []), ...headKids];
+  if (hk.length) hf.headers = { default: new Header({ children: hk }) };
   if (footKids.length) hf.footers = { default: new Footer({ children: footKids }) };
+  if (settings.firstPageDifferent) {
+    // première page : ni en-tête, ni pied de page, ni numéro (le filigrane reste)
+    hf.headers = { ...(hf.headers || {}), first: new Header({ children: wmPara ? [wmPara] : [new Paragraph({})] }) };
+    hf.footers = { ...(hf.footers || {}), first: new Footer({ children: [new Paragraph({})] }) };
+  }
+
+  // bordures de page
+  const bd = settings.pageBorder || { style: 'none' };
+  const pageBorders = (() => {
+    if (bd.style === 'none') return undefined;
+    const side = { style: bd.style === 'double' ? BorderStyle.DOUBLE : bd.style === 'dashed' ? BorderStyle.DASHED : BorderStyle.SINGLE, size: Math.max(2, Math.round(bd.width * 8)), color: (toHex(bd.color) || '000000'), space: Math.min(31, Math.round(bd.offset * 28.35)) };
+    return { pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.PAGE, zOrder: PageBorderZOrder.FRONT }, pageBorderTop: side, pageBorderRight: side, pageBorderBottom: side, pageBorderLeft: side };
+  })();
 
   const land = settings.orientation === 'landscape';
   const portraitW = Math.round((land ? M.hcm : M.wcm) * CM_TWIP);
@@ -355,15 +399,19 @@ export async function buildDocx(json, settings, title, commentList = []) {
         { reference: 'ordered', levels: levelsFor((i) => orderedFmts[i % 3], (i) => `%${i + 1}.`) },
       ],
     },
+    ...(settings.hyphenate ? { hyphenation: { autoHyphenation: true } } : {}),
     sections: [{
       properties: {
+        titlePage: !!settings.firstPageDifferent,
+        ...(nCols > 1 ? { column: { count: nCols, space: Math.round((settings.columns.gap ?? 1.27) * CM_TWIP), separate: !!settings.columns.rule, equalWidth: true } } : {}),
         page: {
           size: { width: portraitW, height: portraitH, orientation: land ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
           margin: {
             top: Math.round(mg.top * CM_TWIP), bottom: Math.round(mg.bottom * CM_TWIP),
-            left: Math.round(mg.left * CM_TWIP), right: Math.round(mg.right * CM_TWIP),
+            left: Math.round(mg.left * CM_TWIP), right: Math.round(mg.right * CM_TWIP), gutter: Math.round((settings.gutter || 0) * CM_TWIP),
             header: Math.round(Math.min(mg.top / 2, 1.25) * CM_TWIP), footer: Math.round(Math.min(mg.bottom / 2, 1.25) * CM_TWIP),
           },
+          ...(pageBorders ? { borders: pageBorders } : {}),
         },
       },
       ...hf,
