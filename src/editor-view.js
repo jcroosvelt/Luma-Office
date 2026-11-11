@@ -75,6 +75,7 @@ export function mountEditor(host, docRec, hooks) {
   const scroller = h('main', { class: 'scroller' }, stage);
   const findBar = h('div', { class: 'findbar', hidden: true });
   const statusbar = h('footer', { class: 'statusbar' });
+  const sbLeft = h('div', { class: 'sb-left' });
   const root = h('div', { class: 'editor-view' });
 
   /* ---------- Éditeur ---------- */
@@ -198,21 +199,33 @@ export function mountEditor(host, docRec, hooks) {
     setTimeout(() => { saveBtn.classList.remove('ok'); saveBtn.replaceChildren(icon('save', 20), h('span', {}, 'Enregistrer')); }, 1800);
   }
 
+  /* ---------- Zoom en bas à droite (comme Word) ---------- */
+  const zSlider = h('input', { type: 'range', class: 'zoom-rng', min: '30', max: '300', step: '5', 'aria-label': 'Zoom' });
+  const zPct = h('button', { class: 'zoom-pct', title: 'Ajuster à la largeur', onclick: () => zoomFit() });
+  const zoomCtl = h('div', { class: 'zoom-ctl' },
+    h('button', { class: 'zoom-btn', 'aria-label': 'Zoom arrière', title: 'Zoom arrière', onclick: () => zoomBy(-0.1) }, '−'),
+    zSlider,
+    h('button', { class: 'zoom-btn', 'aria-label': 'Zoom avant', title: 'Zoom avant', onclick: () => zoomBy(0.1) }, '+'), zPct);
+  statusbar.append(sbLeft, zoomCtl);
+  zSlider.addEventListener('input', () => { zoomMode = Math.max(0.3, Math.min(3, +zSlider.value / 100)); if (mode !== 'page') setMode('page'); else scheduleLayout(); zPct.textContent = zSlider.value + ' %'; });
+  function updateZoomCtl() {
+    const pct = Math.round(curZoom() * 100);
+    if (document.activeElement !== zSlider) zSlider.value = String(Math.max(30, Math.min(300, pct)));
+    zPct.textContent = pct + ' %';
+  }
+
   /* ---------- Statistiques / barre d'état ---------- */
   function updateStatus() {
     const cc = editor.storage.characterCount;
     const words = cc.words();
-    const z = mode === 'page' ? Math.round(curZoom() * 100) + ' %' : '';
     const nChanges = collectChanges(editor.state.doc).length;
-    statusbar.replaceChildren(...[
-      fmtSegment(),
+    sbLeft.replaceChildren(...[
       editor.storage.trackChanges.enabled || nChanges ? h('span', { class: 'track-flag' }, `${editor.storage.trackChanges.enabled ? '● Suivi' : 'Suivi'} : ${nChanges} modif.`) : null,
       showWc ? h('button', { class: 'sb-link', title: 'Statistiques du document', onclick: () => openStats() }, `${words} mot${words > 1 ? 's' : ''}`) : null,
       showWc ? h('span', { class: 'sb-chars' }, `${cc.characters()} caractères`) : null,
       h('button', { class: 'sb-link', title: 'Aller à une page', onclick: () => openGoto() }, mode === 'page' ? `${pageCount} page${pageCount > 1 ? 's' : ''}` : 'Mode adapté'),
-      h('span', { class: 'grow' }),
-      h('span', {}, z),
     ].filter(Boolean));
+    updateZoomCtl();
     updatePagePill();
   }
 
@@ -1017,6 +1030,7 @@ export function mountEditor(host, docRec, hooks) {
     ].filter(Boolean);
   }
   function showTip(info, x, y, ttl = 2800, source = 'caret') {
+    return; // la police et la taille sont lues dans le ruban (comme Word), plus de bulle
     tipSource = source;
     tip.replaceChildren(...tipContent(info));
     tip.hidden = false; tip.style.left = '0px'; tip.style.top = '0px';

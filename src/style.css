@@ -590,3 +590,12 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
   h1, h2, h3 { break-after: avoid; }
   .search-hit { background: none !important; }
 }
+
+/* zoom en bas à droite (comme Word) */
+.sb-left { display: flex; gap: 14px; align-items: center; min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; }
+.zoom-ctl { display: flex; align-items: center; gap: 4px; flex: none; }
+.zoom-btn { width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.zoom-btn:hover, .zoom-btn:active { background: var(--line); }
+.zoom-rng { width: 110px; accent-color: var(--brand); height: 24px; margin: 0; }
+.zoom-pct { border: 0; background: none; color: inherit; font: inherit; min-width: 42px; text-align: right; cursor: pointer; padding: 0 2px; }
+@media (max-width: 520px) { .zoom-rng { width: 70px; } .zoom-pct { min-width: 36px; } }
