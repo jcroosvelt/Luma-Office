@@ -5,6 +5,10 @@ import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
 import { terms, norm, makeSnippet, snippetEl } from './search.js';
 
+// Polices standard, CMaps (polices asiatiques), décodeurs d’images et profils couleur : sans eux le texte non incorporé disparaît
+const base = new URL('pdfjs/', document.baseURI).href;
+const PDFJS_ASSETS = { standardFontDataUrl: base + 'standard_fonts/', cMapUrl: base + 'cmaps/', cMapPacked: true, wasmUrl: base + 'wasm/', iccUrl: base + 'iccs/' };
+
 const friendly = (e) => {
   const n = e?.name || '', m = e?.message || String(e);
   if (n === 'NotReadableError' || /not readable|could not be read/i.test(m)) return 'Le fichier n’est plus lisible sur cet appareil (stocké dans le cloud ?). Réimportez-le depuis le téléphone.';
@@ -63,7 +67,7 @@ export async function mountPdf(host, rec, hooks) {
       msg.textContent = mode === 'wrapped' ? 'Analyse du document…' : 'Nouvelle tentative…';
       try {
         const dead = useWorkerMode(mode);
-        task = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, useSystemFonts: true });
+        task = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, useSystemFonts: true, ...PDFJS_ASSETS });
         task.onProgress = ({ loaded, total }) => { if (total) sub.textContent = `${Math.round((loaded / total) * 100)} %`; };
         task.onPassword = async (update, reason) => {
           paused = true;

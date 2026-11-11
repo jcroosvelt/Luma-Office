@@ -15,6 +15,12 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {
+            // ressources du lecteur PDF (polices, cmaps, wasm) : disponibles hors ligne après la première lecture
+            urlPattern: ({ url }) => url.pathname.includes('/pdfjs/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'luma-pdfjs', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+          {
             // images distantes d'un document : gardées en cache pour rester visibles hors ligne
             urlPattern: ({ request, url }) => request.destination === 'image' && url.origin !== self.location.origin,
             handler: 'CacheFirst',
