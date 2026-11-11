@@ -112,17 +112,35 @@ export function buildRibbon(app) {
     {
       id: 'insert', label: 'Insertion', build: () => [
         group(
+          btn({ icon: 'blankpage', label: 'Page vierge', run: () => app.insertBlankPage() }),
+          btn({ icon: 'pageBreak', label: 'Saut de page', run: run((c) => c.insertPageBreak().run()) }),
+          btn({ icon: 'colbreak', label: 'Saut de colonne', run: run((c) => c.insertColumnBreak().run()) }),
+        ),
+        group(
           btn({ icon: 'table', label: 'Tableau', run: () => app.openTableSheet() }),
           btn({ icon: 'image', label: 'Image', run: () => app.pickImage(false) }),
           btn({ icon: 'camera', label: 'Photo', run: () => app.pickImage(true) }),
-          btn({ icon: 'link', label: 'Lien', run: () => app.openLink(), active: () => editor.isActive('link') }),
+          btn({ icon: 'shape', label: 'Formes', run: () => app.openShapesSheet() }),
         ),
         group(
-          btn({ icon: 'hr', label: 'Ligne', run: run((c) => c.setHorizontalRule().run()) }),
-          btn({ icon: 'pageBreak', label: 'Saut de page', run: run((c) => c.insertPageBreak().run()) }),
-          btn({ icon: 'toc', label: 'Sommaire', title: 'Table des matières', run: () => app.insertToc() }),
-          btn({ icon: 'calendar', label: 'Date', run: run((c) => c.insertContent(new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })).run()) }),
+          btn({ icon: 'link', label: 'Lien', run: () => app.openLink(), active: () => editor.isActive('link') }),
+          btn({ icon: 'commentAdd', label: 'Commentaire', run: () => app.addComment() }),
+        ),
+        group(
+          btn({ icon: 'header', label: 'En-tête', title: 'En-tête de page', run: () => app.openHeaderSheet() }),
+          btn({ icon: 'header', label: 'Pied de page', run: () => app.openHeaderSheet() }),
+          btn({ icon: 'hash', label: 'Pagination', title: 'Numéros de page', run: () => app.openNumberSheet(), active: () => app.settings.pageNumbers }),
+        ),
+        group(
+          btn({ icon: 'textbox', label: 'Zone de texte', run: () => app.openTextBoxSheet() }),
+          btn({ icon: 'dropcap', label: 'Lettrine', run: () => app.toggleDropCap(), active: () => app.dropCapOn }),
+          btn({ icon: 'clock', label: 'Date et heure', run: () => app.openDateSheet() }),
           btn({ icon: 'symbol', label: 'Symboles', run: () => app.openSymbols() }),
+        ),
+        group(
+          btn({ icon: 'endnote', label: 'Note de fin', run: () => app.openEndnote() }),
+          btn({ icon: 'toc', label: 'Sommaire', title: 'Table des matières', run: () => app.insertToc() }),
+          btn({ icon: 'hr', label: 'Ligne', run: run((c) => c.setHorizontalRule().run()) }),
         ),
         group(
           btn({ icon: 'quote', label: 'Citation', run: run((c) => c.toggleBlockquote().run()), active: () => editor.isActive('blockquote') }),
@@ -156,13 +174,30 @@ export function buildRibbon(app) {
     {
       id: 'image', label: 'Image', contextual: isImage, build: () => [
         group(
-          ...[25, 50, 75, 100].map((p) => btn({ icon: 'fullimg', label: p + ' %', run: () => app.sizeImage(p) })),
+          btn({ icon: 'up', label: 'Monter', run: () => app.moveImageBlock(-1) }),
+          btn({ icon: 'down', label: 'Descendre', run: () => app.moveImageBlock(1) }),
+          btn({ icon: 'alignCenter', label: 'Habillage', title: 'Habillage et position', run: () => app.openWrapSheet() }),
         ),
+        group(...[25, 50, 75, 100].map((p) => btn({ icon: 'fullimg', label: p + ' %', run: () => app.sizeImage(p) }))),
         alignGroup(),
         group(
+          btn({ icon: 'shape', label: 'Forme', title: 'Modifier la forme', run: () => app.openShapesSheet(), disabled: () => !app.shapeSelected }),
           btn({ icon: 'edit', label: 'Texte alt.', run: () => app.editAlt() }),
           btn({ icon: 'trash', label: 'Supprimer', run: run((c) => c.deleteSelection().run()) }),
         ),
+        h('div', { class: 'rg hint' }, h('small', {}, 'Astuce : glissez la poignée ✥ sur l’image pour la déplacer')),
+      ],
+    },
+    {
+      id: 'textbox', label: 'Zone de texte', contextual: () => editor.isActive('textBox'), build: () => [
+        group(...Object.entries(app.TB_PRESETS).map(([k, pr]) => btn({ icon: 'textbox', label: pr.label, run: () => app.setTextBox({ fill: pr.fill, border: pr.border, accent: pr.accent }) }))),
+        group(...[50, 75, 100].map((w) => btn({ icon: 'fullimg', label: w + ' %', run: () => app.setTextBox({ width: w }), active: () => editor.getAttributes('textBox').width === w }))),
+        group(
+          btn({ icon: 'alignLeft', label: 'À gauche', run: () => app.setTextBox({ align: 'left' }), active: () => editor.getAttributes('textBox').align === 'left' }),
+          btn({ icon: 'alignCenter', label: 'Centrée', run: () => app.setTextBox({ align: 'center' }), active: () => editor.getAttributes('textBox').align === 'center' }),
+          btn({ icon: 'alignRight', label: 'À droite', run: () => app.setTextBox({ align: 'right' }), active: () => editor.getAttributes('textBox').align === 'right' }),
+        ),
+        group(btn({ icon: 'trash', label: 'Supprimer', run: () => app.removeTextBox() })),
       ],
     },
     {
@@ -189,7 +224,7 @@ export function buildRibbon(app) {
         ),
         group(
           btn({ icon: 'hyphen', label: 'Césure', title: 'Coupure automatique des mots', run: () => app.updateSettings({ hyphenate: !app.settings.hyphenate }), active: () => app.settings.hyphenate }),
-          btn({ icon: 'pilcrow', label: 'Paragraphe', title: 'Interligne et espacement', run: () => app.openSpacing() }),
+          btn({ icon: 'spacing', label: 'Interligne', title: 'Interligne, espacement et retraits', run: () => app.openSpacing() }),
         ),
       ],
     },
@@ -221,12 +256,24 @@ export function buildRibbon(app) {
     {
       id: 'view', label: 'Affichage', build: () => [
         group(
+          btn({ icon: 'book', label: 'Mode lecteur', run: () => app.toggleReader(), active: () => app.reader }),
+          btn({ icon: 'file', label: 'Mode page', run: () => app.setMode(app.mode === 'page' ? 'reflow' : 'page'), dyn: () => (app.mode === 'page' ? 'Mode page' : 'Mode adapté'), active: () => app.mode === 'page' }),
+          btn({ icon: 'grid', label: 'Vue en pavé', title: 'Toutes les pages en mosaïque', run: () => app.openTiles() }),
+          btn({ icon: 'sidebar', label: 'Miniatures', run: () => app.toggleThumbs(), active: () => app.thumbsOpen }),
+        ),
+        group(
+          btn({ icon: 'gotopage', label: 'Aller à la page', run: () => app.openGoto('page') }),
+          btn({ icon: 'list', label: 'Plan', title: 'Titres du document', run: () => app.openGoto('titres') }),
+        ),
+        group(
           btn({ icon: 'zoomOut', label: 'Zoom −', run: () => app.zoomBy(-0.1) }),
-          btn({ icon: 'fit', label: 'Ajuster', run: () => app.zoomFit(), dyn: () => 'Ajuster' }),
+          btn({ icon: 'fit', label: 'Ajuster', run: () => app.zoomFit() }),
           btn({ icon: 'zoomIn', label: 'Zoom +', run: () => app.zoomBy(0.1) }),
         ),
         group(
-          btn({ icon: 'file', label: 'Mode page', run: () => app.setMode(app.mode === 'page' ? 'reflow' : 'page'), dyn: () => (app.mode === 'page' ? 'Page' : 'Adapté'), active: () => app.mode === 'page' }),
+          btn({ icon: 'words', label: 'Nombre de mots', run: () => app.toggleWordCount(), active: () => app.showWc }),
+          btn({ icon: 'stats', label: 'Statistiques', run: () => app.openStats() }),
+          btn({ icon: 'size', label: 'Lecture', title: 'Paramètres de lecture', run: () => app.openReadSettings() }),
           btn({ icon: 'moon', label: 'Thème', run: () => app.cycleTheme(), dyn: () => ({ auto: 'Auto', light: 'Clair', dark: 'Sombre' }[app.theme]) }),
         ),
       ],

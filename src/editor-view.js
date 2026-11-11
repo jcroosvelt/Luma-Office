@@ -1,6 +1,10 @@
 // Écran d'édition : éditeur, pagination visuelle, zoom, recherche, boîtes de dialogue, enregistrement auto.
 import { Editor, findParentNode } from '@tiptap/core';
 import { TableMap } from '@tiptap/pm/tables';
+import { NodeSelection } from '@tiptap/pm/state';
+import { describeSelection, describeAt } from './fmtinfo.js';
+import { DATE_FORMATS, formatDate } from './datefmt.js';
+import { buildShape, svgToSrc, SHAPES, DEFAULT_SHAPE } from './shapes.js';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
@@ -13,7 +17,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
+import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
 import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
@@ -42,6 +46,7 @@ export function mountEditor(host, docRec, hooks) {
   let theme = pref.get('theme', 'auto');
   let saveTimer, layoutRaf, lastSig = '';
   let dirty = false, discarded = false, lastSaved = null;
+  let reader = false, showWc = pref.get('wc', true), ready = false;
   let destroyed = false;
   let persisted = false;
   let inlineTimer;
@@ -86,7 +91,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
-      CharacterCount, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
+      CharacterCount, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
       attributes: { class: 'doc-content', spellcheck: String(spell), lang: settings.lang.split('-')[0], autocapitalize: 'sentences', 'aria-label': 'Contenu du document', role: 'textbox', 'aria-multiline': 'true' },
@@ -103,7 +108,10 @@ export function mountEditor(host, docRec, hooks) {
     },
     onUpdate: () => { scheduleSave(); scheduleLayout(); scheduleInline(); },
     onSelectionUpdate: () => ribbon.refresh(),
-    onTransaction: () => { ribbon.refresh(); updateStatus(); scheduleHandles(); updatePill(); undoBtn.disabled = !editor.can().undo(); redoBtn.disabled = !editor.can().redo(); },
+    onTransaction: ({ transaction }) => {
+      if (!ready) return;
+      if (transaction.docChanged) hideTip(); else if (transaction.selectionSet && editor.isFocused) showCaretTip();
+      ribbon.refresh(); updateStatus(); scheduleHandles(); updatePill(); undoBtn.disabled = !editor.can().undo(); redoBtn.disabled = !editor.can().redo(); },
   });
 
   /* ---------- app : API partagée avec le ruban ---------- */
@@ -119,6 +127,12 @@ export function mountEditor(host, docRec, hooks) {
     updateSettings, pickColor, pickImage, sizeImage, editAlt, openLink, openTableSheet, openSymbols, openSpacing,
     openSizeSheet, openMarginSheet, openHeaderSheet, openColumnsSheet, openNumberSheet, openWatermarkSheet, openBordersSheet, toggleFind, openStats, toggleSpell,
     zoomBy, zoomFit, setMode,
+    insertBlankPage, openDateSheet, openEndnote, toggleDropCap, openTextBoxSheet, setTextBox, removeTextBox, openShapesSheet,
+    get TB_PRESETS() { return TB_PRESETS; },
+    moveImageBlock, openWrapSheet, toggleReader, openReadSettings, toggleThumbs, openTiles, openGoto, toggleWordCount,
+    get reader() { return reader; }, get showWc() { return showWc; }, get thumbsOpen() { return !!thumbsPane; },
+    get dropCapOn() { return !!editor.getAttributes('paragraph').dropCap; },
+    get shapeSelected() { return !!selImage()?.node.attrs.shape; },
     cycleTheme() { theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme]; pref.set('theme', theme); applyTheme(theme); ribbon.refresh(); },
   };
   const ribbon = buildRibbon(app);
@@ -191,18 +205,20 @@ export function mountEditor(host, docRec, hooks) {
     const z = mode === 'page' ? Math.round(curZoom() * 100) + ' %' : '';
     const nChanges = collectChanges(editor.state.doc).length;
     statusbar.replaceChildren(...[
+      fmtSegment(),
       editor.storage.trackChanges.enabled || nChanges ? h('span', { class: 'track-flag' }, `${editor.storage.trackChanges.enabled ? '● Suivi' : 'Suivi'} : ${nChanges} modif.`) : null,
-      h('span', {}, `${words} mot${words > 1 ? 's' : ''}`),
-      h('span', {}, `${cc.characters()} caractères`),
-      h('span', {}, mode === 'page' ? `${pageCount} page${pageCount > 1 ? 's' : ''}` : 'Mode adapté'),
+      showWc ? h('button', { class: 'sb-link', title: 'Statistiques du document', onclick: () => openStats() }, `${words} mot${words > 1 ? 's' : ''}`) : null,
+      showWc ? h('span', { class: 'sb-chars' }, `${cc.characters()} caractères`) : null,
+      h('button', { class: 'sb-link', title: 'Aller à une page', onclick: () => openGoto() }, mode === 'page' ? `${pageCount} page${pageCount > 1 ? 's' : ''}` : 'Mode adapté'),
       h('span', { class: 'grow' }),
       h('span', {}, z),
     ].filter(Boolean));
+    updatePagePill();
   }
 
   /* ---------- Pagination visuelle, zoom ---------- */
   const fitZoom = () => Math.max(0.3, Math.min(1.15, (scroller.clientWidth - 20) / metrics(settings).wpx));
-  const curZoom = () => (mode !== 'page' ? 1 : zoomMode === 'fit' ? fitZoom() : zoomMode);
+  const curZoom = () => (mode !== 'page' || reader ? 1 : zoomMode === 'fit' ? fitZoom() : zoomMode);
   function zoomBy(d) { zoomMode = Math.max(0.3, Math.min(3, Math.round((curZoom() + d) * 100) / 100)); if (mode !== 'page') setMode('page'); else scheduleLayout(); }
   function zoomFit() { zoomMode = 'fit'; if (mode !== 'page') setMode('page'); else scheduleLayout(); }
   function setMode(m) {
@@ -231,8 +247,8 @@ export function mountEditor(host, docRec, hooks) {
     if (destroyed) return;
     const M = applyPageVars(root, settings);
     applyDecor();
-    root.classList.toggle('mode-reflow', mode !== 'page');
-    if (mode !== 'page') {
+    root.classList.toggle('mode-reflow', mode !== 'page' || reader);
+    if (mode !== 'page' || reader) {
       sheetEl.style.transform = '';
       sheetEl.style.minHeight = '';
       pmHost.querySelectorAll('.page-break').forEach((el) => { el.style.height = ''; });
@@ -500,7 +516,10 @@ export function mountEditor(host, docRec, hooks) {
       radioList([['1', '1,0'], ['1.15', '1,15'], ['1.5', '1,5'], ['2', '2,0'], ['2.5', '2,5'], ['3', '3,0']],
         () => (a.lineHeight ? String(a.lineHeight) : '1.15'), (v) => set({ lineHeight: v === '1.15' ? null : v })),
       h('label', {}, 'Espacement avant le paragraphe', before),
-      h('label', {}, 'Espacement après le paragraphe', after)));
+      h('label', {}, 'Espacement après le paragraphe', after),
+      h('h3', {}, 'Retraits'),
+      h('label', {}, 'Retrait gauche', dropdown({ cls: 'full', options: Array.from({ length: 11 }, (_, i) => [String(i), i ? `Niveau ${i} (${(i * 1.27).toFixed(2).replace('.', ',')} cm)` : 'Aucun']), get: () => String(a.indent || 0), set: (v) => set({ indent: +v }) }).el),
+      h('label', {}, 'Retrait droit', dropdown({ cls: 'full', options: [0, 0.5, 1, 1.5, 2, 3, 4, 5].map((c) => [String(c), c ? `${String(c).replace('.', ',')} cm` : 'Aucun']), get: () => String(a.indentRight ? Math.round((a.indentRight / 28.35) * 2) / 2 : 0), set: (v) => set({ indentRight: +v ? Math.round(+v * 28.35) : null }) }).el)));
   }
 
   /* ---------- Couleurs ---------- */
@@ -607,7 +626,7 @@ export function mountEditor(host, docRec, hooks) {
     try {
       const { src, w } = await resizeImage(file);
       const maxW = metrics(settings).contentWpx;
-      editor.chain().focus().setImage({ src, alt: file.name.replace(/\.[^.]+$/, ''), width: Math.round(Math.min(w, maxW)) }).run();
+      editor.chain().focus().setImage({ src, alt: file.name.replace(/\.[^.]+$/, ''), width: Math.round(Math.min(w, maxW)) }).command(({ tr }) => { const pos = tr.selection.from - 1; if (pos >= 0 && tr.doc.nodeAt(pos)?.type.name === 'image') tr.setSelection(NodeSelection.create(tr.doc, pos)); return true; }).run();
     } catch { toast('Impossible de lire cette image'); }
   }
   function pickImage(camera) {
@@ -910,7 +929,12 @@ export function mountEditor(host, docRec, hooks) {
   let handlesRaf, dragging = false;
   function scheduleHandles() { cancelAnimationFrame(handlesRaf); handlesRaf = requestAnimationFrame(updateHandles); }
   function updateHandles() {
-    if (destroyed || dragging) return;
+    if (destroyed) return;
+    updateImgHandles();
+    updateColHandles();
+  }
+  function updateColHandles() {
+    if (dragging) return;
     const table = tableOf() && tableDom();
     if (!table || !table.rows[0]) { colLayer.replaceChildren(); return; }
     const z = curZoom();
@@ -979,7 +1003,509 @@ export function mountEditor(host, docRec, hooks) {
     }
   }
 
+  /* ---------- Mise en forme sous le curseur (comme Word) : barre d'état, bulle au toucher, info-bulle au survol ---------- */
+  const tip = h('div', { class: 'fmt-tip', hidden: true });
+  document.body.append(tip);
+  let tipTimer, tipSource = '', userTouched = false, hoverT;
+  const hideTip = () => { tip.hidden = true; clearTimeout(tipTimer); };
+  function tipContent(f) {
+    const l2 = [...f.flags, f.align].filter(Boolean).join(' · ');
+    return [
+      h('div', { class: 'l1' }, h('b', { style: { fontFamily: f.font } }, f.font), ` · ${f.size} pt`),
+      l2 ? h('div', { class: 'l2' }, l2) : null,
+      h('div', { class: 'l3' }, f.color ? h('span', { class: 'dot', style: { background: f.color } }) : null, `Style : ${f.style}`, f.link ? ` · lien` : ''),
+    ].filter(Boolean);
+  }
+  function showTip(info, x, y, ttl = 2800, source = 'caret') {
+    tipSource = source;
+    tip.replaceChildren(...tipContent(info));
+    tip.hidden = false; tip.style.left = '0px'; tip.style.top = '0px';
+    const w = tip.offsetWidth, hh = tip.offsetHeight;
+    const left = Math.min(Math.max(8, x - 24), innerWidth - w - 8);
+    let top = y - hh - 12; const below = top < 8; if (below) top = y + 30;
+    tip.classList.toggle('below', below);
+    tip.style.setProperty('--ax', Math.min(Math.max(14, x - left - 5), w - 24) + 'px');
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    clearTimeout(tipTimer); if (ttl) tipTimer = setTimeout(hideTip, ttl);
+  }
+  function showCaretTip(force) {
+    if (reader || (!force && !userTouched)) return;
+    try {
+      const c = editor.view.coordsAtPos(editor.state.selection.head);
+      showTip(describeSelection(editor.state), c.left, c.top, force ? 4000 : 2600, 'caret');
+    } catch { /* hors écran */ }
+  }
+  pmHost.addEventListener('pointerdown', () => { userTouched = true; hideTip(); }, true);
+  pmHost.addEventListener('keydown', () => { userTouched = true; hideTip(); }, true);
+  pmHost.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || reader) return;
+    clearTimeout(hoverT);
+    if (!tip.hidden && tipSource === 'hover') hideTip();
+    hoverT = setTimeout(() => {
+      if (!e.target.closest?.('.ProseMirror') || e.target.closest('.endnotes')) return;
+      const r = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+      if (!r || r.inside < 0) return;
+      showTip(describeAt(editor.state, r.pos), e.clientX, e.clientY - 6, 4500, 'hover');
+    }, 450);
+  });
+  pmHost.addEventListener('pointerleave', () => { clearTimeout(hoverT); if (tipSource === 'hover') hideTip(); });
+
+  function fmtSegment() {
+    const f = describeSelection(editor.state);
+    return h('button', { class: 'fmt-seg', title: 'Mise en forme du texte (touchez pour le détail)', onclick: () => showCaretTip(true) },
+      h('span', { style: { fontFamily: f.font } }, f.font), `${f.size} pt`, f.bold ? h('b', {}, 'G') : null, f.italic ? h('i', {}, 'I') : null, f.underline ? h('u', {}, 'S') : null);
+  }
+
+  /* ---------- Images : poignées de déplacement et de taille, monter / descendre, habillage ---------- */
+  const imgLayer = h('div', { class: 'img-layer' });
+  sheetEl.append(imgLayer);
+  let imgUI = null, imgDragging = false;
+  const selImage = () => { const s = editor.state.selection; return s.node?.type?.name === 'image' ? s : null; };
+  function placeImgHandles() {
+    if (!imgUI) return;
+    const el = editor.view.nodeDOM(imgUI.pos);
+    if (!(el instanceof HTMLElement)) return;
+    const z = curZoom(), pr = sheetEl.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const x = (r.left - pr.left) / z, y = (r.top - pr.top) / z, w = r.width / z, hh = r.height / z;
+    Object.assign(imgUI.frame.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: hh + 'px' });
+    Object.assign(imgUI.mv.style, { left: x - 16 + 'px', top: y - 16 + 'px' });
+    Object.assign(imgUI.rs.style, { left: x + w - 14 + 'px', top: y + hh - 14 + 'px' });
+    const bw = imgUI.bar.offsetWidth || 220;
+    Object.assign(imgUI.bar.style, { left: Math.max(4, Math.min(x, sheetEl.offsetWidth - bw - 4)) + 'px', top: (y > 60 ? y - 54 : y + hh + 12) + 'px' });
+  }
+  function updateImgHandles() {
+    if (imgDragging) return;
+    const s = selImage();
+    if (!s || reader) { imgUI = null; imgLayer.replaceChildren(); return; }
+    if (imgUI?.pos === s.from) { placeImgHandles(); return; }
+    const barBtn = (ic, label, fn) => h('button', { 'aria-label': label, title: label, onpointerdown: (e) => e.preventDefault(), onclick: fn }, icon(ic, 20));
+    imgUI = {
+      pos: s.from,
+      frame: h('div', { class: 'img-frame' }),
+      mv: h('button', { class: 'img-move', 'aria-label': 'Déplacer l’image : glisser', title: 'Glisser pour déplacer l’image' }, icon('move', 20)),
+      rs: h('button', { class: 'img-resize', 'aria-label': 'Redimensionner : glisser', title: 'Glisser pour agrandir ou réduire' }),
+      bar: h('div', { class: 'img-bar' },
+        barBtn('up', 'Monter l’image', () => moveImageBlock(-1)), barBtn('down', 'Descendre l’image', () => moveImageBlock(1)),
+        barBtn('alignCenter', 'Habillage et position', () => openWrapSheet()), barBtn('trash', 'Supprimer l’image', () => editor.chain().focus().deleteSelection().run())),
+    };
+    imgUI.mv.addEventListener('pointerdown', startImageMove);
+    imgUI.rs.addEventListener('pointerdown', startImageResize);
+    imgLayer.replaceChildren(imgUI.frame, imgUI.mv, imgUI.rs, imgUI.bar);
+    placeImgHandles();
+  }
+  function startImageResize(e) {
+    e.preventDefault(); e.stopPropagation();
+    const pos = imgUI.pos, el = editor.view.nodeDOM(pos), x0 = e.clientX, startW = el.getBoundingClientRect().width / curZoom();
+    const cw = metrics(settings).contentWpx;
+    let w = startW, raf = 0; imgDragging = true;
+    const target = e.currentTarget; target.setPointerCapture(e.pointerId);
+    const apply = () => {
+      raf = 0;
+      const node = editor.state.doc.nodeAt(pos); if (!node) return;
+      const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, width: Math.round(w) });
+      tr.setSelection(NodeSelection.create(tr.doc, pos));
+      editor.view.dispatch(tr); placeImgHandles();
+    };
+    const mv = (ev) => { w = Math.max(30, Math.min(cw, startW + (ev.clientX - x0) / curZoom())); if (!raf) raf = requestAnimationFrame(apply); };
+    const up = () => { target.removeEventListener('pointermove', mv); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up); cancelAnimationFrame(raf); apply(); imgDragging = false; scheduleHandles(); };
+    target.addEventListener('pointermove', mv); target.addEventListener('pointerup', up); target.addEventListener('pointercancel', up);
+  }
+  function startImageMove(e) {
+    e.preventDefault(); e.stopPropagation();
+    const s = selImage(); if (!s) return;
+    const from = s.from, node = s.node, imgEl = editor.view.nodeDOM(from);
+    const target = e.currentTarget; target.setPointerCapture(e.pointerId); imgDragging = true;
+    const ghost = h('img', { class: 'drag-ghost', src: node.attrs.src, style: { width: Math.min(130, imgEl.getBoundingClientRect().width) + 'px' } });
+    const caret = h('div', { class: 'drop-caret', hidden: true });
+    document.body.append(ghost); sheetEl.append(caret);
+    let dropAt = null, last = e, raf = 0, alive = true;
+    const place = (ev) => {
+      ghost.style.left = ev.clientX - 30 + 'px'; ghost.style.top = ev.clientY - 30 + 'px';
+      const r = editor.view.posAtCoords({ left: ev.clientX, top: ev.clientY });
+      if (r && !(r.pos >= from && r.pos <= from + 1)) {
+        dropAt = r.pos;
+        const c = editor.view.coordsAtPos(r.pos), pr = sheetEl.getBoundingClientRect(), z = curZoom();
+        Object.assign(caret.style, { left: (c.left - pr.left) / z + 'px', top: (c.top - pr.top) / z + 'px', height: (c.bottom - c.top) / z + 'px' });
+        caret.hidden = false;
+      } else { dropAt = null; caret.hidden = true; }
+    };
+    const loop = () => { // défilement automatique près des bords
+      if (!alive) return;
+      const sr = scroller.getBoundingClientRect();
+      if (last.clientY < sr.top + 70) scroller.scrollTop -= 14; else if (last.clientY > sr.bottom - 70) scroller.scrollTop += 14;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop); place(e);
+    const mv = (ev) => { last = ev; place(ev); };
+    const up = () => {
+      alive = false; cancelAnimationFrame(raf);
+      target.removeEventListener('pointermove', mv); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up);
+      ghost.remove(); caret.remove(); imgDragging = false;
+      if (dropAt != null) moveNodeTo(from, node, dropAt); else scheduleHandles();
+    };
+    target.addEventListener('pointermove', mv); target.addEventListener('pointerup', up); target.addEventListener('pointercancel', up);
+  }
+  function moveNodeTo(from, node, to) {
+    const tr = editor.state.tr;
+    tr.delete(from, from + 1);
+    const mapped = tr.mapping.map(to), $m = tr.doc.resolve(mapped);
+    let np = mapped;
+    if ($m.parent.inlineContent) tr.insert(mapped, node);
+    else { tr.insert(mapped, editor.schema.nodes.paragraph.create(null, node)); np = mapped + 1; }
+    tr.setSelection(NodeSelection.create(tr.doc, np)).scrollIntoView();
+    editor.view.dispatch(tr); toast('Image déplacée');
+  }
+  function moveImageBlock(dir) {
+    const s = selImage(); if (!s) return;
+    const { $from } = s;
+    if ($from.depth !== 1) { toast('Pour déplacer cette image, utilisez la poignée ✥ et glissez-la.'); return; }
+    const doc = editor.state.doc, idx = $from.index(0), block = doc.child(idx), start = $from.before(1), off = s.from - start;
+    if ((dir < 0 && idx === 0) || (dir > 0 && idx === doc.childCount - 1)) { toast(dir < 0 ? 'Déjà tout en haut' : 'Déjà tout en bas'); return; }
+    const tr = editor.state.tr; let newStart;
+    if (dir < 0) { const prev = doc.child(idx - 1); newStart = start - prev.nodeSize; tr.delete(start, start + block.nodeSize); tr.insert(newStart, block); }
+    else { const next = doc.child(idx + 1); tr.delete(start, start + block.nodeSize); newStart = start + next.nodeSize; tr.insert(newStart, block); }
+    tr.setSelection(NodeSelection.create(tr.doc, newStart + off)).scrollIntoView();
+    editor.view.dispatch(tr);
+  }
+  function isolateImage() {
+    const s = selImage(); if (!s) return;
+    const { $from } = s, para = $from.parent;
+    if (para.type.name !== 'paragraph') return;
+    const start = $from.start(), P = editor.schema.nodes.paragraph;
+    const before = para.content.cut(0, s.from - start), after = para.content.cut(s.from - start + 1);
+    const nodes = [];
+    if (before.size) nodes.push(P.create(para.attrs, before));
+    const mid = P.create({ ...para.attrs, textAlign: 'center' }, s.node.type.create({ ...s.node.attrs, float: 'none' }));
+    nodes.push(mid);
+    if (after.size) nodes.push(P.create(para.attrs, after));
+    const base = $from.before(); let midPos = base;
+    for (const n of nodes) { if (n === mid) break; midPos += n.nodeSize; }
+    const tr = editor.state.tr.replaceWith(base, $from.after(), nodes);
+    tr.setSelection(NodeSelection.create(tr.doc, midPos + 1));
+    editor.view.dispatch(tr);
+  }
+  function openWrapSheet() {
+    const s = selImage(); if (!s) return;
+    const cur = s.node.attrs.float || 'none';
+    const mini = (inner) => `<svg viewBox="0 0 60 44" width="54" height="40" aria-hidden="true"><rect x="1" y="1" width="58" height="42" rx="3" fill="#fff" stroke="currentColor" stroke-width="2"/>${inner}</svg>`;
+    const lines = (x, w, ys) => ys.map((y) => `<path d="M${x} ${y}h${w}" stroke="currentColor" stroke-width="2" opacity=".5"/>`).join('');
+    let sh;
+    const items = [
+      ['none', 'En ligne avec le texte', 'L’image se comporte comme un caractère', mini(lines(6, 22, [14]) + '<rect x="30" y="9" width="10" height="9" fill="currentColor" opacity=".7"/>' + lines(44, 10, [14]) + lines(6, 48, [26, 34]))],
+      ['block', 'Seule sur sa ligne', 'Image centrée, texte au-dessus et en dessous', mini(lines(6, 48, [9]) + '<rect x="19" y="15" width="22" height="14" fill="currentColor" opacity=".7"/>' + lines(6, 48, [35]))],
+      ['left', 'Texte autour — à gauche', 'L’image à gauche, le texte l’entoure', mini('<rect x="6" y="8" width="18" height="16" fill="currentColor" opacity=".7"/>' + lines(28, 26, [10, 17, 24]) + lines(6, 48, [32, 38]))],
+      ['right', 'Texte autour — à droite', 'L’image à droite, le texte l’entoure', mini('<rect x="36" y="8" width="18" height="16" fill="currentColor" opacity=".7"/>' + lines(6, 26, [10, 17, 24]) + lines(6, 48, [32, 38]))],
+    ];
+    sh = sheet('Habillage et position', h('div', { class: 'form' },
+      h('div', { class: 'menu-list' }, items.map(([v, l, sub, svg]) => h('button', { class: 'menu-item' + (v === cur ? ' on' : ''), onclick: () => { sh.close(); if (v === 'block') isolateImage(); else editor.chain().focus().updateAttributes('image', { float: v }).run(); } },
+        h('span', { class: 'ccard-ic', html: svg }), h('span', { class: 'mi-text' }, h('b', {}, l), h('small', {}, sub))))),
+      h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => { sh.close(); moveImageBlock(-1); } }, icon('up', 18), 'Monter'), h('button', { class: 'btn', onclick: () => { sh.close(); moveImageBlock(1); } }, icon('down', 18), 'Descendre')),
+      h('p', { class: 'muted small' }, 'Astuce : touchez l’image puis glissez la poignée ✥ pour la déplacer n’importe où dans le texte.')));
+  }
+
+  const selectJustInserted = ({ tr }) => { const pos = tr.selection.from - 1; if (pos >= 0 && tr.doc.nodeAt(pos)?.type.name === 'image') tr.setSelection(NodeSelection.create(tr.doc, pos)); return true; };
+
+  /* ---------- Insertions : page vierge, formes, date et heure, note de fin, lettrine, zone de texte ---------- */
+  function insertBlankPage() {
+    editor.chain().focus().insertContent([{ type: 'pageBreak' }, { type: 'paragraph' }, { type: 'pageBreak' }, { type: 'paragraph' }]).run();
+    toast('Page vierge insérée');
+  }
+  function openDateSheet() {
+    let auto = false, sh;
+    const now = new Date();
+    sh = sheet('Date et heure', h('div', { class: 'form' },
+      h('div', { class: 'menu-list' }, DATE_FORMATS.map(([id, label]) => h('button', { class: 'menu-item', onclick: () => { sh.close(); editor.chain().focus().insertContent(auto ? { type: 'dateField', attrs: { fmt: id } } : formatDate(id, now)).run(); } },
+        icon('clock', 20), h('span', { class: 'mi-text' }, h('b', {}, formatDate(id, now)), h('small', {}, label))))),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: (e) => { auto = e.target.checked; } }), 'Mettre à jour automatiquement à chaque ouverture')));
+  }
+  function openEndnote() {
+    const s = editor.state.selection;
+    const editing = s.node?.type?.name === 'endnote';
+    const ta = h('textarea', { class: 'field', rows: '4', placeholder: 'Texte de la note de fin…' });
+    if (editing) ta.value = s.node.attrs.text || '';
+    let sh;
+    sh = sheet(editing ? 'Modifier la note de fin' : 'Nouvelle note de fin', h('form', { class: 'form', onsubmit: (e) => {
+      e.preventDefault();
+      const text = ta.value.trim(); sh.close();
+      if (editing) editor.chain().focus().updateAttributes('endnote', { text }).run();
+      else editor.chain().focus().insertContent({ type: 'endnote', attrs: { text } }).run();
+    } }, ta, h('p', { class: 'muted small' }, 'Un numéro est ajouté dans le texte ; les notes sont regroupées à la fin du document.'),
+    h('div', { class: 'row end' }, editing ? h('button', { type: 'button', class: 'btn danger', onclick: () => { sh.close(); editor.chain().focus().deleteSelection().run(); } }, 'Supprimer') : null, h('button', { type: 'submit', class: 'btn primary' }, editing ? 'Enregistrer' : 'Insérer'))));
+    setTimeout(() => ta.focus(), 250);
+  }
+  pmHost.addEventListener('click', (e) => {
+    if (e.target.closest?.('.endnote-ref')) setTimeout(() => { if (editor.state.selection.node?.type?.name === 'endnote') openEndnote(); }, 0);
+    else {
+      const li = e.target.closest?.('.endnotes li');
+      if (li) { const n = +li.dataset.i; let k = -1, found = null; editor.state.doc.descendants((nd, pos) => { if (nd.type.name === 'endnote') { k++; if (k === n) found = pos; } }); if (found != null) { editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, found))); openEndnote(); } }
+    }
+  });
+  function toggleDropCap() {
+    if (editor.isActive('heading') || editor.isActive('textBox') && false) { toast('La lettrine s’applique à un paragraphe de texte.'); return; }
+    const on = !!editor.getAttributes('paragraph').dropCap;
+    editor.chain().focus().setParagraphProps({ dropCap: !on }).run();
+    toast(on ? 'Lettrine retirée' : 'Lettrine appliquée au paragraphe');
+  }
+  const TB_PRESETS = {
+    simple: { label: 'Simple', fill: '#ffffff', border: '#8a93a6', accent: false },
+    info: { label: 'Information', fill: '#eaf2ff', border: '#0157e0', accent: false },
+    warn: { label: 'Attention', fill: '#fff4de', border: '#fc9a0b', accent: false },
+    ok: { label: 'Succès', fill: '#e6f6ea', border: '#1a7f37', accent: false },
+    danger: { label: 'Alerte', fill: '#fdeceb', border: '#d92d20', accent: false },
+    quote: { label: 'Citation', fill: '#f3f6fc', border: '#001e6c', accent: true },
+  };
+  function openTextBoxSheet() {
+    let sh;
+    sh = sheet('Zone de texte', h('div', { class: 'form' },
+      h('div', { class: 'tbcards' }, Object.entries(TB_PRESETS).map(([k, p]) => h('button', { class: 'tbcard', onclick: () => {
+        sh.close();
+        editor.chain().focus().insertContent({ type: 'textBox', attrs: { fill: p.fill, border: p.border, accent: p.accent, width: 100, align: 'center' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Votre texte ici' }] }] }).run();
+      } }, h('span', { class: 'tbsample', style: { background: p.fill, borderColor: p.border, borderLeftWidth: p.accent ? '6px' : '2px' } }, 'Abc'), h('b', {}, p.label)))),
+      h('p', { class: 'muted small' }, 'Une fois insérée, touchez la zone pour changer son style, sa largeur ou sa position dans l’onglet « Zone de texte ».')));
+  }
+  function setTextBox(a) { editor.chain().focus().updateAttributes('textBox', a).run(); }
+  function removeTextBox() {
+    const f = findParentNode((n) => n.type.name === 'textBox')(editor.state.selection);
+    if (f) editor.view.dispatch(editor.state.tr.delete(f.pos, f.pos + f.node.nodeSize));
+  }
+
+  /* ---------- Formes ---------- */
+  function openShapesSheet(editImg) {
+    const edit = editImg || selImage();
+    const isEdit = !!(edit && edit.node.attrs.shape);
+    const cur = { ...DEFAULT_SHAPE, ...(isEdit ? JSON.parse(edit.node.attrs.shape) : {}) };
+    const FILLS = ['none', '#ffffff', '#d9e8ff', '#ffe3b8', '#d6f2dd', '#ffd9d6', '#e6dcff', '#0157e0', '#001e6c', '#fc9a0b', '#1a7f37', '#d92d20', '#ec6ba6', '#8a93a6', '#000000'];
+    const LINES = ['#0157e0', '#001e6c', '#fc9a0b', '#1a7f37', '#d92d20', '#7b4de0', '#8a93a6', '#000000'];
+    const prev = h('div', { class: 'shape-prev' });
+    const grid = h('div', { class: 'shapegrid' });
+    const draw = () => { const { svg } = buildShape(cur); prev.innerHTML = svg; const el = prev.firstElementChild; el.removeAttribute('width'); el.removeAttribute('height'); el.style.maxWidth = '240px'; el.style.maxHeight = '150px'; el.style.width = '100%'; };
+    const drawGrid = () => {
+      const entries = [...Object.entries(SHAPES).map(([k, v]) => [k, v.label]), ...Object.entries(MOTIFS).map(([k, v]) => ['motif:' + k, v.label])];
+      grid.replaceChildren(...entries.map(([k, label]) => {
+        const t = { ...cur, type: k, size: 60, text: '' };
+        const { svg } = buildShape(k.startsWith('motif:') ? { ...t, fill: MOTIFS[k.slice(6)].color } : t);
+        return h('button', { type: 'button', class: 'shapebtn' + (cur.type === k ? ' on' : ''), title: label, 'aria-label': label, onclick: () => { cur.type = k; if (k.startsWith('motif:')) cur.fill = MOTIFS[k.slice(6)].color; drawGrid(); draw(); }, html: svg.replace(/width="\d+" height="\d+"/, 'width="40" height="40"') });
+      }));
+    };
+    const sw = (colors, get, set, none) => { const w = h('div', { class: 'swrow s8' }, colors.map((c) => h('button', { type: 'button', class: 'sw' + (get() === c ? ' on' : ''), style: c === 'none' ? { background: 'repeating-linear-gradient(45deg,#fff 0 4px,#e0e0e0 4px 8px)' } : { background: c }, 'aria-label': c === 'none' ? 'Sans remplissage' : c, onclick: () => { set(c); w.querySelectorAll('.sw').forEach((x, i) => x.classList.toggle('on', colors[i] === c)); draw(); } }))); void none; return w; };
+    const txt = h('input', { class: 'field', value: cur.text, placeholder: 'Texte dans la forme (facultatif)', maxlength: '40', oninput: (e) => { cur.text = e.target.value; draw(); } });
+    const swidth = h('input', { type: 'range', min: '0', max: '10', step: '1', value: String(cur.sw), class: 'rng', oninput: (e) => { cur.sw = +e.target.value; draw(); } });
+    let sh;
+    sh = sheet(isEdit ? 'Modifier la forme' : 'Formes', h('div', { class: 'form' },
+      grid, h('div', { class: 'shape-stage' }, prev),
+      h('h3', {}, 'Remplissage'), sw(FILLS, () => cur.fill, (c) => { cur.fill = c; }),
+      h('h3', {}, 'Contour'), sw(LINES, () => cur.stroke, (c) => { cur.stroke = c; }), h('label', {}, 'Épaisseur du contour', swidth),
+      h('label', {}, 'Texte', txt),
+      h('h3', {}, 'Taille'),
+      h('div', { class: 'choice' }, [['Petite', 110], ['Moyenne', 220], ['Grande', 340], ['Pleine largeur', Math.round(metrics(settings).contentWpx)]].map(([l, v]) => h('button', { type: 'button', class: 'chip' + (cur.size === v ? ' on' : ''), onclick: (e) => { cur.size = v; e.currentTarget.parentNode.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); e.currentTarget.classList.add('on'); } }, l))),
+      h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => {
+        const { svg, w } = buildShape(cur); const src = svgToSrc(svg); const label = (SHAPES[cur.type]?.label || MOTIFS[cur.type.slice(6)]?.label || 'Forme');
+        sh.close();
+        if (isEdit) editor.chain().focus().updateAttributes('image', { src, shape: JSON.stringify(cur), alt: label, width: cur.size === DEFAULT_SHAPE.size ? edit.node.attrs.width : w }).run();
+        else editor.chain().focus().setImage({ src, alt: label, width: w, shape: JSON.stringify(cur) }).command(selectJustInserted).run();
+      } }, isEdit ? 'Appliquer' : 'Insérer'))), { wide: true });
+    drawGrid(); draw();
+  }
+
+  /* ---------- Affichage : pages, miniatures, vue en pavé, aller à la page, mode lecteur ---------- */
+  const clampN = (n, a, b) => Math.max(a, Math.min(b, n));
+  const nextFrames = (n = 2) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+  const stageTop = () => stage.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  function curPage() {
+    if (mode === 'page' && !reader) {
+      const M = metrics(settings), z = curZoom();
+      return clampN(Math.floor((scroller.scrollTop + scroller.clientHeight * 0.35 - stageTop()) / (M.hpx * z)) + 1, 1, pageCount);
+    }
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    return clampN(Math.round((max > 0 ? scroller.scrollTop / max : 0) * (pageCount - 1)) + 1, 1, pageCount);
+  }
+  function goToPage(n, smooth = true) {
+    n = clampN(Math.round(n) || 1, 1, pageCount);
+    if (mode === 'page' && !reader) {
+      const M = metrics(settings), z = curZoom();
+      scroller.scrollTo({ top: stageTop() + (n - 1) * M.hpx * z - 6, behavior: smooth ? 'smooth' : 'auto' });
+    } else {
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      scroller.scrollTo({ top: pageCount > 1 ? ((n - 1) / (pageCount - 1)) * max : 0, behavior: smooth ? 'smooth' : 'auto' });
+    }
+  }
+  async function ensurePageMode() {
+    if (reader) exitReader();
+    if (mode !== 'page') { setMode('page'); toast('Passage en mode Page pour afficher les pages'); await nextFrames(3); }
+  }
+
+  // pastille « Page X / N » toujours visible (documents longs) : touchez-la pour aller à une page
+  const pagePill = h('button', { class: 'page-pill', 'aria-label': 'Aller à une page', onclick: () => openGoto() });
+  document.body.append(pagePill);
+  function updatePagePill() {
+    if (destroyed) return;
+    const words = editor.storage.characterCount.words();
+    pagePill.replaceChildren(icon('gotopage', 16), `Page ${curPage()} / ${pageCount}`, showWc ? h('small', {}, ` · ${words} mot${words > 1 ? 's' : ''}`) : null);
+    const sb = scroller.getBoundingClientRect(), rb = root.getBoundingClientRect();
+    pagePill.style.bottom = Math.max(8, innerHeight - sb.bottom + 10) + 'px';
+    pagePill.style.right = '12px';
+    pagePill.hidden = !!root.querySelector('.sheet-back') && false;
+    const rp = $readerProgress; if (rp) { const max = scroller.scrollHeight - scroller.clientHeight; rp.style.width = (max > 0 ? (scroller.scrollTop / max) * 100 : 0) + '%'; }
+    void rb;
+  }
+  let pillRaf = 0;
+  scroller.addEventListener('scroll', () => { if (!pillRaf) pillRaf = requestAnimationFrame(() => { pillRaf = 0; updatePagePill(); refreshThumbCurrent(); }); }, { passive: true });
+
+  // vignettes de pages (clonage léger du document, décalé sur la page voulue)
+  function thumbEl(i, w, docHtml, overlayHtml) {
+    const M = metrics(settings), k = w / M.wpx, H = M.hpx;
+    const paper = h('div', { class: 'thumb-paper', style: { width: M.wpx + 'px', minHeight: H + 'px', transform: `translateY(${-i * H}px)` } });
+    applyPageVars(paper, settings);
+    paper.style.padding = `${settings.margins.top}cm ${settings.margins.right}cm ${settings.margins.bottom}cm ${M.leftCm}cm`;
+    paper.append(h('div', { class: 'hf-layer', html: overlayHtml }), h('div', { class: 'doc-content', html: docHtml }));
+    return h('div', { class: 'thumb-page', style: { width: w + 'px', height: Math.round(H * k) + 'px' } },
+      h('div', { class: 'thumb-inner', style: { width: M.wpx + 'px', height: H + 'px', transform: `scale(${k})` } }, paper));
+  }
+  let thumbItems = [];
+  function refreshThumbCurrent() { if (!thumbItems.length) return; const c = curPage(); thumbItems.forEach((it) => it.el.classList.toggle('cur', it.page === c)); }
+  function renderThumbs(container, { width, onPick }) {
+    const pm = pmHost.querySelector('.ProseMirror');
+    const docHtml = pm ? pm.innerHTML : '', overlayHtml = overlay.innerHTML;
+    const M = metrics(settings);
+    thumbItems = [];
+    const io = new IntersectionObserver((entries) => entries.forEach((en) => {
+      if (en.isIntersecting && !en.target.dataset.done) { en.target.dataset.done = '1'; en.target.querySelector('.thumb-slot').replaceChildren(thumbEl(+en.target.dataset.i, width, docHtml, overlayHtml)); }
+    }), { root: container, rootMargin: '300px' });
+    const items = Array.from({ length: pageCount }, (_, i) => {
+      const slot = h('div', { class: 'thumb-slot', style: { width: width + 'px', height: Math.round((M.hpx * width) / M.wpx) + 'px' } });
+      const el = h('button', { class: 'pgthumb', 'data-i': i, 'aria-label': `Page ${i + 1}`, onclick: () => onPick(i + 1) }, slot, h('span', { class: 'pgthumb-n' }, String(i + 1)));
+      thumbItems.push({ el, page: i + 1 });
+      return el;
+    });
+    container.replaceChildren(...items);
+    items.forEach((el) => io.observe(el));
+    refreshThumbCurrent();
+    return () => io.disconnect();
+  }
+  let thumbsPane = null, thumbsOff = null;
+  async function toggleThumbs() {
+    if (thumbsPane) { closeThumbs(); return; }
+    await ensurePageMode();
+    const list = h('div', { class: 'thumbs-list' });
+    thumbsPane = h('aside', { class: 'thumbs-pane', 'aria-label': 'Miniatures des pages' },
+      h('div', { class: 'thumbs-head' }, h('b', {}, `Pages (${pageCount})`), h('button', { class: 'icon-btn', 'aria-label': 'Fermer', onclick: closeThumbs }, icon('close', 18))), list);
+    const place = () => { const r = scroller.getBoundingClientRect(); Object.assign(thumbsPane.style, { top: r.top + 'px', height: r.height + 'px' }); };
+    document.body.append(thumbsPane); place();
+    addEventListener('resize', place);
+    thumbsOff = renderThumbs(list, { width: 126, onPick: (n) => { goToPage(n); if (innerWidth < 768) closeThumbs(); } });
+    const prevOff = thumbsOff; thumbsOff = () => { prevOff(); removeEventListener('resize', place); };
+    ribbon.refresh();
+  }
+  function closeThumbs() { thumbsOff?.(); thumbsOff = null; thumbsPane?.remove(); thumbsPane = null; thumbItems = []; ribbon.refresh(); }
+  async function openTiles() {
+    await ensurePageMode();
+    if (thumbsPane) closeThumbs();
+    const grid = h('div', { class: 'tiles-grid' });
+    const wrap = h('div', { class: 'tiles-view', role: 'dialog', 'aria-label': 'Vue en pavé' },
+      h('header', { class: 'tiles-head' }, h('b', {}, `Vue en pavé · ${pageCount} page${pageCount > 1 ? 's' : ''}`), h('span', { class: 'grow' }),
+        h('button', { class: 'icon-btn', 'aria-label': 'Fermer', onclick: () => close() }, icon('close', 22))), grid);
+    document.body.append(wrap);
+    const tw = innerWidth < 520 ? Math.floor((innerWidth - 56) / 2) : innerWidth < 900 ? 170 : 200;
+    const off = renderThumbs(grid, { width: tw, onPick: (n) => { close(); setTimeout(() => goToPage(n, false), 30); } });
+    const close = () => { off(); wrap.remove(); thumbItems = []; document.removeEventListener('keydown', onKey, true); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true);
+    requestAnimationFrame(() => grid.querySelector('.cur')?.scrollIntoView({ block: 'center' }));
+  }
+
+  function headingList() {
+    const heads = [];
+    editor.state.doc.descendants((n, pos) => { if (n.type.name === 'heading') heads.push({ level: n.attrs.level, text: n.textContent.trim() || '(titre vide)', pos }); });
+    if (!heads.length) return heads;
+    if (mode === 'page' && !reader) {
+      const M = metrics(settings), z = curZoom(), top = sheetEl.getBoundingClientRect().top;
+      heads.forEach((hd) => { const el = editor.view.nodeDOM(hd.pos); hd.page = el instanceof HTMLElement ? clampN(Math.floor((el.getBoundingClientRect().top - top) / z / M.hpx) + 1, 1, pageCount) : 1; });
+    } else { const pg = estimateHeadingPages(); heads.forEach((hd, i) => { hd.page = pg[i] || 1; }); }
+    return heads;
+  }
+  function openGoto(startTab = 'page') {
+    let sh, tab = startTab;
+    const body = h('div', { class: 'form' });
+    const tabs = h('div', { class: 'choice' });
+    const draw = () => {
+      tabs.replaceChildren(...[['page', 'Page'], ['titres', 'Titres du document']].map(([k, l]) => h('button', { class: 'chip' + (tab === k ? ' on' : ''), onclick: () => { tab = k; draw(); } }, l)));
+      body.replaceChildren(tabs, tab === 'page' ? pageTab() : titlesTab());
+    };
+    const pageTab = () => {
+      const N = pageCount; let v = curPage();
+      const num = h('input', { class: 'field bignum', type: 'number', inputmode: 'numeric', min: '1', max: String(N), value: String(v), 'aria-label': 'Numéro de page' });
+      const rng = h('input', { class: 'rng', type: 'range', min: '1', max: String(Math.max(1, N)), value: String(v), 'aria-label': 'Faire défiler les pages' });
+      const set = (n, go = true) => { v = clampN(Math.round(+n) || 1, 1, N); num.value = String(v); rng.value = String(v); if (go) goToPage(v, false); };
+      rng.addEventListener('input', () => set(rng.value));
+      num.addEventListener('change', () => set(num.value));
+      num.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); set(num.value); sh.close(); } });
+      const b = (label, fn) => h('button', { type: 'button', class: 'btn sm', onclick: fn }, label);
+      setTimeout(() => { num.focus(); num.select(); }, 280);
+      return h('div', { class: 'form' },
+        h('div', { class: 'goto-big' }, h('span', {}, 'Page'), num, h('span', {}, `/ ${N}`)), rng,
+        h('div', { class: 'row gotobtns' }, b('⏮ Première', () => set(1)), b('−10', () => set(v - 10)), b('−1', () => set(v - 1)), b('+1', () => set(v + 1)), b('+10', () => set(v + 10)), b('Dernière ⏭', () => set(N))),
+        h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => { set(num.value); sh.close(); } }, 'Aller à la page')));
+    };
+    const titlesTab = () => {
+      const heads = headingList();
+      if (!heads.length) return h('p', { class: 'muted' }, 'Aucun titre dans ce document. Appliquez les styles « Titre 1, 2, 3 » pour créer un plan de navigation.');
+      return h('div', { class: 'menu-list' }, heads.map((hd) => h('button', { class: 'menu-item plan l' + hd.level, onclick: () => { sh.close(); editor.chain().focus().setTextSelection(hd.pos + 1).scrollIntoView().run(); } },
+        h('span', { class: 'mi-text' }, h('b', {}, hd.text)), h('span', { class: 'plan-p' }, `p. ${hd.page}`))));
+    };
+    sh = sheet('Aller à…', body, { wide: true });
+    draw();
+  }
+
+  /* ---------- Mode lecteur et paramètres de lecture ---------- */
+  const rd = { size: 19, width: 720, lh: 1.7, font: 'sans', theme: 'light', ...pref.get('reader', {}) };
+  const RD_THEMES = { light: ['Clair', '#ffffff', '#1b2233'], sepia: ['Sépia', '#f4ecd8', '#3b2f1e'], dark: ['Sombre', '#121826', '#e3e8f5'], black: ['Noir', '#000000', '#cfd3dc'] };
+  const $readerProgress = h('i', { class: 'reader-progress' });
+  function applyReader() {
+    root.classList.toggle('reader', reader);
+    root.dataset.rt = rd.theme;
+    root.style.setProperty('--rd-size', rd.size + 'px');
+    root.style.setProperty('--rd-max', rd.width ? rd.width + 'px' : 'none');
+    root.style.setProperty('--rd-lh', String(rd.lh));
+    root.style.setProperty('--rd-font', rd.font === 'serif' ? 'Cambria, Caladea, Georgia, serif' : 'Calibri, Carlito, system-ui, sans-serif');
+    root.style.setProperty('--rd-bg', RD_THEMES[rd.theme][1]);
+    root.style.setProperty('--rd-fg', RD_THEMES[rd.theme][2]);
+    editor.setEditable(!reader);
+    document.body.classList.toggle('reading', reader);
+  }
+  function enterReader() {
+    if (reader) return;
+    reader = true; hideTip(); if (findOpen) toggleFind(false);
+    closeThumbs(); applyReader(); scheduleLayout(); ribbon.refresh();
+    setTimeout(updatePagePill, 60);
+  }
+  function exitReader() { if (!reader) return; reader = false; applyReader(); scheduleLayout(); ribbon.refresh(); setTimeout(updatePagePill, 60); }
+  function toggleReader() { if (reader) exitReader(); else enterReader(); }
+  function openReadSettings() {
+    const save = () => { pref.set('reader', rd); applyReader(); scheduleLayout(); };
+    const size = h('input', { class: 'rng', type: 'range', min: '14', max: '34', step: '1', value: String(rd.size), 'aria-label': 'Taille du texte', oninput: (e) => { rd.size = +e.target.value; sv.textContent = rd.size + ' px'; save(); } });
+    const sv = h('b', {}, rd.size + ' px');
+    const opt = (list, key) => h('div', { class: 'choice' }, list.map(([v, l]) => h('button', { type: 'button', class: 'chip' + (rd[key] === v ? ' on' : ''), onclick: (e) => { rd[key] = v; e.currentTarget.parentNode.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); e.currentTarget.classList.add('on'); save(); } }, l)));
+    const themes = h('div', { class: 'ccards rt' }, Object.entries(RD_THEMES).map(([k, [l, bg, fg]]) => h('button', { type: 'button', class: 'ccard' + (rd.theme === k ? ' on' : ''), onclick: (e) => { rd.theme = k; themes.querySelectorAll('.ccard').forEach((c) => c.classList.remove('on')); e.currentTarget.classList.add('on'); save(); } },
+      h('span', { class: 'rt-sample', style: { background: bg, color: fg } }, 'Aa'), h('b', {}, l))));
+    sheet('Paramètres de lecture', h('div', { class: 'form' },
+      h('label', {}, h('span', { class: 'row between' }, 'Taille du texte', sv), size),
+      h('h3', {}, 'Largeur du texte'), opt([[560, 'Étroite'], [720, 'Moyenne'], [900, 'Large'], [0, 'Pleine']], 'width'),
+      h('h3', {}, 'Interligne'), opt([[1.4, 'Serré'], [1.7, 'Normal'], [2, 'Aéré'], [2.3, 'Très aéré']], 'lh'),
+      h('h3', {}, 'Police'), opt([['sans', 'Sans empattement'], ['serif', 'Avec empattement']], 'font'),
+      h('h3', {}, 'Thème'), themes,
+      reader ? null : h('button', { class: 'btn primary', onclick: () => { document.querySelector('.sheet-back .icon-btn')?.click(); enterReader(); } }, icon('book', 18), 'Lancer le mode lecteur')));
+  }
+  const readerBar = h('div', { class: 'reader-bar' },
+    h('button', { class: 'icon-btn', 'aria-label': 'Quitter le mode lecteur', onclick: exitReader }, icon('close', 22)),
+    h('div', { class: 'rb-title' }, h('b', {}, title)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Aller à une page', onclick: () => openGoto() }, icon('gotopage', 22)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Paramètres de lecture', onclick: openReadSettings }, icon('size', 22)),
+    $readerProgress);
+  root.append(readerBar);
+  function toggleWordCount() { showWc = !showWc; pref.set('wc', showWc); updateStatus(); updatePagePill(); ribbon.refresh(); }
+
   /* ---------- Démarrage ---------- */
+  ready = true;
   applyPageVars(root, settings);
   scheduleLayout();
   updateStatus();
@@ -994,6 +1520,7 @@ export function mountEditor(host, docRec, hooks) {
       destroyed = true;
       clearTimeout(saveTimer);
       clearInterval(autoTimer);
+      tip.remove(); pagePill.remove(); closeThumbs(); document.body.classList.remove('reading');
       clearTimeout(inlineTimer);
       ro.disconnect();
       document.removeEventListener('keydown', onKey);

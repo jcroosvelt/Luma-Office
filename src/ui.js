@@ -113,6 +113,18 @@ const P = {
   landscape: '<rect x="3" y="6" width="18" height="12" rx="2"/>',
   firstpage: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M8 7h8"/><path d="M8 11h5"/><circle cx="16" cy="16" r="2.5"/>',
   pilcrow: '<path d="M13 4v16M17 4v16M19 4h-9.5a4.5 4.5 0 0 0 0 9H13"/>',
+  move: '<path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
+  shape: '<rect x="3" y="12" width="9" height="9" rx="1"/><circle cx="16.5" cy="7.5" r="4.5"/><path d="M3 9l4.5-7L12 9z"/>',
+  textbox: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 10h8M8 14h5"/>',
+  endnote: '<path d="M4 6h16M4 11h16M4 16h8"/><path d="M16 15.5l2-1V20"/>',
+  dropcap: '<path d="M3 20 8 5l5 15M4.8 15h6.4"/><path d="M16 8h5M16 12h5M16 16h5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  blankpage: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14 2 14 8 20 8"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  sidebar: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  gotopage: '<path d="M4 12h13"/><path d="m12 6 6 6-6 6"/><path d="M21 4v16"/>',
+  words: '<path d="M4 7h16M4 12h10M4 17h13"/>',
   fullimg: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
 };
 

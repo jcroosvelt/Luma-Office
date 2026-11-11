@@ -1,6 +1,7 @@
 // Export PDF vectoriel (texte sélectionnable, polices intégrées) via pdfmake, et impression native.
 import { metrics, columnWidthCm, pageNumberText } from './layout.js';
 import { artBorderSvg } from './borders.js';
+import { formatDate } from './datefmt.js';
 
 const PT_CM = 72 / 2.54;
 const FAMILY = {
@@ -50,17 +51,20 @@ export async function buildPdf(json, settings, title, opts = {}) {
   const mctx = document.createElement('canvas').getContext('2d');
   const measure = (t) => { mctx.font = '14.67px Calibri, Carlito, sans-serif'; return mctx.measureText(t).width * 0.75; };
   const tocItems = [];
+  const endnotes = [];
 
   /* ----- inline ----- */
   async function runs(nodes = [], base = {}) {
     const out = [];
     for (const n of nodes) {
       if (n.type === 'hardBreak') { out.push({ text: '\n' }); continue; }
+      if (n.type === 'dateField') { out.push({ text: formatDate(n.attrs?.fmt || 'long'), ...base }); continue; }
+      if (n.type === 'endnote') { endnotes.push(n.attrs?.text || ''); out.push({ text: String(endnotes.length), sup: true, ...base }); continue; }
       if (n.type === 'image') {
         try {
           const im = await dataUrl(n.attrs.src);
           const w = Math.min((n.attrs.width || im.w) * 0.75, contentW);
-          out.push({ _image: { image: im.src, width: w, height: (w * im.h) / im.w } });
+          out.push({ _image: { image: im.src, width: w, height: (w * im.h) / im.w }, _float: n.attrs.float || null });
         } catch { /* ignorée */ }
         continue;
       }
@@ -105,8 +109,11 @@ export async function buildPdf(json, settings, title, opts = {}) {
     const sizes = { 1: 20, 2: 15, 3: 13 };
     const base = { ...(o.run || {}) };
     if (isH) { base.bold = true; base.color = base.color || '#1f3864'; base.fontSize = sizes[a.level] || 13; }
-    let items = await runs(node.content, base);
+    let nc = node.content;
+    if (a.dropCap && nc?.[0]?.type === 'text' && nc[0].text) { const f = nc[0]; nc = [{ ...f, text: f.text[0], marks: [...(f.marks || []), { type: 'bold' }, { type: 'textStyle', attrs: { fontSize: '30pt' } }] }, ...(f.text.length > 1 ? [{ ...f, text: f.text.slice(1) }] : []), ...nc.slice(1)]; }
+    let items = await runs(nc, base);
     // images inline : on les sort sur leur propre ligne
+    if (items.some((i) => i._float)) items = [...items.filter((i) => i._float), ...items.filter((i) => !i._float)]; // image flottante : placée avant le texte
     const hasImg = items.some((i) => i._image);
     let content;
     if (hasImg) {
@@ -114,7 +121,7 @@ export async function buildPdf(json, settings, title, opts = {}) {
       let buf = [];
       const flush = () => { if (buf.length) content.push({ text: buf, alignment: a.textAlign, margin: [0, 0, 0, 2] }); buf = []; };
       for (const it of items) {
-        if (it._image) { flush(); content.push({ ...it._image, alignment: a.textAlign || 'left', margin: [0, 2, 0, 4] }); } else buf.push(it);
+        if (it._image) { flush(); content.push({ ...it._image, alignment: it._float || a.textAlign || 'left', margin: [0, 2, 0, 4] }); } else buf.push(it);
       }
       flush();
       content = { stack: content };
@@ -126,7 +133,7 @@ export async function buildPdf(json, settings, title, opts = {}) {
       ...content,
       alignment: a.textAlign === 'justify' ? 'justify' : a.textAlign || 'left',
       lineHeight: lh,
-      margin: [(a.indent || 0) * 36 + (o.left || 0), a.spaceBefore != null ? a.spaceBefore : isH ? 12 : 0, 0, a.spaceAfter != null ? a.spaceAfter : o.after ?? (isH ? 5 : 8)],
+      margin: [(a.indent || 0) * 36 + (o.left || 0), a.spaceBefore != null ? a.spaceBefore : isH ? 12 : 0, a.indentRight || 0, a.spaceAfter != null ? a.spaceAfter : o.after ?? (isH ? 5 : 8)],
     };
     if (isH) {
       const id = 'h' + ++headingId;
@@ -165,6 +172,13 @@ export async function buildPdf(json, settings, title, opts = {}) {
       case 'columnBreak': return [{ _colbreak: true }];
       case 'tableOfContents': return [{ _toc: true }];
       case 'bulletList': case 'orderedList': case 'taskList': return [await list(n, o)];
+      case 'textBox': {
+        const a = n.attrs || {}, inner = await blocks(n.content, { ...o, after: 4 });
+        const w = Math.round(contentW * Math.min(100, a.width || 100) / 100), bc = a.border || '#0157e0';
+        return [{ table: { widths: [w], body: [[{ stack: inner.length ? inner : [{ text: ' ' }], fillColor: a.fill || '#eaf2ff' }]] },
+          layout: { hLineColor: () => bc, vLineColor: (i) => bc, hLineWidth: () => 1, vLineWidth: (i) => (i === 0 && a.accent ? 4 : 1), paddingLeft: () => 9, paddingRight: () => 9, paddingTop: () => 6, paddingBottom: () => 2 },
+          alignment: a.align, margin: [a.align === 'left' ? 0 : a.align === 'right' ? contentW - w : (contentW - w) / 2, 0, 0, 8] }];
+      }
       case 'table': return [await table(n), { text: '', margin: [0, 0, 0, 4] }];
       case 'image': return [await para({ type: 'paragraph', attrs: {}, content: [n] }, o)];
       default: return n.content ? blocks(n.content, o) : [];
@@ -237,6 +251,11 @@ export async function buildPdf(json, settings, title, opts = {}) {
   // Conversion nœud par nœud (nécessaire pour répartir en colonnes)
   const perNode = [];
   for (const n of json.content || []) perNode.push(await block(n, {}));
+  if (endnotes.length) perNode.push([
+    { canvas: [{ type: 'line', x1: 0, y1: 2, x2: contentW, y2: 2, lineWidth: 0.75, lineColor: '#9aa0a6' }], margin: [0, 14, 0, 4] },
+    { text: 'Notes de fin', bold: true, fontSize: 13, color: '#1f3864', margin: [0, 0, 0, 4] },
+    ...endnotes.map((t, i) => ({ text: [{ text: `${i + 1}`, sup: true }, { text: ` ${t || '(note vide)'}` }], fontSize: 10, margin: [0, 0, 0, 2] })),
+  ]);
 
   const expandToc = (arr) => arr.flatMap((c) => {
     if (!c._toc) return [c];

@@ -9,6 +9,10 @@ Export **Word (.docx)** et **PDF vectoriel (texte sélectionnable)**, import fid
 - **Paragraphes** : alignement (dont justifié), listes à puces / numérotées / de tâches, retraits, interligne, espacement avant/après
 - **Insertion** : tableaux (lignes, colonnes, fusion, en-tête, couleur de fond), images (galerie, appareil photo, collage), liens, ligne horizontale, saut de page, date, symboles
 - **Mise en page** (onglet complet, comme Word) : marges prédéfinies ou personnalisées + reliure, portrait / paysage, 8 formats de papier + format personnalisé, 1 à 4 colonnes (espacement, ligne de séparation, saut de colonne), saut de page, filigrane, bordures de page (simple, double, pointillée) ou décoratives (cœurs, arbres, sapins, étoiles, fleurs, ballons, feuilles, papillons, soleils, lunes, notes, flocons, diamants ; couleur et taille réglables ; bordures artistiques natives dans Word), en-tête / pied de page alignables, première page différente, numéros de page (position, alignement, format), césure automatique
+- **Insertion étendue** : page vierge, saut de page / de colonne, en-tête, pied de page et numérotation, formes (flèches, cœur, étoile, arbre, bulles… avec couleur, contour, texte), zone de texte (7 styles), lettrine, date et heure (mise à jour automatique possible), note de fin, lien, commentaire, sommaire
+- **Info de mise en forme** (comme Word) : au survol (souris) ou au curseur (tactile), police, taille, gras / italique, style ; rappel permanent dans la barre d'état
+- **Images faciles à déplacer** : poignée de déplacement (glisser-déposer avec repère), redimensionnement au coin, boutons monter / descendre, habillage du texte (gauche / droite / en ligne), forme, texte alternatif
+- **Affichage** : mode lecteur (taille, police, interligne, thème, défilement automatique), vue en pavé, miniatures, « Aller à la page » (curseur, ±1 / ±10) et aux titres, compteur de mots, statistiques
 - **Révision** : rechercher & remplacer, correcteur orthographique (langue au choix), statistiques
 - **Commentaires** : sur une sélection, avec réponses, résolution et suppression (exportés dans le .docx, relus à l'import)
 - **Suivi des modifications** : ajouts / suppressions de texte attribués à leur auteur, accepter / rejeter (un par un ou tout), navigation, export et import Word (`w:ins` / `w:del`)
@@ -50,6 +54,7 @@ Vite · TipTap (ProseMirror) · `docx` (export Word) · pdfmake (PDF vectoriel, 
 - Colonnes : l'aperçu les affiche en continu ; Word les répartit page par page, et le PDF place les blocs entiers par colonne (pas de coupure en milieu de paragraphe). Le filigrane est exporté dans Word sous forme d'image d'en-tête (non réimporté). Pas de numérotation des lignes ni de sections multiples.
 - Anciens formats `.doc` et `.xls` : non pris en charge (enregistrez-les en `.docx` / `.xlsx`).
 - « Ouvrir avec » directement depuis le gestionnaire de fichiers : possible sur ordinateur ; sur Android seul le menu « Partager » est proposé, et iPhone / iPad ne permettent rien de tel pour une application web.
+- Lettrine, images « texte autour » : exportées en Word (lettrine = grande initiale, image flottante) ; dans le PDF la grande initiale est conservée mais l'image est placée sur sa propre ligne. Les notes de fin sont regroupées en fin de document. Les dates automatiques sont figées à la date de l'export.
 - Import `.docx` : ne reprend pas les zones de texte, équations, notes de bas de page ni les images flottantes (elles deviennent des images en ligne).
 
 ---

@@ -5,6 +5,8 @@ import { MOTIFS } from './borders.js';
 const TW_PX = 15; // 1 px = 15 twips
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+import { formatDate } from './datefmt.js';
+
 function toHex(c) {
   if (!c) return undefined;
   c = c.trim();
@@ -61,7 +63,7 @@ export async function buildDocx(json, settings, title, commentList = []) {
   const M = metrics(settings);
   const nCols = Math.max(1, settings.columns?.count || 1);
   const contentTw = Math.round(columnWidthCm(settings) * CM_TWIP);
-  const ctx = { orderedInstance: 0, trackId: 1 };
+  const ctx = { orderedInstance: 0, trackId: 1, endnotes: [] };
   const cIdx = new Map();
   const liveComments = (commentList || []).filter((c) => !c.resolved);
   liveComments.forEach((c, i) => cIdx.set(c.id, i));
@@ -78,13 +80,17 @@ export async function buildDocx(json, settings, title, commentList = []) {
       for (const id of [...open]) if (!ids.includes(id)) { out.push(new CommentRangeEnd(cIdx.get(id))); out.push(new TextRun({ children: [new CommentReference(cIdx.get(id))] })); open = open.filter((x) => x !== id); }
       for (const id of ids) if (!open.includes(id)) { out.push(new CommentRangeStart(cIdx.get(id))); open.push(id); }
       if (n.type === 'hardBreak') { out.push(new TextRun({ break: 1 })); continue; }
+      if (n.type === 'dateField') { out.push(new TextRun({ text: formatDate(n.attrs?.fmt || 'long'), ...base })); continue; }
+      if (n.type === 'endnote') { ctx.endnotes.push(n.attrs?.text || ''); out.push(new TextRun({ text: String(ctx.endnotes.length), superScript: true, ...base })); continue; }
       if (n.type === 'image') {
         try {
           const im = await loadImage(n.attrs.src);
           const maxW = contentTw / TW_PX;
           let w = n.attrs.width || im.w;
           w = Math.min(w, maxW);
+          const fl = n.attrs.float === 'left' || n.attrs.float === 'right' ? n.attrs.float : null;
           out.push(new ImageRun({ type: im.type, data: im.bytes, transformation: { width: Math.round(w), height: Math.round((w * im.h) / im.w) },
+            ...(fl ? { floating: { horizontalPosition: { relative: HorizontalPositionRelativeFrom.MARGIN, align: fl === 'left' ? HorizontalPositionAlign.LEFT : HorizontalPositionAlign.RIGHT }, verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 0 }, wrap: { type: TextWrappingType.SQUARE, side: 'bothSides' }, margins: { left: 114300, right: 114300, top: 0, bottom: 0 } } } : {}),
             altText: { name: n.attrs.alt || 'Image', title: n.attrs.alt || 'Image', description: n.attrs.alt || 'Image' } }));
         } catch { /* image illisible : ignorée */ }
         continue;
@@ -138,13 +144,19 @@ export async function buildDocx(json, settings, title, commentList = []) {
   async function para(node, o = {}) {
     const a = node.attrs || {};
     const left = (a.indent || 0) * 720 + (o.left || 0);
-    const children = [...(o.prefix || []), ...(await inline(node.content, o.run))];
+    let content = node.content;
+    if (a.dropCap && content?.[0]?.type === 'text' && content[0].text) {
+      const f = content[0], big = [...(f.marks || []).filter((m) => m.type !== 'textStyle'), { type: 'textStyle', attrs: { fontSize: '40pt' } }, { type: 'bold' }];
+      content = [{ ...f, text: f.text[0], marks: big }, ...(f.text.length > 1 ? [{ ...f, text: f.text.slice(1) }] : []), ...content.slice(1)];
+    }
+    const children = [...(o.prefix || []), ...(await inline(content, o.run))];
+    const right = a.indentRight ? Math.round(a.indentRight * 20) : 0;
     return new Paragraph({
       children,
       heading: node.type === 'heading' ? HEADING[a.level] : undefined,
       alignment: ALIGN[a.textAlign],
       spacing: { ...(o.spacing || {}), ...spacingOf(a) },
-      indent: left || o.hanging ? { left, hanging: o.hanging } : undefined,
+      indent: left || o.hanging || right ? { left, hanging: o.hanging, right: right || undefined } : undefined,
       numbering: o.numbering,
       border: o.border,
       keepNext: node.type === 'heading' ? true : undefined,
@@ -199,6 +211,20 @@ export async function buildDocx(json, settings, title, commentList = []) {
         }
         if (!items.length) rows.push(new Paragraph({ children: [new TextRun({ text: '(Aucun titre dans le document)', italics: true, color: '888888' })] }));
         return rows;
+      }
+      case 'textBox': {
+        const a = n.attrs || {}, bc = toHex(a.border) || '0157E0', fill = toHex(a.fill) || 'EAF2FF';
+        const w = Math.round(contentTw * Math.min(100, a.width || 100) / 100);
+        const kids = await blocks(n.content, { ...o, spacing: { after: 60 } });
+        const side = { style: BorderStyle.SINGLE, size: 8, color: bc };
+        const tb = new Table({
+          rows: [new TableRow({ cantSplit: true, children: [new TableCell({ children: kids.length ? kids : [new Paragraph({})], width: { size: w, type: WidthType.DXA },
+            shading: { type: ShadingType.CLEAR, fill, color: 'auto' }, margins: { top: 120, bottom: 120, left: 180, right: 180 },
+            borders: { top: side, bottom: side, right: side, left: a.accent ? { style: BorderStyle.SINGLE, size: 36, color: bc } : side } })] })],
+          columnWidths: [w], layout: TableLayoutType.FIXED, width: { size: w, type: WidthType.DXA },
+          alignment: a.align === 'left' ? AlignmentType.LEFT : a.align === 'right' ? AlignmentType.RIGHT : AlignmentType.CENTER,
+        });
+        return [tb, new Paragraph({ spacing: { after: 0 } })];
       }
       case 'table':
         return [await table(n), new Paragraph({ spacing: { after: 0 } })];
@@ -293,6 +319,10 @@ export async function buildDocx(json, settings, title, commentList = []) {
 
   /* ----- document ----- */
   const children = await blocks(json.content || []);
+  if (ctx.endnotes.length) {
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Notes de fin', bold: true, size: 26, color: '1F3864' })], spacing: { before: 360, after: 80 }, border: { top: { style: BorderStyle.SINGLE, size: 6, color: '9AA0A6', space: 6 } } }));
+    ctx.endnotes.forEach((t, i) => children.push(new Paragraph({ children: [new TextRun({ text: `${i + 1}. `, superScript: true }), new TextRun({ text: t || '(note vide)', size: 20 })], spacing: { after: 40 } })));
+  }
   if (!children.length) children.push(new Paragraph({}));
 
   const levelsFor = (fmtOf, textOf) => Array.from({ length: 9 }, (_, i) => ({
