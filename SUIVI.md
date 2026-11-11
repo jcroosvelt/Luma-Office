@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-11.
 
 ## Dernière modification
+- **Outils PDF professionnels** : scanner / images → PDF (appareil photo ou galerie, ordre réglable), fusionner plusieurs PDF, organiser les pages (déplacer, pivoter, supprimer), extraire des pages (ex. 1-3, 5), filigrane diagonal (gris / rouge / bleu) et numérotation « 1 / N ». Tout est enregistré comme copie dans Mes documents, l'original n'est jamais modifié.
 - **Lecteur PDF – annotations et formulaires** : recherche avec surlignage sur la page (résultat précédent/suivant), surligner / souligner / barrer (sélection de texte ou glissé), dessin libre, texte, signature dessinée (mémorisée), gomme, annuler, 6 couleurs ; remplissage des formulaires PDF (texte, cases, listes) ; téléchargement / partage / impression avec tout incorporé au PDF ; « Enregistrer une copie dans mes documents ».
 - **Lecteur PDF enrichi** : miniatures des pages, sommaire (signets), liens cliquables (internes et web), pivoter de 90°, mode nuit, ajuster à la largeur / à la page, double-tap pour zoomer, reprise à la dernière page lue, plein écran, imprimer, propriétés du document. Correctif précédent : polices standard de pdf.js (le texte des PDF s'affiche).
 - **Zoom en bas de page (comme Word)** : boutons − / +, curseur 30–300 %, clic sur le pourcentage = ajuster à la largeur.

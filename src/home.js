@@ -64,6 +64,13 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
     ], () => s.close()));
   }
 
+  function openTools() {
+    let s;
+    s = sheet('Outils PDF', menuList([
+      { icon: 'camera', label: 'Scanner / images → PDF', hint: 'Photographiez des pages ou assemblez des images', run: async () => (await import('./pdf-tools.js')).openScanner({ onDone: (id) => { refresh(); onOpen(id); } }) },
+      { icon: 'copy', label: 'Fusionner des PDF', hint: 'Assembler plusieurs PDF en un seul', run: async () => (await import('./pdf-tools.js')).openMerge({ onDone: (id) => { refresh(); onOpen(id); } }) },
+    ], () => s.close()));
+  }
   const search = h('input', { class: 'field search', type: 'search', placeholder: 'Rechercher dans mes documents (titre et contenu)…', 'aria-label': 'Rechercher dans mes documents', oninput: (e) => { query = e.target.value; renderList(); } });
   const fileInput = h('input', { type: 'file', accept: IMPORT_ACCEPT, multiple: true, hidden: true, onchange: () => { const f = [...fileInput.files]; fileInput.value = ''; if (f.length) onImportFiles(f); } });
   const install = h('button', { class: 'btn sm', 'data-install': '', hidden: !canInstall(), onclick: () => promptInstall() }, icon('download', 18), ' Installer');
@@ -76,6 +83,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
     h('section', {},
       h('div', { class: 'row between' }, h('h2', {}, 'Mes documents'),
         h('div', { class: 'row' },
+          h('button', { class: 'btn sm', onclick: openTools }, icon('pdf', 18), ' Outils PDF'),
           h('button', { class: 'btn sm', onclick: () => openDeviceSearch({ onOpen: (f) => onImportFiles([f]) }) }, icon('folder', 18), ' Appareil'),
           h('button', { class: 'btn sm', onclick: () => fileInput.click() }, icon('upload', 18), ' Importer'))),
       search, more, list, fileInput),

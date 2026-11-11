@@ -641,3 +641,19 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 textarea.pdf-widget { resize: none; padding-top: 2px; }
 input[type=checkbox].pdf-widget, input[type=radio].pdf-widget { padding: 0; accent-color: var(--brand); }
 .pdf-night .pdf-widget { background: rgba(255, 255, 255, .85); }
+
+/* Outils PDF */
+.ptlist { display: grid; gap: 6px; }
+.ptrow { display: flex; align-items: center; gap: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); }
+.ptitem { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.ptitem small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ptthumb { width: 44px; height: 56px; object-fit: cover; border-radius: 6px; background: #fff; }
+.ptlib { display: grid; gap: 6px; max-height: 180px; overflow: auto; }
+.thumbs.org { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.org-item .tph { height: 150px; align-items: center; justify-items: center; overflow: hidden; }
+.org-item .tph img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform .2s; }
+.org-btns { display: flex; gap: 0; }
+.org-btns .icon-btn { width: 28px; height: 28px; }
+.org-btns .icon-btn:disabled { opacity: .3; }
+.rot-l { display: inline-flex; transform: rotate(-90deg); } .rot-r { display: inline-flex; transform: rotate(90deg); }
+label.chk { display: flex; align-items: center; gap: 8px; }

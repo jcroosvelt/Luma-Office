@@ -2,6 +2,7 @@
 import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog, sheet } from './ui.js';
 import { putDoc, newId } from './storage.js';
 import { createAnnotator } from './pdf-annot.js';
+import { rebuildPdf, stampPdf, parseRanges, saveAsDoc } from './pdf-tools.js';
 import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
 import { terms, norm, makeSnippet, snippetEl } from './search.js';
@@ -262,6 +263,70 @@ export async function mountPdf(host, rec, hooks) {
     document.body.append(f);
     setTimeout(() => { f.remove(); URL.revokeObjectURL(url); }, 180000);
   }
+  /* ---------- outils PDF : organiser, extraire, filigrane ---------- */
+  function openOrganize() {
+    const pg = Array.from({ length: N }, (_, i) => ({ src: i, rot: 0 }));
+    const cache = new Map(), asked = new Set();
+    const grid = h('div', { class: 'thumbs org' });
+    let s;
+    const load = async (src) => {
+      if (asked.has(src)) return; asked.add(src);
+      try {
+        const page = await doc.getPage(src + 1), v0 = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 140 / v0.width * Math.min(devicePixelRatio || 1, 2) });
+        const c = h('canvas'); c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext('2d'), viewport: vp, canvas: c }).promise;
+        cache.set(src, c.toDataURL('image/jpeg', 0.7));
+        grid.querySelectorAll(`img[data-src="${src}"]`).forEach((im) => { im.src = cache.get(src); });
+      } catch { /* ignore */ }
+    };
+    const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) { io.unobserve(en.target); load(+en.target.dataset.src); } }), { rootMargin: '200px' });
+    const count = h('small', { class: 'muted' });
+    const draw = () => {
+      count.textContent = `${pg.length} page${pg.length > 1 ? 's' : ''} sur ${N}`;
+      grid.replaceChildren(...pg.map((p, i) => {
+        const img = h('img', { 'data-src': p.src, alt: `Page ${p.src + 1}`, src: cache.get(p.src) || '' });
+        img.style.transform = `rotate(${p.rot}deg)`;
+        const box = h('div', { class: 'tph' }, img); io.observe(img);
+        const mv = (d) => () => { const j = i + d; if (j < 0 || j >= pg.length) return; [pg[i], pg[j]] = [pg[j], pg[i]]; draw(); };
+        return h('div', { class: 'thumb-item org-item' }, box, h('small', {}, `${i + 1} (p. ${p.src + 1})`),
+          h('div', { class: 'org-btns' },
+            h('button', { class: 'icon-btn', 'aria-label': 'Déplacer vers le début', disabled: i === 0, onclick: mv(-1) }, h('span', { class: 'rot-l' }, icon('up', 16))),
+            h('button', { class: 'icon-btn', 'aria-label': 'Pivoter', onclick: () => { p.rot = (p.rot + 90) % 360; draw(); } }, icon('orient', 16)),
+            h('button', { class: 'icon-btn', 'aria-label': 'Supprimer la page', onclick: () => { pg.splice(i, 1); draw(); } }, icon('trash', 16)),
+            h('button', { class: 'icon-btn', 'aria-label': 'Déplacer vers la fin', disabled: i === pg.length - 1, onclick: mv(1) }, h('span', { class: 'rot-r' }, icon('up', 16)))));
+      }));
+    };
+    draw();
+    const save = async () => {
+      if (!pg.length) { toast('Gardez au moins une page'); return; }
+      toast('Création du PDF…', 60000);
+      try { await saveAsDoc(await rebuildPdf(await currentBlob(), pg), rec.title + ' (réorganisé)'); s.close(); toast('Copie enregistrée dans mes documents ✓', 3000); }
+      catch (e) { console.error(e); toast('Opération impossible sur ce PDF', 4000); }
+    };
+    s = sheet('Organiser les pages', h('div', { class: 'form' }, h('p', { class: 'muted' }, 'Déplacez, pivotez ou supprimez des pages. L’original n’est pas modifié : le résultat est enregistré comme copie.'), count, grid, h('button', { class: 'btn primary', onclick: save }, 'Enregistrer une copie')), { wide: true, onClose: () => io.disconnect() });
+  }
+  async function extractPages() {
+    const v = await promptDialog('Extraire des pages', `Pages à extraire, ex. 1-3, 5 (ce PDF compte ${N} pages)`, '', 'Extraire');
+    if (v == null) return;
+    const idx = parseRanges(v, N);
+    if (!idx) { toast(`Indiquez des pages entre 1 et ${N}, par exemple 1-3, 5`, 4000); return; }
+    toast('Extraction…', 60000);
+    try { await saveAsDoc(await rebuildPdf(await currentBlob(), idx.map((src) => ({ src, rot: 0 }))), `${rec.title} (p. ${v.trim()})`); toast('Extrait enregistré dans mes documents ✓', 3000); }
+    catch (e) { console.error(e); toast('Extraction impossible', 4000); }
+  }
+  function openStamp() {
+    const text = h('input', { class: 'field', value: 'CONFIDENTIEL', placeholder: 'Texte du filigrane (laisser vide pour aucun)', 'aria-label': 'Texte du filigrane' });
+    const color = h('select', { class: 'field', 'aria-label': 'Couleur' }, h('option', { value: '#8a8a8a' }, 'Gris'), h('option', { value: '#d32f2f' }, 'Rouge'), h('option', { value: '#1d4ed8' }, 'Bleu'));
+    const num = h('input', { type: 'checkbox' });
+    let s;
+    const go = async () => {
+      if (!text.value.trim() && !num.checked) { toast('Choisissez un filigrane ou la numérotation'); return; }
+      toast('Application…', 60000);
+      try { await saveAsDoc(await stampPdf(await currentBlob(), { text: text.value.trim(), numbers: num.checked, color: color.value }), rec.title + ' (filigrané)'); s.close(); toast('Copie enregistrée dans mes documents ✓', 3000); }
+      catch (e) { console.error(e); toast('Opération impossible sur ce PDF', 4000); }
+    };
+    s = sheet('Filigrane et numérotation', h('div', { class: 'form' }, h('label', {}, 'Filigrane diagonal', text), h('label', {}, 'Couleur', color), h('label', { class: 'chk' }, num, ' Numéroter les pages (1 / N en bas)'), h('button', { class: 'btn primary', onclick: go }, 'Appliquer et enregistrer une copie')));
+  }
   async function saveCopy() {
     const blob = await currentBlob();
     const copy = { ...rec, id: newId(), title: rec.title + (ann.hasChanges() ? ' (annoté)' : ' (copie)'), blob, size: blob.size, annots: undefined, form: undefined, created: Date.now(), updated: Date.now() };
@@ -291,6 +356,10 @@ export async function mountPdf(host, rec, hooks) {
     { icon: 'orient', label: 'Pivoter de 90°', run: rotate },
     { icon: 'moon', label: night ? 'Désactiver le mode nuit' : 'Mode nuit (pages inversées)', run: toggleNight },
     document.fullscreenEnabled || document.webkitFullscreenEnabled ? { icon: 'sidebar', label: 'Plein écran', run: fullscreen } : null,
+    { sep: 'Outils PDF' },
+    { icon: 'grid', label: 'Organiser les pages', hint: 'Déplacer, pivoter, supprimer', run: openOrganize },
+    { icon: 'pdf', label: 'Extraire des pages…', hint: 'Créer un PDF avec certaines pages', run: extractPages },
+    { icon: 'watermark', label: 'Filigrane et numérotation', run: openStamp },
     { sep: 'Document' },
     { icon: 'info', label: 'Propriétés du document', run: info },
     { icon: 'print', label: 'Imprimer', run: print },
