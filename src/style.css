@@ -52,6 +52,11 @@ button { cursor: pointer; }
 .save-btn { flex: none; height: 40px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px;
   background: linear-gradient(180deg, var(--yellow), var(--accent)); color: var(--navy); margin: 0 4px 0 2px; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
 .save-btn:active { transform: scale(.96); }
+.exp-btn { flex: none; height: 38px; padding: 0 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .12); color: #fff; font-weight: 700; font-size: 13px; margin: 0 2px; }
+.exp-btn:active { background: rgba(255, 255, 255, .28); }
+.exp-btn > span:not(.ic) { display: none; }
+@media (min-width: 640px) { .exp-btn > span:not(.ic) { display: inline; } }
+@media (max-width: 520px) { .topbar .redo-btn { display: none; } .exp-btn { padding: 0; width: 38px; justify-content: center; } }
 .save-btn.ok { background: #fff; color: #1a7f37; }
 @media (max-width: 520px) { .save-btn { width: 44px; padding: 0; justify-content: center; } .save-btn span:last-child { display: none; } }
 .title-input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #fff; font-size: 16px; font-weight: 600; text-overflow: ellipsis; }
@@ -443,6 +448,10 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 .vtitle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
 .vtitle b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
 .vload { flex: 1; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); text-align: center; padding: 20px; }
+.col-btns { display: grid; gap: 8px; }
+.vmsg { margin: 0; font-weight: 700; font-size: 17px; color: var(--text); }
+.vsub { max-width: 440px; color: var(--muted); font-size: 13px; line-height: 1.4; word-break: break-word; }
+.vact { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
 .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .pdf-scroll { flex: 1; min-height: 0; overflow: auto; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; padding: 10px 0 24px; }

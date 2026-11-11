@@ -37,7 +37,9 @@ export async function addFile(file) {
     const title = baseName(file.name);
     const existing = (await listDocs()).find((d) => d.kind === k && d.title === title && d.size === file.size);
     if (existing) return existing.id;
-    const rec = { id: newId(), title, kind: k, fmt: extOf(file.name) || (k === 'pdf' ? 'pdf' : 'xlsx'), blob: file, size: file.size, mime: file.type, created: Date.now(), updated: Date.now(), preview: '', words: 0 };
+    let blob;
+    try { blob = new Blob([await file.arrayBuffer()], { type: file.type || (k === 'pdf' ? 'application/pdf' : 'application/octet-stream') }); } catch { toast('Impossible de lire ce fichier (stocké dans le cloud ou protégé ?). Téléchargez-le d’abord sur le téléphone.', 6000); return null; }
+    const rec = { id: newId(), title, kind: k, fmt: extOf(file.name) || (k === 'pdf' ? 'pdf' : 'xlsx'), blob, size: file.size, mime: file.type, created: Date.now(), updated: Date.now(), preview: '', words: 0 };
     await putDoc(rec);
     return rec.id;
   }

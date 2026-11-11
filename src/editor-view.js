@@ -15,7 +15,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 
 import { ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
-import { h, icon, dropdown, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
+import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX, NUMBER_FORMATS, pageNumberText, WATERMARK_PRESETS, BORDER_STYLES, columnWidthCm } from './layout.js';
 import { putDoc, pref, persist, newId } from './storage.js';
@@ -41,6 +41,7 @@ export function mountEditor(host, docRec, hooks) {
   let spell = pref.get('spell', true);
   let theme = pref.get('theme', 'auto');
   let saveTimer, layoutRaf, lastSig = '';
+  let dirty = false, discarded = false, lastSaved = null;
   let destroyed = false;
   let persisted = false;
   let inlineTimer;
@@ -48,15 +49,18 @@ export function mountEditor(host, docRec, hooks) {
 
   /* ---------- DOM ---------- */
   const titleInput = h('input', { class: 'title-input', value: title, 'aria-label': 'Titre du document', placeholder: 'Document sans titre', enterkeyhint: 'done',
-    onchange: () => { title = titleInput.value.trim() || 'Document sans titre'; titleInput.value = title; scheduleSave(0); },
+    onchange: () => { title = titleInput.value.trim() || 'Document sans titre'; titleInput.value = title; scheduleSave(); },
     onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); titleInput.blur(); editor.commands.focus(); } } });
   const saveState = h('span', { class: 'save-state' }, 'Enregistré');
   const undoBtn = h('button', { class: 'icon-btn', 'aria-label': 'Annuler', onmousedown: (e) => e.preventDefault(), onclick: () => editor.chain().focus().undo().run() }, icon('undo', 22));
-  const redoBtn = h('button', { class: 'icon-btn', 'aria-label': 'Rétablir', onmousedown: (e) => e.preventDefault(), onclick: () => editor.chain().focus().redo().run() }, icon('redo', 22));
+  const redoBtn = h('button', { class: 'icon-btn redo-btn', 'aria-label': 'Rétablir', onmousedown: (e) => e.preventDefault(), onclick: () => editor.chain().focus().redo().run() }, icon('redo', 22));
   const saveBtn = h('button', { class: 'save-btn', 'aria-label': 'Enregistrer le document', title: 'Enregistrer (Ctrl+S)', onclick: () => manualSave() }, icon('save', 20), h('span', {}, 'Enregistrer'));
   const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'mark-btn', 'aria-label': 'Mes documents', title: 'Mes documents', onclick: () => leave() }, h('img', { src: './icons/icon-192.png', alt: 'Luma Office' })),
-    titleInput, saveState, saveBtn, undoBtn, redoBtn,
+    titleInput, saveState, saveBtn,
+    h('button', { class: 'exp-btn', 'aria-label': 'Exporter en Word', title: 'Exporter en Word (.docx)', onclick: () => exportDocx() }, icon('word', 20), h('span', {}, 'Word')),
+    h('button', { class: 'exp-btn', 'aria-label': 'Exporter en PDF', title: 'Exporter en PDF', onclick: () => exportPdf() }, icon('pdf', 20), h('span', {}, 'PDF')),
+    undoBtn, redoBtn,
     h('button', { class: 'icon-btn', 'aria-label': 'Menu fichier', onclick: () => openFileMenu() }, icon('more', 22)));
 
   const pmHost = h('div', { class: 'pm-host' });
@@ -127,32 +131,51 @@ export function mountEditor(host, docRec, hooks) {
   applyTheme(theme);
 
   /* ---------- Enregistrement automatique ---------- */
-  function scheduleSave(delay = 700) {
-    saveState.textContent = 'Enregistrement…';
-    saveState.classList.add('busy');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(save, delay);
+  // Enregistrement automatique : toutes les minutes tant qu'il y a des modifications,
+  // et aussi quand l'application passe en arrière-plan ou que l'on quitte le document.
+  const AUTOSAVE_MS = 60000;
+  const stamp = () => (lastSaved ? lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '');
+  function renderSaveState() {
+    saveState.classList.toggle('busy', dirty);
+    saveState.textContent = dirty ? 'Non enregistré' : lastSaved ? `Enregistré ${stamp()}` : 'Enregistré';
+  }
+  function scheduleSave(delay) { // marque le document comme modifié ; delay : enregistrement immédiat différé (ms)
+    dirty = true; renderSaveState();
+    if (delay !== undefined) { clearTimeout(saveTimer); saveTimer = setTimeout(save, delay); }
   }
   async function save() {
     clearTimeout(saveTimer);
-    if (destroyed) return;
+    if (destroyed || discarded) return;
+    dirty = false;
     const text = editor.getText({ blockSeparator: ' ' }).trim();
     docRec = { ...docRec, title, json: editor.getJSON(), settings, comments, updated: Date.now(), preview: text.slice(0, 160), words: editor.storage.characterCount.words() };
     try {
       await putDoc(docRec);
-      saveState.textContent = 'Enregistré';
+      lastSaved = new Date();
       if (!persisted) persist().then((ok) => { persisted = ok; });
     } catch (err) {
-      saveState.textContent = 'Échec de l’enregistrement';
+      dirty = true;
       toast(err?.name === 'QuotaExceededError' ? 'Espace de stockage plein : supprimez des documents ou des images.' : 'Impossible d’enregistrer le document sur cet appareil.', 5000);
     }
-    saveState.classList.remove('busy');
+    renderSaveState();
   }
-  const onHide = () => { if (document.visibilityState === 'hidden') save(); };
+  const autoTimer = setInterval(() => { if (dirty && !destroyed) save(); }, AUTOSAVE_MS);
+  const onHide = () => { if (document.visibilityState === 'hidden' && dirty) save(); };
+  const onPageHide = () => { if (dirty) save(); };
+  // quitter l'onglet / recharger la page avec des modifications non enregistrées : le navigateur demande confirmation
+  const onBeforeUnload = (e) => { if (dirty && !discarded) { e.preventDefault(); e.returnValue = ''; return ''; } return undefined; };
   document.addEventListener('visibilitychange', onHide);
-  addEventListener('pagehide', save);
+  addEventListener('pagehide', onPageHide);
+  addEventListener('beforeunload', onBeforeUnload);
 
-  async function leave() { await save(); hooks.onBack(); }
+  async function leave() {
+    if (dirty) {
+      const c = await choiceDialog('Enregistrer vos modifications ?', 'Ce document contient des modifications qui ne sont pas encore enregistrées.', [['save', 'Enregistrer et quitter', 'primary'], ['discard', 'Quitter sans enregistrer', 'danger'], ['cancel', 'Annuler']]);
+      if (c === null || c === 'cancel') return;
+      if (c === 'discard') { discarded = true; dirty = false; } else await save();
+    }
+    hooks.onBack();
+  }
   async function manualSave() {
     await save();
     saveBtn.classList.add('ok');
@@ -966,15 +989,17 @@ export function mountEditor(host, docRec, hooks) {
   if (editor.isEmpty) setTimeout(() => editor.commands.focus('end'), 300);
 
   return {
-    flush: save,
+    flush: async () => { if (!discarded && dirty) await save(); },
     destroy() {
       destroyed = true;
       clearTimeout(saveTimer);
+      clearInterval(autoTimer);
       clearTimeout(inlineTimer);
       ro.disconnect();
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onHide);
-      removeEventListener('pagehide', save);
+      removeEventListener('pagehide', onPageHide);
+      removeEventListener('beforeunload', onBeforeUnload);
       removeEventListener('resize', scheduleLayout);
       vv?.removeEventListener('resize', fitViewport);
       vv?.removeEventListener('scroll', fitViewport);

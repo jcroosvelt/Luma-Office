@@ -67,12 +67,21 @@ async function render() {
       onBack: () => go(null),
       onDelete: async (r) => { await deleteDoc(r.id); go(null); },
       onDuplicate: async (r) => { const copy = { ...r, id: newId(), title: r.title + ' (copie)', created: Date.now(), updated: Date.now() }; await putDoc(copy); go(copy.id); },
+      onRetry: () => render(),
       onConvert: async ({ title, html }) => { const doc = await createDocFromHtml({ title, html }); toast('Document créé ✓'); go(doc.id); },
     };
     let view;
-    if (rec.kind === 'pdf') view = await (await import('./pdf-view.js')).mountPdf(app, rec, hooks);
-    else if (rec.kind === 'sheet') view = await (await import('./sheet-view.js')).mountSheet(app, rec, hooks);
-    else view = mountEditor(app, { ...rec, json: rec.json || null }, hooks);
+    try {
+      if (rec.kind === 'pdf') view = await (await import('./pdf-view.js')).mountPdf(app, rec, hooks);
+      else if (rec.kind === 'sheet') view = await (await import('./sheet-view.js')).mountSheet(app, rec, hooks);
+      else view = mountEditor(app, { ...rec, json: rec.json || null }, hooks);
+    } catch (e) {
+      console.error(e);
+      app.replaceChildren(h('div', { class: 'vload', style: { position: 'fixed', inset: '0', background: 'var(--bg)' } },
+        h('p', { class: 'vmsg' }, 'Impossible d’ouvrir ce document'), h('small', { class: 'vsub' }, String(e?.message || e)),
+        h('div', { class: 'vact' }, h('button', { class: 'btn primary', onclick: () => render() }, 'Réessayer'), h('button', { class: 'btn', onclick: () => go(null) }, 'Retour'))));
+      return;
+    }
     if (my !== token) { view?.destroy?.(); return; }
     current = view;
     return;

@@ -182,6 +182,16 @@ export function confirmDialog(message, okLabel = 'Confirmer', danger = false) {
   });
 }
 
+// Boîte de dialogue à plusieurs choix : buttons = [[valeur, libellé, 'primary'|'danger'|'']…] ; renvoie la valeur (ou null si fermée)
+export function choiceDialog(title, message, buttons) {
+  return new Promise((resolve) => {
+    let done = false, s;
+    const fin = (v) => { if (!done) { done = true; s.close(); resolve(v); } };
+    s = sheet(title, h('div', { class: 'form' }, h('p', {}, message), h('div', { class: 'col-btns' }, buttons.map(([v, l, kind]) => h('button', { class: 'btn ' + (kind || ''), onclick: () => fin(v) }, l)))),
+      { onClose: () => { if (!done) { done = true; resolve(null); } } });
+  });
+}
+
 export function promptDialog(title, label, value = '', okLabel = 'OK') {
   return new Promise((resolve) => {
     let done = false;

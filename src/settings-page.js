@@ -50,6 +50,7 @@ export async function showSettings(host, { refresh }) {
     group('Écriture',
       row('Correcteur orthographique', toggle(() => pref.get('spell', true), (v) => pref.set('spell', v))),
       row('Langue des nouveaux documents', select([['fr-FR', 'Français'], ['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['es-ES', 'Español'], ['de-DE', 'Deutsch'], ['it-IT', 'Italiano'], ['pt-PT', 'Português'], ['ar', 'العربية']], d.lang, (v) => setDef({ lang: v }))),
+      row('Enregistrement automatique', h('span', { class: 'ver' }, 'Chaque minute'), 'Vos documents sont aussi enregistrés quand vous quittez l’application ; le bouton Enregistrer reste disponible.'),
       row('Nom de l’auteur', author, 'Affiché sur vos commentaires et vos modifications suivies.')),
     group('Nouveaux documents',
       row('Format de page', select(Object.entries(PAGE_SIZES).map(([k, v]) => [k, v.label]), d.size, (v) => setDef({ size: v }))),

@@ -1,13 +1,36 @@
+import polyUrl from './pdf-polyfills.js?url';
+
 // Chargement paresseux de pdf.js (version « legacy » pour les anciens navigateurs mobiles).
-let p;
+// Deux modes : worker enveloppé (avec compléments pour vieux navigateurs), puis worker standard en secours.
+let p, pdfjsRef, workerUrlRef;
 export function loadPdfjs() {
   p ||= (async () => {
+    await import('./pdf-polyfills.js');
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const worker = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
     pdfjs.GlobalWorkerOptions.workerSrc = worker;
+    pdfjsRef = pdfjs; workerUrlRef = worker;
     return pdfjs;
   })();
+  p.catch(() => { p = null; });
   return p;
+}
+
+// mode 'wrapped' : worker créé par nos soins (compléments chargés avant le worker) ; 'plain' : mécanisme standard de pdf.js
+export function useWorkerMode(mode) {
+  const g = pdfjsRef.GlobalWorkerOptions;
+  g.workerPort = null;
+  let failed = new Promise(() => {});
+  if (mode === 'wrapped') {
+    try {
+      const abs = (u) => new URL(u, location.href).href;
+      const blobUrl = URL.createObjectURL(new Blob([`import ${JSON.stringify(abs(polyUrl))};\nimport ${JSON.stringify(abs(workerUrlRef))};`], { type: 'text/javascript' }));
+      const w = new Worker(blobUrl, { type: 'module' });
+      failed = new Promise((_, rej) => { w.addEventListener('error', (e) => rej(new Error('Le moteur PDF n’a pas pu démarrer' + (e.message ? ' : ' + e.message : '')))); });
+      g.workerPort = w;
+    } catch { /* repli sur le mode standard */ }
+  }
+  return failed;
 }
 
 // Texte brut d'une page (items triés par ligne)

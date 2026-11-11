@@ -4,6 +4,7 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import Image from '@tiptap/extension-image';
 import { TableCell } from '@tiptap/extension-table';
+import { formatDate } from './datefmt.js';
 
 /* ---------- Mise en forme de paragraphe : interligne, retrait, espacement ---------- */
 export const INDENT_PT = 36;
@@ -25,6 +26,11 @@ export const ParagraphFormat = Extension.create({
             parseHTML: (el) => parseInt(el.getAttribute('data-indent') || '0', 10) || 0,
             renderHTML: (a) => (a.indent ? { 'data-indent': a.indent, style: `margin-left:${a.indent * INDENT_PT}pt` } : {}),
           },
+          indentRight: {
+            default: null,
+            parseHTML: (el) => (el.style.marginRight ? parseFloat(el.style.marginRight) : null),
+            renderHTML: (a) => (a.indentRight != null ? { style: `margin-right:${a.indentRight}pt` } : {}),
+          },
           spaceBefore: {
             default: null,
             parseHTML: (el) => (el.style.marginTop ? parseFloat(el.style.marginTop) : null),
@@ -34,6 +40,16 @@ export const ParagraphFormat = Extension.create({
             default: null,
             parseHTML: (el) => (el.style.marginBottom ? parseFloat(el.style.marginBottom) : null),
             renderHTML: (a) => (a.spaceAfter != null ? { style: `margin-bottom:${a.spaceAfter}pt` } : {}),
+          },
+        },
+      },
+      {
+        types: ['paragraph'],
+        attributes: {
+          dropCap: {
+            default: false,
+            parseHTML: (el) => el.hasAttribute('data-dropcap'),
+            renderHTML: (a) => (a.dropCap ? { 'data-dropcap': '1' } : {}),
           },
         },
       },
@@ -100,6 +116,16 @@ export const LumaImage = Image.extend({
         default: null,
         parseHTML: (el) => parseInt(el.getAttribute('width') || el.style.width, 10) || null,
         renderHTML: (a) => (a.width ? { width: a.width, style: `width:${a.width}px;max-width:100%;height:auto` } : {}),
+      },
+      float: {
+        default: 'none',
+        parseHTML: (el) => el.getAttribute('data-float') || 'none',
+        renderHTML: (a) => (a.float && a.float !== 'none' ? { 'data-float': a.float } : {}),
+      },
+      shape: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-shape') || null,
+        renderHTML: (a) => (a.shape ? { 'data-shape': a.shape } : {}),
       },
     };
   },
@@ -381,4 +407,73 @@ export const TrackChanges = Extension.create({
       },
     };
   },
+});
+
+/* ---------- Note de fin ---------- */
+export const Endnote = Node.create({
+  name: 'endnote',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { text: { default: '', parseHTML: (el) => el.getAttribute('data-text') || '', renderHTML: (a) => ({ 'data-text': a.text }) } };
+  },
+  parseHTML() { return [{ tag: 'sup[data-endnote]', priority: 100 }]; },
+  renderHTML({ HTMLAttributes }) { return ['sup', mergeAttributes(HTMLAttributes, { class: 'endnote-ref', 'data-endnote': '' })]; },
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      key: new PluginKey('luma-endnotes'),
+      props: {
+        decorations(state) {
+          const notes = [];
+          state.doc.descendants((n) => { if (n.type.name === 'endnote') notes.push(n.attrs.text); return true; });
+          if (!notes.length) return DecorationSet.empty;
+          return DecorationSet.create(state.doc, [Decoration.widget(state.doc.content.size, () => {
+            const box = document.createElement('div');
+            box.className = 'endnotes';
+            box.contentEditable = 'false';
+            const title = document.createElement('div');
+            title.className = 'endnotes-title';
+            title.textContent = 'Notes de fin';
+            const ol = document.createElement('ol');
+            notes.forEach((t, i) => { const li = document.createElement('li'); li.dataset.i = i; li.textContent = t || '(note vide)'; ol.append(li); });
+            box.append(title, ol);
+            return box;
+          }, { side: 1, key: 'en:' + notes.join('\u0001') })]);
+        },
+      },
+    })];
+  },
+});
+
+/* ---------- Zone de texte ---------- */
+const tbAttr = (name, def, num) => ({ default: def, parseHTML: (el) => { const v = el.getAttribute('data-' + name); return v == null ? def : num ? +v : name === 'accent' ? v === '1' : v; }, renderHTML: (a) => ({ ['data-' + name]: name === 'accent' ? (a[name] ? '1' : '0') : a[name] }) });
+export const TextBox = Node.create({
+  name: 'textBox',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  isolating: true,
+  addAttributes() {
+    return { fill: tbAttr('fill', '#eaf2ff'), border: tbAttr('border', '#0157e0'), width: tbAttr('width', 100, true), align: tbAttr('align', 'center'), accent: tbAttr('accent', false) };
+  },
+  parseHTML() { return [{ tag: 'div[data-textbox]' }]; },
+  renderHTML({ node, HTMLAttributes }) {
+    const a = node.attrs;
+    const style = `background:${a.fill};border-color:${a.border};width:${a.width}%;margin-left:${a.align === 'left' ? '0' : 'auto'};margin-right:${a.align === 'right' ? '0' : 'auto'}`;
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-textbox': '', class: 'textbox' + (a.accent ? ' accent' : ''), style }), 0];
+  },
+});
+
+/* ---------- Date et heure (mises à jour à l'ouverture du document) ---------- */
+export const DateField = Node.create({
+  name: 'dateField',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() { return { fmt: { default: 'long', parseHTML: (el) => el.getAttribute('data-fmt') || 'long', renderHTML: (a) => ({ 'data-fmt': a.fmt }) } }; },
+  parseHTML() { return [{ tag: 'span[data-datefield]', priority: 100 }]; },
+  renderHTML({ node, HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-datefield': '', class: 'datefield', title: 'Date mise à jour automatiquement' }), formatDate(node.attrs.fmt)]; },
 });

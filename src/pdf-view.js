@@ -1,31 +1,85 @@
 // Lecteur PDF : pages rendues à la demande, texte sélectionnable, zoom (boutons et pincement), recherche, conversion en document.
 import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog } from './ui.js';
 import { putDoc } from './storage.js';
-import { loadPdfjs, pageText, pageParagraphs } from './pdf-lib.js';
+import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
 import { terms, norm, makeSnippet, snippetEl } from './search.js';
 
+const friendly = (e) => {
+  const n = e?.name || '', m = e?.message || String(e);
+  if (n === 'NotReadableError' || /not readable|could not be read/i.test(m)) return 'Le fichier n’est plus lisible sur cet appareil (stocké dans le cloud ?). Réimportez-le depuis le téléphone.';
+  if (n === 'InvalidPDFException' || /invalid pdf/i.test(m)) return 'Ce fichier n’est pas un PDF valide ou il est endommagé.';
+  if (n === 'MissingPDFException') return 'Le PDF est introuvable.';
+  if (/délai|timeout/i.test(m)) return 'Le chargement a pris trop de temps.';
+  return m;
+};
+const withTimeout = (promise, ms, label, paused = () => false) => new Promise((resolve, reject) => {
+  let left = ms; const tick = 500;
+  const t = setInterval(() => { if (paused()) return; left -= tick; if (left <= 0) { clearInterval(t); reject(new Error(`Délai dépassé (${label})`)); } }, tick);
+  promise.then((v) => { clearInterval(t); resolve(v); }, (e) => { clearInterval(t); reject(e); });
+});
+async function readBlob(b) {
+  try { return await b.arrayBuffer(); } catch (e) { try { return await new Response(b).arrayBuffer(); } catch { throw e; } }
+}
+
 export async function mountPdf(host, rec, hooks) {
   const root = h('div', { class: 'viewer' });
-  const loading = h('div', { class: 'vload' }, h('div', { class: 'spin' }), 'Ouverture du PDF…');
+  let destroyed = false, ready = false, paused = false;
+  const msg = h('p', { class: 'vmsg' }, 'Ouverture du PDF…');
+  const sub = h('small', { class: 'vsub' }, '');
+  const actions = h('div', { class: 'vact' });
+  const spin = h('div', { class: 'spin' });
+  const loading = h('div', { class: 'vload' }, spin, msg, sub, actions);
   root.append(viewerTopbar(rec, hooks, () => []), loading);
   host.replaceChildren(root);
-  let destroyed = false;
-
-  const pdfjs = await loadPdfjs();
-  await import('pdfjs-dist/web/pdf_viewer.css');
-  const data = new Uint8Array(await rec.blob.arrayBuffer());
-  const task = pdfjs.getDocument({ data, isEvalSupported: false });
-  task.onPassword = async (update, reason) => {
-    const pw = await promptDialog('PDF protégé', reason === 2 ? 'Mot de passe incorrect, réessayez' : 'Saisissez le mot de passe du document', '', 'Ouvrir');
-    if (pw == null) { hooks.onBack(); return; }
-    update(pw);
+  const fileName = safeName(rec.title) + '.pdf';
+  const rescue = () => [
+    h('button', { class: 'btn', onclick: () => saveBlob(rec.blob, fileName) }, icon('download', 18), 'Télécharger le PDF'),
+    navigator.canShare ? h('button', { class: 'btn', onclick: () => shareBlob(rec.blob, fileName, 'application/pdf') }, icon('share', 18), 'Ouvrir avec une autre application') : h('button', { class: 'btn', onclick: () => window.open(URL.createObjectURL(rec.blob), '_blank') }, icon('file', 18), 'Ouvrir dans le navigateur'),
+    h('button', { class: 'btn', onclick: () => hooks.onBack() }, 'Retour'),
+  ];
+  const watchdog = setTimeout(() => { if (!destroyed && !ready) { sub.textContent = 'Le chargement est plus long que prévu… (gros fichier ou appareil lent)'; actions.replaceChildren(...rescue()); } }, 12000);
+  const noop = { flush() {}, destroy() { destroyed = true; clearTimeout(watchdog); } };
+  const fail = (e, step) => {
+    clearTimeout(watchdog); spin.remove();
+    msg.textContent = 'Impossible d’ouvrir ce PDF';
+    sub.textContent = `${friendly(e)}  [étape : ${step}]`;
+    actions.replaceChildren(h('button', { class: 'btn primary', onclick: () => hooks.onRetry?.() }, 'Réessayer'), ...rescue());
+    console.error('PDF', step, e);
+    return noop;
   };
-  let doc;
-  try { doc = await task.promise; } catch (e) {
-    loading.replaceChildren(h('p', {}, 'Impossible d’ouvrir ce PDF.'), h('button', { class: 'btn', onclick: () => hooks.onBack() }, 'Retour'));
-    return { flush() {}, destroy() { destroyed = true; } };
-  }
+
+  let step = 'lecture du fichier', buf, pdfjs, task, doc;
+  try {
+    buf = await withTimeout(readBlob(rec.blob), 20000, step);
+    if (destroyed) return noop;
+    step = 'chargement du lecteur'; msg.textContent = 'Chargement du lecteur PDF…';
+    pdfjs = await withTimeout(loadPdfjs(), 25000, step);
+    import('pdfjs-dist/web/pdf_viewer.css').catch(() => {});
+    // Deux tentatives : worker avec compléments, puis worker standard (repli automatique sur le thread principal)
+    let lastErr;
+    for (const mode of ['wrapped', 'plain']) {
+      step = mode === 'wrapped' ? 'analyse du document' : 'analyse du document (mode secours)';
+      msg.textContent = mode === 'wrapped' ? 'Analyse du document…' : 'Nouvelle tentative…';
+      try {
+        const dead = useWorkerMode(mode);
+        task = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, useSystemFonts: true });
+        task.onProgress = ({ loaded, total }) => { if (total) sub.textContent = `${Math.round((loaded / total) * 100)} %`; };
+        task.onPassword = async (update, reason) => {
+          paused = true;
+          const pw = await promptDialog('PDF protégé', reason === 2 ? 'Mot de passe incorrect, réessayez' : 'Saisissez le mot de passe du document', '', 'Ouvrir');
+          paused = false;
+          if (pw == null) { hooks.onBack(); return; }
+          update(pw);
+        };
+        doc = await withTimeout(Promise.race([task.promise, dead]), mode === 'wrapped' ? 15000 : 30000, step, () => paused);
+        break;
+      } catch (e) { lastErr = e; try { task?.destroy(); } catch { /* ignore */ } if (/InvalidPDF|MissingPDF|Password/i.test(e?.name || '')) throw e; }
+    }
+    if (!doc) throw lastErr || new Error('Aucune méthode de lecture n’a fonctionné');
+  } catch (e) { return fail(e, step); }
+  if (destroyed) return noop;
+  ready = true; clearTimeout(watchdog);
   const N = doc.numPages;
 
   /* ---------- structure ---------- */
