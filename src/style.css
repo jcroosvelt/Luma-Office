@@ -619,3 +619,25 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 .info-grid { display: grid; gap: 2px; }
 .info-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .info-row span { color: var(--muted); } .info-row b { font-weight: 600; word-break: break-word; }
+
+/* Recherche sur la page, annotations, formulaires */
+.findbar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; background: var(--surface); border-top: 1px solid var(--line); }
+.findbar .field { flex: 1; min-width: 0; height: 38px; }
+.fcount { min-width: 44px; text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hit { position: absolute; z-index: 1; background: rgba(255, 214, 0, .45); border-radius: 2px; pointer-events: none; mix-blend-mode: multiply; }
+.hit.cur { background: rgba(255, 120, 0, .55); outline: 2px solid rgba(255, 120, 0, .9); }
+.annot-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; overflow: hidden; }
+.annot-layer.annot-erase [data-id] { cursor: pointer; }
+.annotating .textLayer, .annotating .pdf-link { pointer-events: none; }
+.annbar { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 4px 8px; background: var(--surface); border-top: 1px solid var(--line); }
+.annbar .icon-btn.on { background: var(--brand-tint); color: var(--brand); box-shadow: inset 0 0 0 2px var(--accent); }
+.annbar .done { margin-left: auto; color: var(--brand); }
+.cdots { display: flex; gap: 6px; align-items: center; padding: 0 8px; }
+.cdot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); padding: 0; }
+.cdot.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.sigpad { width: 100%; height: auto; aspect-ratio: 640 / 260; background: #fff; border: 1px dashed var(--line); border-radius: 12px; touch-action: none; }
+.pdf-widget { position: absolute; z-index: 3; box-sizing: border-box; margin: 0; padding: 0 3px; border: 1px solid rgba(0, 87, 224, .5); background: rgba(0, 87, 224, .08); color: #0a1f5c; border-radius: 2px; font-family: Helvetica, Arial, sans-serif; }
+.pdf-widget:focus { outline: 2px solid var(--accent); background: rgba(255, 255, 255, .9); }
+textarea.pdf-widget { resize: none; padding-top: 2px; }
+input[type=checkbox].pdf-widget, input[type=radio].pdf-widget { padding: 0; accent-color: var(--brand); }
+.pdf-night .pdf-widget { background: rgba(255, 255, 255, .85); }

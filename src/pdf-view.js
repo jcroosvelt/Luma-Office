@@ -1,9 +1,13 @@
 // Lecteur PDF : pages rendues à la demande, texte sélectionnable, zoom (boutons et pincement), recherche, conversion en document.
 import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog, sheet } from './ui.js';
-import { putDoc } from './storage.js';
+import { putDoc, newId } from './storage.js';
+import { createAnnotator } from './pdf-annot.js';
 import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
 import { terms, norm, makeSnippet, snippetEl } from './search.js';
+
+// repli caractère par caractère (longueur conservée) pour retrouver les occurrences dans le texte affiché
+const fold = (t) => { let o = ''; for (const c of t) o += (c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()[0]) || c; return o; };
 
 // Polices standard, CMaps (polices asiatiques), décodeurs d’images et profils couleur : sans eux le texte non incorporé disparaît
 const base = new URL('pdfjs/', document.baseURI).href;
@@ -118,6 +122,67 @@ export async function mountPdf(host, rec, hooks) {
     putDoc(rec).catch(() => {});
   }
 
+  /* ---------- recherche avec surlignage sur la page ---------- */
+  const find = { terms: [], matches: [], idx: -1, target: null };
+  const findInput = h('input', { class: 'field', type: 'search', placeholder: 'Rechercher dans le PDF…', enterkeyhint: 'search', 'aria-label': 'Rechercher dans le PDF' });
+  const findCount = h('span', { class: 'fcount' }, '');
+  const findBar = h('div', { class: 'findbar' }, findInput, findCount,
+    h('button', { class: 'icon-btn', 'aria-label': 'Résultat précédent', onclick: () => goMatch(find.idx - 1) }, icon('up', 20)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Résultat suivant', onclick: () => goMatch(find.idx + 1) }, icon('down', 20)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Liste des résultats', onclick: () => openSearch() }, icon('list', 20)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Fermer la recherche', onclick: () => closeFind() }, icon('close', 20)));
+  let findT = 0;
+  findInput.addEventListener('input', () => { clearTimeout(findT); findT = setTimeout(runFind, 300); });
+  findInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(findT); if (find.terms.join(' ') !== terms(findInput.value).join(' ')) runFind(); else goMatch(find.idx + (e.shiftKey ? -1 : 1)); } else if (e.key === 'Escape') closeFind(); });
+  function openFind() { if (!findBar.isConnected) bar.before(findBar); findInput.focus(); findInput.select(); }
+  function closeFind() { findBar.remove(); find.terms = []; find.matches = []; find.idx = -1; find.target = null; els.forEach((el) => el.querySelectorAll('.hit').forEach((x) => x.remove())); }
+  async function runFind() {
+    const ts = terms(findInput.value);
+    find.terms = ts; find.matches = []; find.idx = -1; find.target = null;
+    if (!ts.length) { findCount.textContent = ''; els.forEach((el, i) => markHits(i)); return; }
+    findCount.textContent = '…';
+    const t = await ensureText();
+    if (ts.join(' ') !== terms(findInput.value).join(' ')) return;
+    t.forEach((txt, pi) => { const f = fold(txt); let cnt = 0; for (const term of ts) { let i = 0; while ((i = f.indexOf(term, i)) >= 0) { cnt++; i += term.length; } } for (let k = 0; k < cnt; k++) find.matches.push({ page: pi, k }); });
+    if (!find.matches.length) { findCount.textContent = '0'; els.forEach((el, i) => markHits(i)); toast('Aucun résultat'); return; }
+    goMatch(Math.max(0, find.matches.findIndex((m) => m.page + 1 >= cur)));
+  }
+  function goMatch(n) {
+    if (!find.matches.length) return;
+    find.idx = ((n % find.matches.length) + find.matches.length) % find.matches.length;
+    const m = find.matches[find.idx];
+    findCount.textContent = `${find.idx + 1}/${find.matches.length}`;
+    find.target = { ...m, scroll: true };
+    els.forEach((el, i) => { if (i !== m.page) markHits(i); });
+    goTo(m.page + 1);
+    markHits(m.page);
+  }
+  function markHits(i) {
+    const el = els[i]; if (!el) return;
+    el.querySelectorAll('.hit').forEach((x) => x.remove());
+    const tl = el.querySelector('.textLayer');
+    if (!find.terms.length || !tl) return;
+    const box = el.getBoundingClientRect(), occ = [];
+    for (const span of tl.querySelectorAll('span')) {
+      const node = span.firstChild; if (!node || node.nodeType !== 3) continue;
+      const f = fold(node.data);
+      for (const term of find.terms) {
+        let at = 0;
+        while ((at = f.indexOf(term, at)) >= 0) {
+          const r = document.createRange(); r.setStart(node, at); r.setEnd(node, at + term.length);
+          const divs = [...r.getClientRects()].map((q) => { const d = h('div', { class: 'hit' }); d.style.cssText = `left:${q.left - box.left}px;top:${q.top - box.top}px;width:${q.width}px;height:${q.height}px`; el.append(d); return d; });
+          occ.push(divs); at += term.length;
+        }
+      }
+    }
+    const t = find.target;
+    if (t && t.page === i && occ.length) {
+      const cur1 = occ[Math.min(t.k, occ.length - 1)];
+      cur1.forEach((d) => d.classList.add('cur'));
+      if (t.scroll && cur1[0]) { t.scroll = false; cur1[0].scrollIntoView({ block: 'center', inline: 'nearest' }); }
+    }
+  }
+
   function openSearch() {
     searchSheet({
       title: 'Rechercher dans le PDF', placeholder: 'Mot ou expression…',
@@ -190,12 +255,17 @@ export async function mountPdf(host, rec, hooks) {
   function toggleNight() { night = !night; lsSet('luma-pdf-night', night ? '1' : '0'); root.classList.toggle('pdf-night', night); }
   function fitPage() { fitMode = 'page'; fit = true; applyScale(); setTimeout(() => goTo(cur), 30); }
   function fitWidth() { fitMode = 'width'; fit = true; applyScale(); }
-  function print() {
-    const url = URL.createObjectURL(rec.blob);
+  async function print() {
+    const url = URL.createObjectURL(await currentBlob());
     const f = h('iframe', { style: 'position:fixed;width:0;height:0;border:0;left:-9px', src: url });
     f.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch { window.open(url, '_blank'); } };
     document.body.append(f);
     setTimeout(() => { f.remove(); URL.revokeObjectURL(url); }, 180000);
+  }
+  async function saveCopy() {
+    const blob = await currentBlob();
+    const copy = { ...rec, id: newId(), title: rec.title + (ann.hasChanges() ? ' (annoté)' : ' (copie)'), blob, size: blob.size, annots: undefined, form: undefined, created: Date.now(), updated: Date.now() };
+    await putDoc(copy); toast('Copie enregistrée dans mes documents ✓', 3000);
   }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else (root.requestFullscreen || root.webkitRequestFullscreen)?.call(root); }
   async function info() {
@@ -213,6 +283,8 @@ export async function mountPdf(host, rec, hooks) {
     { icon: 'grid', label: 'Miniatures des pages', run: openThumbs },
     outline ? { icon: 'toc', label: 'Sommaire', run: openOutline } : null,
     { icon: 'gotopage', label: 'Aller à la page…', run: askPage },
+    { sep: 'Annoter' },
+    { icon: 'highlight', label: 'Annoter, surligner et signer', hint: 'Surligner, souligner, barrer, dessiner, écrire, signer', run: () => ann.openBar() },
     { sep: 'Affichage' },
     { icon: 'fit', label: 'Ajuster à la largeur', run: fitWidth },
     { icon: 'fullimg', label: 'Ajuster à la page entière', run: fitPage },
@@ -222,9 +294,10 @@ export async function mountPdf(host, rec, hooks) {
     { sep: 'Document' },
     { icon: 'info', label: 'Propriétés du document', run: info },
     { icon: 'print', label: 'Imprimer', run: print },
-    { icon: 'search', label: 'Rechercher dans le PDF', run: openSearch },
-    { icon: 'download', label: 'Télécharger le PDF', run: () => saveBlob(rec.blob, safeName(rec.title) + '.pdf') },
-    navigator.canShare ? { icon: 'share', label: 'Partager', run: () => shareBlob(rec.blob, safeName(rec.title) + '.pdf', 'application/pdf') } : null,
+    { icon: 'search', label: 'Rechercher dans le PDF', run: openFind },
+    { icon: 'download', label: 'Télécharger le PDF', hint: ann.hasChanges() ? 'Avec vos annotations et champs remplis' : null, run: async () => saveBlob(await currentBlob(), safeName(rec.title) + '.pdf') },
+    navigator.canShare ? { icon: 'share', label: 'Partager', run: async () => shareBlob(await currentBlob(), safeName(rec.title) + '.pdf', 'application/pdf') } : null,
+    { icon: 'save', label: 'Enregistrer une copie dans mes documents', hint: 'Annotations et champs remplis incorporés au PDF', run: saveCopy },
     { icon: 'word', label: 'Convertir en document modifiable', hint: 'Texte seulement, sans la mise en page d’origine', run: convert },
     { sep: 'Fichier' },
     deleteItem(rec, hooks),
@@ -243,6 +316,16 @@ export async function mountPdf(host, rec, hooks) {
   let night = lsGet('luma-pdf-night', '0') === '1';
   root.classList.toggle('pdf-night', night);
   const dims = (i) => (rot % 180 ? [sizes[i][1], sizes[i][0]] : sizes[i]);
+  let saveT = 0;
+  const ann = createAnnotator({
+    doc, els, sizes, dims, getRot: () => rot, scroller, root, getRec: () => rec, anchor: bar,
+    onChange: ({ annots, form }) => { rec = { ...rec, annots, form, updated: Date.now() }; clearTimeout(saveT); saveT = setTimeout(() => putDoc(rec).catch(() => {}), 500); },
+  });
+  const currentBlob = async () => {
+    if (!ann.hasChanges()) return rec.blob;
+    toast('Préparation du PDF…', 60000);
+    try { return await ann.exportBlob(rec); } catch (e) { console.error(e); toast('Impossible d’incorporer les modifications', 4000); return rec.blob; }
+  };
   const fitScale = () => {
     const [w, hh] = dims(Math.max(0, cur - 1));
     const byW = (scroller.clientWidth - 16) / w;
@@ -282,9 +365,11 @@ export async function mountPdf(host, rec, hooks) {
       const tl = h('div', { class: 'textLayer' });
       tl.style.setProperty('--scale-factor', my); tl.style.setProperty('--total-scale-factor', my);
       el.replaceChildren(canvas, tl);
+      ann.onPageRendered(i, el, page, vp);
       st.done = my; st.busy = 0;
       try { await new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: tl, viewport: vp }).render(); } catch { /* texte indisponible */ }
       addLinks(page, vp, el).catch((e) => console.warn("links", e));
+      markHits(i);
       if (i === 0 && !rec.thumb) makeThumb(canvas);
     } catch (e) {
       st.busy = 0;
@@ -328,6 +413,7 @@ export async function mountPdf(host, rec, hooks) {
     if (st.task) { try { st.task.cancel(); } catch { /* ignore */ } }
     st.done = 0; st.busy = 0;
     els[i].replaceChildren();
+    ann.onPageReleased(i);
   }
   function visibleRange() {
     const top = scroller.scrollTop, bottom = top + scroller.clientHeight, m = Math.max(600, scroller.clientHeight);
@@ -388,7 +474,7 @@ export async function mountPdf(host, rec, hooks) {
 
   const onResize = () => { if (fit) applyScale(); };
   addEventListener('resize', onResize);
-  const onKey = (e) => { if (e.key === 'PageDown' || e.key === 'ArrowRight') goTo(cur + 1); else if (e.key === 'PageUp' || e.key === 'ArrowLeft') goTo(cur - 1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openSearch(); } };
+  const onKey = (e) => { if (e.key === 'PageDown' || e.key === 'ArrowRight') goTo(cur + 1); else if (e.key === 'PageUp' || e.key === 'ArrowLeft') goTo(cur - 1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openFind(); } };
   document.addEventListener('keydown', onKey);
 
   applyScale();
