@@ -26,6 +26,7 @@ import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
+import { inApp, send as bridgeSend, blobToBase64, sendState } from './appbridge.js';
 
 const PALETTE = [
   ['#000000', '#262626', '#595959', '#7f7f7f', '#a6a6a6', '#bfbfbf', '#d9d9d9', '#eeeeee', '#f5f5f5', '#ffffff'],
@@ -152,6 +153,7 @@ export function mountEditor(host, docRec, hooks) {
   const stamp = () => (lastSaved ? lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '');
   function renderSaveState() {
     saveState.classList.toggle('busy', dirty);
+    sendState('dirty', dirty ? 'editor:dirty' : 'editor:clean');
     saveState.textContent = dirty ? 'Non enregistré' : lastSaved ? `Enregistré ${stamp()}` : 'Enregistré';
   }
   function scheduleSave(delay) { // marque le document comme modifié ; delay : enregistrement immédiat différé (ms)
@@ -713,7 +715,12 @@ export function mountEditor(host, docRec, hooks) {
   const exportPdf = () => withBusy('Création du PDF…', async () => { saveBlob(await makePdf(), fileName('pdf')); toast('PDF exporté ✓'); });
   const shareDocx = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makeDocx(), fileName('docx'), DOCX_MIME); toast('Terminé'); });
   const sharePdf = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makePdf(), fileName('pdf'), 'application/pdf'); toast('Terminé'); });
-  function doPrint() { findOpen && toggleFind(false); refreshToc(); setTimeout(() => printDocument(settings, title), 80); }
+  function doPrint() {
+    findOpen && toggleFind(false); refreshToc();
+    // dans l'application Android, window.print() est sans effet : on envoie un PDF à l'impression Android
+    if (inApp()) return withBusy('Préparation de l’impression…', async () => { bridgeSend('print', { title, pdfBase64: await blobToBase64(await makePdf()) }); });
+    setTimeout(() => printDocument(settings, title), 80);
+  }
 
   function openFileMenu() {
     const canShare = !!navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] });

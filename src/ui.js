@@ -1,4 +1,5 @@
 // Petits utilitaires d'interface : DOM, icônes, feuilles (sheets), toasts.
+import { inApp, send, blobToBase64 } from './appbridge.js';
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -228,6 +229,9 @@ export function saveBlob(blob, filename) {
 }
 
 export async function shareBlob(blob, filename, type) {
+  if (inApp()) {
+    try { if (send('share', { title: filename, filename, mime: type, base64: await blobToBase64(blob) })) return true; } catch { /* repli ci-dessous */ }
+  }
   const file = new File([blob], filename, { type });
   if (navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: filename }); return true; } catch (e) { if (e.name === 'AbortError') return true; }

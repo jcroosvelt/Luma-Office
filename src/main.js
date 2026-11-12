@@ -9,6 +9,7 @@ import { getDoc, putDoc, deleteDoc, newId, persist, pref } from './storage.js';
 import { TEMPLATES, templateSettings } from './templates.js';
 import { createDocFromHtml, openFiles } from './files.js';
 import { applyTheme, h, toast } from './ui.js';
+import { initAppBridge, sendState } from './appbridge.js';
 
 // Écran de démarrage avec le logo (une fois par session)
 try {
@@ -50,7 +51,7 @@ async function consumeShared() {
 
 async function render() {
   const my = ++token;
-  if (current) { try { await current.flush?.(); } catch { /* ignore */ } current.destroy?.(); current = null; }
+  if (current) { try { await current.flush?.(); } catch { /* ignore */ } current.destroy?.(); current = null; sendState('dirty', 'editor:clean'); sendState('open', 'editor:close'); }
   document.documentElement.classList.remove('in-editor');
   if (location.hash === '#/shared') { await consumeShared(); return; }
   if (location.hash === '#/new') {
@@ -84,6 +85,7 @@ async function render() {
     }
     if (my !== token) { view?.destroy?.(); return; }
     current = view;
+    sendState('open', 'editor:open');
     return;
   }
   const useTemplate = async (t) => {
@@ -105,5 +107,6 @@ if ('launchQueue' in window) {
   });
 }
 
+initAppBridge({ go });
 addEventListener('hashchange', render);
 render();
