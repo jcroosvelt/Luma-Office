@@ -1,8 +1,10 @@
 # Suivi de Luma Office
 
-Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12.
+Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Lecture de .odt, .rtf et .doc** (import, « Ouvrir avec », partage) : .odt et .rtf gardent le gras / italique / souligné, couleurs, tailles, alignements, titres, listes, tableaux, images et la mise en page ; .doc (ancien Word) récupère le texte, les paragraphes et les tableaux (pas la mise en forme). Les .doc protégés par mot de passe sont refusés.
+- **Site plus léger** : l'installation / les mises à jour ne téléchargent plus que l'éditeur (≈ 2,2 Mo au lieu de ≈ 7,7 Mo). Les modules lourds (lecteur PDF, export PDF, import Word, tableur) se téléchargent à la première utilisation puis restent disponibles hors ligne.
 - **Application Android (AppBridge)** : `window.onFileOpened(name, mime, base64)` (ouvre le fichier reçu comme nouveau document ; le document en cours est d'abord enregistré, rien n'est écrasé), `window.onTextShared(text)` (nouveau document avec le texte), `window.onNetworkChange(online)` (message « hors connexion »). Messages vers l'app : `editor:open/close`, `editor:dirty/clean`, `share:{…}` (partage Android) et `print:{pdfBase64}` (impression Android). Sans l'app, rien ne change. Formats pas encore lus : .odt, .rtf, .doc (message « Format non pris en charge »).
 - **Outils PDF professionnels** : scanner / images → PDF (appareil photo ou galerie, ordre réglable), fusionner plusieurs PDF, organiser les pages (déplacer, pivoter, supprimer), extraire des pages (ex. 1-3, 5), filigrane diagonal (gris / rouge / bleu) et numérotation « 1 / N ». Tout est enregistré comme copie dans Mes documents, l'original n'est jamais modifié.
 - **Lecteur PDF – annotations et formulaires** : recherche avec surlignage sur la page (résultat précédent/suivant), surligner / souligner / barrer (sélection de texte ou glissé), dessin libre, texte, signature dessinée (mémorisée), gomme, annuler, 6 couleurs ; remplissage des formulaires PDF (texte, cases, listes) ; téléchargement / partage / impression avec tout incorporé au PDF ; « Enregistrer une copie dans mes documents ».

@@ -5,7 +5,7 @@ import { templateSettings, TEMPLATES } from './templates.js';
 import { toast } from './ui.js';
 import { extOf } from './file-text.js';
 
-export const IMPORT_ACCEPT = '.docx,.pdf,.xlsx,.xlsm,.csv,.txt,.md,.html,.htm';
+export const IMPORT_ACCEPT = '.docx,.odt,.rtf,.doc,.pdf,.xlsx,.xlsm,.csv,.txt,.md,.html,.htm';
 const baseName = (n) => n.replace(/\.[^.]+$/, '');
 
 export function kindOf(file) {
@@ -14,8 +14,10 @@ export function kindOf(file) {
   if (['xlsx', 'xlsm'].includes(e) || t.includes('spreadsheetml')) return 'sheet';
   if (e === 'csv' || t === 'text/csv') return 'csv';
   if (e === 'docx' || t.includes('wordprocessingml')) return 'docx';
+  if (e === 'odt' || t === 'application/vnd.oasis.opendocument.text') return 'odt';
+  if (e === 'rtf' || t === 'application/rtf' || t === 'text/rtf') return 'rtf';
+  if (e === 'doc' || t === 'application/msword') return 'doc';
   if (['txt', 'md', 'html', 'htm'].includes(e)) return 'text';
-  if (e === 'doc') return 'old-doc';
   if (e === 'xls') return 'old-xls';
   return null;
 }
@@ -29,7 +31,6 @@ export async function createDocFromHtml({ title, html, settings, comments }) {
 // Ajoute un fichier à la bibliothèque ; renvoie l'identifiant (ou null si le format n'est pas pris en charge)
 export async function addFile(file) {
   const kind = kindOf(file);
-  if (kind === 'old-doc') { toast('Ancien format .doc : enregistrez-le d’abord en .docx dans Word.', 5000); return null; }
   if (kind === 'old-xls') { toast('Ancien format .xls : enregistrez-le d’abord en .xlsx dans Excel.', 5000); return null; }
   if (!kind) { toast(`Format non pris en charge : ${file.name}`, 4000); return null; }
   if (kind === 'pdf' || kind === 'sheet' || kind === 'csv') {

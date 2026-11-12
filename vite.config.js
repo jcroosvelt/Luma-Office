@@ -10,10 +10,19 @@ export default defineConfig({
       includeAssets: ['favicon.png', 'logo.png', 'icons/apple-touch-icon.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,woff2,ttf,mjs,svg,webmanifest}'],
+        // Modules lourds chargés à la demande (PDF, export, lecteur) : non téléchargés à l'installation,
+        // mis en cache à la première utilisation (voir runtimeCaching ci-dessous) → installation et mises à jour plus légères.
+        globIgnores: ['**/pdf.worker*', '**/pdfmake-*', '**/pdf-*.js', '**/pdf-view-*', '**/pdf_viewer*', '**/es-*.js', '**/dist-*.js', '**/pdfjs/**', '**/screens/**', '**/import-docx-*', '**/sheet-view-*', '**/xlsx-*', '**/pdf-tools-*', '**/pdf-annot-*'],
         importScripts: ['share-target-sw.js'],
         navigateFallbackDenylist: [/share-target/],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
+          {
+            // modules à la demande (voir globIgnores) : mis en cache à la première utilisation
+            urlPattern: ({ url }) => url.origin === self.location.origin && /\/assets\/.+\.(js|mjs|css)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'luma-modules', expiration: { maxEntries: 80 } },
+          },
           {
             // ressources du lecteur PDF (polices, cmaps, wasm) : disponibles hors ligne après la première lecture
             urlPattern: ({ url }) => url.pathname.includes('/pdfjs/'),
@@ -52,11 +61,14 @@ export default defineConfig({
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'],
             'text/csv': ['.csv'],
             'text/plain': ['.txt'],
+            'application/vnd.oasis.opendocument.text': ['.odt'],
+            'application/rtf': ['.rtf'],
+            'application/msword': ['.doc'],
           } },
         ],
         share_target: {
           action: './share-target', method: 'POST', enctype: 'multipart/form-data',
-          params: { files: [{ name: 'files', accept: ['application/pdf', '.pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx', '.xlsm', 'text/csv', '.csv', 'text/plain', '.txt'] }] },
+          params: { files: [{ name: 'files', accept: ['application/pdf', '.pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx', '.xlsm', 'text/csv', '.csv', 'text/plain', '.txt', 'application/vnd.oasis.opendocument.text', '.odt', 'application/rtf', '.rtf', 'application/msword', '.doc'] }] },
         },
         screenshots: [
           { src: 'screens/phone.png', sizes: '824x1678', type: 'image/png', form_factor: 'narrow', label: 'Éditeur sur téléphone' },
