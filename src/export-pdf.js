@@ -167,7 +167,7 @@ export async function buildPdf(json, settings, title, opts = {}) {
           layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => '#f1f3f5', paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6 }, margin: [0, 0, 0, 8] }];
       }
       case 'horizontalRule':
-        return [{ canvas: [{ type: 'line', x1: 0, y1: 4, x2: contentW, y2: 4, lineWidth: 0.75, lineColor: '#9aa0a6' }], margin: [0, 4, 0, 6] }];
+        return [{ canvas: [{ type: 'line', x1: 0, y1: 4, x2: contentW, y2: 4, lineWidth: n.attrs?.weight || 0.75, lineColor: n.attrs?.color ? colorOf(n.attrs.color) : '#9aa0a6' }], margin: [0, 4, 0, 6] }];
       case 'pageBreak': return [{ _pagebreak: true }];
       case 'columnBreak': return [{ _colbreak: true }];
       case 'tableOfContents': return [{ _toc: true }];
@@ -243,7 +243,7 @@ export async function buildPdf(json, settings, title, opts = {}) {
     }
     return {
       table: { widths, body, headerRows: rows[0]?.content?.[0]?.type === 'tableHeader' ? 1 : 0, dontBreakRows: true },
-      layout: { hLineColor: () => '#a6a6a6', vLineColor: () => '#a6a6a6', hLineWidth: () => 0.75, vLineWidth: () => 0.75, paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 2 },
+      layout: { hLineColor: () => '#a6a6a6', vLineColor: () => '#a6a6a6', hLineWidth: () => (node.attrs?.borderless ? 0 : 0.75), vLineWidth: () => (node.attrs?.borderless ? 0 : 0.75), paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 2 },
       margin: [0, 0, 0, 8],
     };
   }

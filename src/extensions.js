@@ -3,7 +3,8 @@ import { ReplaceStep, Mapping } from '@tiptap/pm/transform';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import Image from '@tiptap/extension-image';
-import { TableCell } from '@tiptap/extension-table';
+import { TableCell, Table } from '@tiptap/extension-table';
+import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import { formatDate } from './datefmt.js';
 
 /* ---------- Mise en forme de paragraphe : interligne, retrait, espacement ---------- */
@@ -140,6 +141,30 @@ export const LumaCell = TableCell.extend({
         default: null,
         parseHTML: (el) => el.style.backgroundColor || el.getAttribute('data-bg') || null,
         renderHTML: (a) => (a.backgroundColor ? { 'data-bg': a.backgroundColor, style: `background-color:${a.backgroundColor}` } : {}),
+      },
+    };
+  },
+});
+
+/* ---------- Ligne horizontale colorée (épaisseur et couleur) ---------- */
+export const LumaRule = HorizontalRule.extend({
+  addAttributes() {
+    return {
+      color: { default: null, parseHTML: (el) => el.getAttribute('data-color') || null, renderHTML: (a) => (a.color ? { 'data-color': a.color } : {}) },
+      weight: { default: null, parseHTML: (el) => parseFloat(el.getAttribute('data-weight')) || null, renderHTML: (a) => (a.weight ? { 'data-weight': a.weight, style: `border-top:${a.weight}pt solid ${a.color || '#9aa0a6'}` } : a.color ? { style: `border-top:1px solid ${a.color}` } : {}) },
+    };
+  },
+});
+
+/* ---------- Tableau sans bordures (mise en page des modèles) ---------- */
+export const LumaTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      borderless: {
+        default: false,
+        parseHTML: (el) => el.hasAttribute('data-borderless'),
+        renderHTML: (a) => (a.borderless ? { 'data-borderless': '1' } : {}),
       },
     };
   },

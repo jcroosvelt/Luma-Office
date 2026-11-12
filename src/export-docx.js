@@ -190,7 +190,7 @@ export async function buildDocx(json, settings, title, commentList = []) {
         }));
       }
       case 'horizontalRule':
-        return [new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: '9AA0A6', space: 1 } }, spacing: { before: 120, after: 120 } })];
+        return [new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: Math.round((n.attrs?.weight || 1) * 8), color: toHex(n.attrs?.color) || '9AA0A6', space: 1 } }, spacing: { before: 120, after: 120 } })];
       case 'pageBreak':
         return [new Paragraph({ children: [new PageBreak()] })];
       case 'columnBreak':
@@ -288,7 +288,7 @@ export async function buildDocx(json, settings, title, commentList = []) {
     const total = colW.reduce((a, b) => a + b, 0);
     const scale = total > contentTw ? contentTw / total : 1;
     const widths = colW.map((w) => Math.round(w * scale));
-    const border = { style: BorderStyle.SINGLE, size: 4, color: 'A6A6A6' };
+    const border = node.attrs?.borderless ? { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } : { style: BorderStyle.SINGLE, size: 4, color: 'A6A6A6' };
     const trs = [];
     for (const row of rows) {
       const cells = [];

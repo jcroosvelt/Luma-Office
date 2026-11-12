@@ -11,13 +11,13 @@ import Highlight from '@tiptap/extension-highlight';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
-import { Table, TableRow, TableHeader } from '@tiptap/extension-table';
+import { TableRow, TableHeader } from '@tiptap/extension-table';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
+import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon } from './ribbon.js';
 import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
@@ -84,12 +84,12 @@ export function mountEditor(host, docRec, hooks) {
     element: pmHost,
     content: docRec.json || docRec.html || { type: 'doc', content: [{ type: 'paragraph' }] },
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow' } } }),
+      StarterKit.configure({ horizontalRule: false, heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow' } } }),
       TextStyleKit.configure({ lineHeight: false }),
       Highlight.configure({ multicolor: true }),
       Subscript, Superscript,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: false }), TableRow, TableHeader, LumaCell,
+      LumaTable.configure({ resizable: false }), LumaRule, TableRow, TableHeader, LumaCell,
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),

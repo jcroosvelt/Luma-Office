@@ -657,3 +657,5 @@ input[type=checkbox].pdf-widget, input[type=radio].pdf-widget { padding: 0; acce
 .org-btns .icon-btn:disabled { opacity: .3; }
 .rot-l { display: inline-flex; transform: rotate(-90deg); } .rot-r { display: inline-flex; transform: rotate(90deg); }
 label.chk { display: flex; align-items: center; gap: 8px; }
+
+.doc-content table[data-borderless] td, .doc-content table[data-borderless] th { border-color: transparent; }
