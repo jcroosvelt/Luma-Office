@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **En-tête de l'accueil plus compact** : logo réduit (46 → 28 px) et marges réduites, l'en-tête passe d'environ 70 px à 39 px de haut.
 - **Lecture de .odt, .rtf et .doc** (import, « Ouvrir avec », partage) : .odt et .rtf gardent le gras / italique / souligné, couleurs, tailles, alignements, titres, listes, tableaux, images et la mise en page ; .doc (ancien Word) récupère le texte, les paragraphes et les tableaux (pas la mise en forme). Les .doc protégés par mot de passe sont refusés.
 - **Site plus léger** : l'installation / les mises à jour ne téléchargent plus que l'éditeur (≈ 2,2 Mo au lieu de ≈ 7,7 Mo). Les modules lourds (lecteur PDF, export PDF, import Word, tableur) se téléchargent à la première utilisation puis restent disponibles hors ligne.
 - **Application Android (AppBridge)** : `window.onFileOpened(name, mime, base64)` (ouvre le fichier reçu comme nouveau document ; le document en cours est d'abord enregistré, rien n'est écrasé), `window.onTextShared(text)` (nouveau document avec le texte), `window.onNetworkChange(online)` (message « hors connexion »). Messages vers l'app : `editor:open/close`, `editor:dirty/clean`, `share:{…}` (partage Android) et `print:{pdfBase64}` (impression Android). Sans l'app, rien ne change. Formats pas encore lus : .odt, .rtf, .doc (message « Format non pris en charge »).

@@ -399,11 +399,11 @@ textarea.field { padding: 10px 12px; resize: vertical; line-height: 1.4; }
 
 /* ---------- Accueil ---------- */
 .home { min-height: 100%; background: var(--bg); }
-.home-head { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-.logo-wrap { background: #fff; border-radius: 12px; padding: 2px 8px; }
+.home-head { display: flex; align-items: center; gap: 8px; padding: calc(4px + env(safe-area-inset-top)) 12px 4px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.logo-wrap { background: #fff; border-radius: 8px; padding: 1px 6px; }
 .home-head { box-shadow: 0 3px 0 -0px transparent; }
-.home-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; background: linear-gradient(90deg, var(--yellow), var(--accent) 45%, var(--accent2) 70%, var(--brand)); }
-.logo { height: 46px; display: block; }
+.home-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: linear-gradient(90deg, var(--yellow), var(--accent) 45%, var(--accent2) 70%, var(--brand)); }
+.logo { height: 28px; display: block; }
 .home-main { max-width: 1000px; margin: 0 auto; padding: 18px 16px 130px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
 .home-main > * { min-width: 0; }
 .home, .home-main { max-width: 100%; }
