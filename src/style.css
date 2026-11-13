@@ -659,3 +659,34 @@ input[type=checkbox].pdf-widget, input[type=radio].pdf-widget { padding: 0; acce
 label.chk { display: flex; align-items: center; gap: 8px; }
 
 .doc-content table[data-borderless] td, .doc-content table[data-borderless] th { border-color: transparent; }
+
+/* Mode lecture PDF */
+.rd-pdf { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--rd-bg, #fff); color: var(--rd-fg, #1c2333); }
+.rd-bar { position: absolute; left: 0; right: 0; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: color-mix(in srgb, var(--rd-bg) 92%, transparent); backdrop-filter: blur(8px); transition: transform .22s ease, opacity .22s; }
+.rd-bar .icon-btn, .rd-aa { color: var(--rd-fg); }
+.rd-top { top: 0; padding-top: calc(6px + env(safe-area-inset-top)); border-bottom: 1px solid color-mix(in srgb, var(--rd-fg) 14%, transparent); }
+.rd-bot { bottom: 0; justify-content: space-around; padding-bottom: calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid color-mix(in srgb, var(--rd-fg) 14%, transparent); }
+.rd-nobars .rd-top { transform: translateY(-110%); opacity: 0; } .rd-nobars .rd-bot { transform: translateY(110%); opacity: 0; }
+.rd-title { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-pg { min-width: 64px; height: 36px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--rd-fg) 25%, transparent); background: transparent; color: var(--rd-fg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rd-aa { min-width: 56px; height: 40px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--rd-fg) 25%, transparent); background: transparent; font-weight: 800; font-size: 18px; }
+.rd-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 4; background: color-mix(in srgb, var(--rd-fg) 12%, transparent); }
+.rd-progress i { display: block; height: 100%; width: 0; background: var(--accent, #f5a300); }
+.rd-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(64px + env(safe-area-inset-top)) 0 calc(90px + env(safe-area-inset-bottom)); touch-action: pan-y; }
+.rd-text { max-width: var(--rd-w, 42rem); margin: 0 auto; padding: 0 clamp(16px, 5vw, 36px); font-family: var(--rd-font); font-size: var(--rd-size, 19px); line-height: var(--rd-lh, 1.7); }
+.rd-text h2 { font-family: inherit; font-size: 1.35em; line-height: 1.3; margin: 1.4em 0 .5em; color: inherit; }
+.rd-text .rd-p { margin: 0 0 1em; white-space: pre-line; overflow-wrap: anywhere; hyphens: auto; }
+.rd-justify .rd-p { text-align: justify; }
+.rd-text .rd-p.speaking, .rd-text h2.speaking { background: color-mix(in srgb, var(--accent, #f5a300) 28%, transparent); border-radius: 6px; }
+.rd-pn { margin: 1.8em 0 .8em; font: 700 .62em system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; opacity: .45; text-align: center; border-top: 1px solid color-mix(in srgb, var(--rd-fg) 18%, transparent); padding-top: .8em; }
+section:first-child > .rd-pn { margin-top: 0; border-top: 0; }
+.rd-load, .rd-empty { opacity: .5; font-size: .8em; text-align: center; margin: 1em 0; }
+.rd-note { border: 1px solid color-mix(in srgb, var(--rd-fg) 25%, transparent); border-radius: 14px; padding: 16px; margin: 0 0 1.5em; display: grid; gap: 8px; justify-items: start; font-size: .85em; line-height: 1.4; }
+.rd-panel { position: absolute; left: 10px; right: 10px; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 5; max-width: 560px; margin: 0 auto; background: var(--rd-bg); color: var(--rd-fg); border: 1px solid color-mix(in srgb, var(--rd-fg) 22%, transparent); border-radius: 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .28); padding: 10px 12px; display: grid; gap: 8px; font-family: system-ui, sans-serif; }
+.rd-panel[hidden] { display: none; }
+.rd-row { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.rd-ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rd-seg { flex: 1; min-width: 44px; height: 36px; padding: 0 8px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--rd-fg) 25%, transparent); background: transparent; color: var(--rd-fg); font-weight: 700; font-size: 13px; }
+.rd-seg.on { background: var(--rd-fg); color: var(--rd-bg); }
+.rd-sz { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .rd-bar { transition: none; } }

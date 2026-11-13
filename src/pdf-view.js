@@ -2,6 +2,7 @@
 import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog, sheet } from './ui.js';
 import { putDoc, newId } from './storage.js';
 import { createAnnotator } from './pdf-annot.js';
+import { createReader } from './pdf-reader.js';
 import { rebuildPdf, stampPdf, parseRanges, saveAsDoc } from './pdf-tools.js';
 import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
@@ -99,6 +100,7 @@ export async function mountPdf(host, rec, hooks) {
     h('button', { class: 'icon-btn', 'aria-label': 'Zoom arrière', onclick: () => zoomBy(1 / 1.25) }, icon('zoomOut', 22)),
     h('button', { class: 'icon-btn', 'aria-label': 'Ajuster à la largeur', onclick: () => { fit = true; applyScale(); } }, icon('fit', 22)),
     h('button', { class: 'icon-btn', 'aria-label': 'Zoom avant', onclick: () => zoomBy(1.25) }, icon('zoomIn', 22)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Mode lecture', title: 'Mode lecture', onclick: () => openReader() }, icon('book', 22)),
     h('span', { class: 'grow' }),
     h('button', { class: 'icon-btn', 'aria-label': 'Page précédente', onclick: () => goTo(cur - 1) }, icon('up', 22)),
     pageLabel,
@@ -343,7 +345,11 @@ export async function mountPdf(host, rec, hooks) {
     sheet('Propriétés du document', h('div', { class: 'info-grid' }, rows.map(([k, v]) => h('div', { class: 'info-row' }, h('span', {}, k), h('b', {}, v)))));
   }
 
+  const reader = createReader({ doc, N, title: rec.title, getCur: () => cur, onClose: (p) => { goTo(p); } });
+  const openReader = () => { if (ann.isOpen()) ann.closeBar(); reader.open(); };
+
   const menu = () => [
+    { icon: 'book', label: 'Mode lecture', hint: 'Texte réaffiché pour le téléphone et la tablette', run: openReader },
     { sep: 'Navigation' },
     { icon: 'grid', label: 'Miniatures des pages', run: openThumbs },
     outline ? { icon: 'toc', label: 'Sommaire', run: openOutline } : null,
@@ -561,7 +567,7 @@ export async function mountPdf(host, rec, hooks) {
 
   return {
     flush: async () => {},
-    destroy() { destroyed = true; removeEventListener('resize', onResize); document.removeEventListener('keydown', onKey); try { task.destroy(); } catch { /* ignore */ } },
+    destroy() { destroyed = true; reader.destroy(); removeEventListener('resize', onResize); document.removeEventListener('keydown', onKey); try { task.destroy(); } catch { /* ignore */ } },
     fullText,
   };
 }

@@ -124,6 +124,7 @@ const P = {
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   sidebar: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  play: '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor"/>',
   gotopage: '<path d="M4 12h13"/><path d="m12 6 6 6-6 6"/><path d="M21 4v16"/>',
   words: '<path d="M4 7h16M4 12h10M4 17h13"/>',
   fullimg: '<rect x="3" y="5" width="18" height="14" rx="2"/>',

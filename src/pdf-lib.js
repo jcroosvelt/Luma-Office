@@ -76,3 +76,48 @@ export async function pageParagraphs(doc, n) {
   if (cur) paras.push(cur);
   return paras;
 }
+
+// Texte d'une page structuré pour la lecture sur petit écran : titres, paragraphes, vers (retours à la ligne conservés), césures recollées.
+export async function pageBlocks(doc, n) {
+  const page = await doc.getPage(n);
+  const tc = await page.getTextContent();
+  const lines = [];
+  let cur = null;
+  const flush = () => { if (cur && cur.s.trim()) lines.push(cur); cur = null; };
+  for (const it of tc.items) {
+    if (!it.str && !it.hasEOL) continue;
+    const x = it.transform[4], y = it.transform[5], hh = Math.abs(it.transform[3]) || it.height || 10;
+    if (it.str) {
+      if (cur && Math.abs(y - cur.y) < hh * 0.5 && x >= cur.endX - hh) {
+        const gap = x - cur.endX;
+        cur.s += (gap > hh * 0.15 && !cur.s.endsWith(' ') && !it.str.startsWith(' ') ? ' ' : '') + it.str;
+        cur.endX = x + (it.width || 0); cur.h = Math.max(cur.h, hh);
+      } else { flush(); cur = { s: it.str, x, y, endX: x + (it.width || 0), h: hh }; }
+    }
+    if (it.hasEOL) flush();
+  }
+  flush();
+  if (!lines.length) return [];
+  const sorted = (a) => [...a].sort((p, q) => p - q);
+  const hs = sorted(lines.map((l) => l.h)), body = hs[Math.floor(hs.length / 2)];
+  const ws = sorted(lines.map((l) => l.endX - l.x)), maxW = ws[Math.floor(ws.length * 0.9)] || 1;
+  const out = [];
+  let para = null, prev = null;
+  const push = () => { if (para) out.push(para); para = null; };
+  for (const l of lines) {
+    const text = l.s.replace(/\s+/g, ' ').trim();
+    const isHead = l.h >= body * 1.25 && text.length < 140;
+    const bullet = /^[•·▪●○◦‣\-–—]\s+/.test(text);
+    if (isHead) { push(); out.push({ k: 'h', t: text }); prev = null; continue; }
+    const gap = prev ? prev.y - l.y : 0;
+    const cont = prev && !bullet && gap > 0 && gap < prev.h * 1.9 && Math.abs(l.x - prev.x) < prev.h * 4 && !prev.head;
+    if (cont && para) {
+      const prevShort = (prev.endX - prev.x) < maxW * 0.7;
+      if (para.t.endsWith('-') && !prevShort && /^[a-zà-ÿ]/.test(text)) para.t = para.t.slice(0, -1) + text;
+      else para.t += (prevShort ? '\n' : ' ') + text;
+    } else { push(); para = { k: 'p', t: text }; }
+    prev = l;
+  }
+  push();
+  return out;
+}
