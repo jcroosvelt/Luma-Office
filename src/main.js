@@ -22,7 +22,7 @@ try {
   }
 } catch { /* ignore */ }
 
-registerSW({ immediate: true, onOfflineReady() { toast('Luma Office est prêt à fonctionner hors ligne ✓', 3500); } });
+registerSW({ immediate: true });
 persist();
 applyTheme(pref.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(pref.get('theme', 'auto')));

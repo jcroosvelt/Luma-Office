@@ -85,9 +85,8 @@ export function initAppBridge({ go }) {
       return false;
     }
   };
+  // état du réseau : simple classe CSS, aucun message à l'écran
   window.onNetworkChange = (online) => {
-    const on = online === true || online === 'true';
-    document.documentElement.classList.toggle('offline', !on);
-    toast(on ? 'Connexion rétablie' : 'Hors connexion : vos documents restent enregistrés sur cet appareil', on ? 2500 : 4500);
+    document.documentElement.classList.toggle('offline', !(online === true || online === 'true'));
   };
 }

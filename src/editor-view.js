@@ -68,6 +68,7 @@ export function mountEditor(host, docRec, hooks) {
     titleInput, saveState, saveBtn,
     h('button', { class: 'exp-btn', 'aria-label': 'Exporter en Word', title: 'Exporter en Word (.docx)', onclick: () => exportDocx() }, icon('word', 20), h('span', {}, 'Word')),
     h('button', { class: 'exp-btn', 'aria-label': 'Exporter en PDF', title: 'Exporter en PDF', onclick: () => exportPdf() }, icon('pdf', 20), h('span', {}, 'PDF')),
+    h('button', { class: 'icon-btn ai-btn', 'aria-label': 'Assistant IA', title: 'Assistant IA : reformuler, corriger, résumer, traduire, rédiger', onmousedown: (e) => e.preventDefault(), onclick: () => pro.openAI() }, icon('sparkle', 22)),
     undoBtn, redoBtn,
     h('button', { class: 'icon-btn', 'aria-label': 'Menu fichier', onclick: () => openFileMenu() }, icon('more', 22)));
 
