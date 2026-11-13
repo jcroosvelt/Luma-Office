@@ -3,7 +3,7 @@ import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog, sheet } fr
 import { putDoc, newId } from './storage.js';
 import { createAnnotator } from './pdf-annot.js';
 import { createReader } from './pdf-reader.js';
-import { rebuildPdf, stampPdf, parseRanges, saveAsDoc } from './pdf-tools.js';
+import { rebuildPdf, stampPdf, parseRanges, saveAsDoc, protectPdf, unprotectPdf } from './pdf-tools.js';
 import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
 import { terms, norm, makeSnippet, snippetEl } from './search.js';
@@ -59,7 +59,7 @@ export async function mountPdf(host, rec, hooks) {
     return noop;
   };
 
-  let step = 'lecture du fichier', buf, pdfjs, task, doc;
+  let step = 'lecture du fichier', buf, pdfjs, task, doc, pdfPw = null;
   try {
     buf = await withTimeout(readBlob(rec.blob), 20000, step);
     if (destroyed) return noop;
@@ -80,7 +80,7 @@ export async function mountPdf(host, rec, hooks) {
           const pw = await promptDialog('PDF protégé', reason === 2 ? 'Mot de passe incorrect, réessayez' : 'Saisissez le mot de passe du document', '', 'Ouvrir');
           paused = false;
           if (pw == null) { hooks.onBack(); return; }
-          update(pw);
+          pdfPw = pw; update(pw);
         };
         doc = await withTimeout(Promise.race([task.promise, dead]), mode === 'wrapped' ? 15000 : 30000, step, () => paused);
         break;
@@ -101,6 +101,8 @@ export async function mountPdf(host, rec, hooks) {
     h('button', { class: 'icon-btn', 'aria-label': 'Ajuster à la largeur', onclick: () => { fit = true; applyScale(); } }, icon('fit', 22)),
     h('button', { class: 'icon-btn', 'aria-label': 'Zoom avant', onclick: () => zoomBy(1.25) }, icon('zoomIn', 22)),
     h('button', { class: 'icon-btn', 'aria-label': 'Mode lecture', title: 'Mode lecture', onclick: () => openReader() }, icon('book', 22)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Modifier le PDF', title: 'Modifier le PDF', onclick: () => ann.openBar('edit') }, icon('edit', 22)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Signer le PDF', title: 'Signer le PDF', onclick: () => ann.openBar('sig') }, icon('sign', 22)),
     h('span', { class: 'grow' }),
     h('button', { class: 'icon-btn', 'aria-label': 'Page précédente', onclick: () => goTo(cur - 1) }, icon('up', 22)),
     pageLabel,
@@ -329,6 +331,28 @@ export async function mountPdf(host, rec, hooks) {
     };
     s = sheet('Filigrane et numérotation', h('div', { class: 'form' }, h('label', {}, 'Filigrane diagonal', text), h('label', {}, 'Couleur', color), h('label', { class: 'chk' }, num, ' Numéroter les pages (1 / N en bas)'), h('button', { class: 'btn primary', onclick: go }, 'Appliquer et enregistrer une copie')));
   }
+  function openProtect() {
+    const pw = h('input', { class: 'field', type: 'password', placeholder: 'Mot de passe', autocomplete: 'new-password', 'aria-label': 'Mot de passe' });
+    const pw2 = h('input', { class: 'field', type: 'password', placeholder: 'Confirmer le mot de passe', autocomplete: 'new-password', 'aria-label': 'Confirmer le mot de passe' });
+    const chk = (label, on) => { const i = h('input', { type: 'checkbox' }); i.checked = on; return [i, h('label', { class: 'chk' }, i, ' ' + label)]; };
+    const [cPrint, lPrint] = chk('Autoriser l’impression', true), [cCopy, lCopy] = chk('Autoriser la copie du texte', false), [cMod, lMod] = chk('Autoriser la modification', false);
+    let s;
+    const go = async () => {
+      if (pw.value.length < 4) { toast('Choisissez un mot de passe d’au moins 4 caractères'); return; }
+      if (pw.value !== pw2.value) { toast('Les deux mots de passe sont différents'); return; }
+      toast('Protection du PDF…', 60000);
+      try { await saveAsDoc(await protectPdf(await currentBlob(), { password: pw.value, perms: { print: cPrint.checked, copy: cCopy.checked, modify: cMod.checked } }, pdfPw), rec.title + ' (protégé)'); s.close(); toast('Copie protégée enregistrée dans mes documents ✓', 3500); }
+      catch (e) { console.error(e); toast('Impossible de protéger ce PDF', 4000); }
+    };
+    s = sheet('Protéger par mot de passe', h('div', { class: 'form' },
+      h('p', { class: 'muted' }, 'Le PDF protégé est un nouveau fichier : son contenu est chiffré, un mot de passe est demandé pour l’ouvrir (dans Luma Office comme dans tout lecteur PDF). Notez-le bien : il ne peut pas être retrouvé.'),
+      pw, pw2, lPrint, lCopy, lMod, h('button', { class: 'btn primary', onclick: go }, 'Protéger et enregistrer une copie')));
+  }
+  async function removeProtection() {
+    toast('Retrait du mot de passe…', 60000);
+    try { await saveAsDoc(await unprotectPdf(await currentBlob(), pdfPw), rec.title + ' (sans mot de passe)'); toast('Copie sans mot de passe enregistrée ✓', 3500); }
+    catch (e) { console.error(e); toast('Impossible de retirer le mot de passe', 4000); }
+  }
   async function saveCopy() {
     const blob = await currentBlob();
     const copy = { ...rec, id: newId(), title: rec.title + (ann.hasChanges() ? ' (annoté)' : ' (copie)'), blob, size: blob.size, annots: undefined, form: undefined, created: Date.now(), updated: Date.now() };
@@ -354,14 +378,19 @@ export async function mountPdf(host, rec, hooks) {
     { icon: 'grid', label: 'Miniatures des pages', run: openThumbs },
     outline ? { icon: 'toc', label: 'Sommaire', run: openOutline } : null,
     { icon: 'gotopage', label: 'Aller à la page…', run: askPage },
-    { sep: 'Annoter' },
-    { icon: 'highlight', label: 'Annoter, surligner et signer', hint: 'Surligner, souligner, barrer, dessiner, écrire, signer', run: () => ann.openBar() },
+    { sep: 'Modifier et signer' },
+    { icon: 'edit', label: 'Modifier le PDF', hint: 'Changer un texte, masquer, écrire, surligner, insérer une image', run: () => { if (reader.isOpen()) reader.close(); ann.openBar('edit'); } },
+    { icon: 'sign', label: 'Signer le PDF', hint: 'Signature dessinée, tapée ou image, paraphes, date', run: () => ann.openBar('sig') },
+    { icon: 'highlight', label: 'Annoter (surligner, dessiner…)', run: () => ann.openBar() },
     { sep: 'Affichage' },
     { icon: 'fit', label: 'Ajuster à la largeur', run: fitWidth },
     { icon: 'fullimg', label: 'Ajuster à la page entière', run: fitPage },
     { icon: 'orient', label: 'Pivoter de 90°', run: rotate },
     { icon: 'moon', label: night ? 'Désactiver le mode nuit' : 'Mode nuit (pages inversées)', run: toggleNight },
     document.fullscreenEnabled || document.webkitFullscreenEnabled ? { icon: 'sidebar', label: 'Plein écran', run: fullscreen } : null,
+    { sep: 'Sécurité' },
+    { icon: 'lock', label: 'Protéger par mot de passe', hint: 'Crée une copie chiffrée du PDF', run: openProtect },
+    pdfPw ? { icon: 'unlock', label: 'Retirer le mot de passe', hint: 'Crée une copie sans mot de passe', run: removeProtection } : null,
     { sep: 'Outils PDF' },
     { icon: 'grid', label: 'Organiser les pages', hint: 'Déplacer, pivoter, supprimer', run: openOrganize },
     { icon: 'pdf', label: 'Extraire des pages…', hint: 'Créer un PDF avec certaines pages', run: extractPages },
@@ -393,13 +422,13 @@ export async function mountPdf(host, rec, hooks) {
   const dims = (i) => (rot % 180 ? [sizes[i][1], sizes[i][0]] : sizes[i]);
   let saveT = 0;
   const ann = createAnnotator({
-    doc, els, sizes, dims, getRot: () => rot, scroller, root, getRec: () => rec, anchor: bar,
+    doc, els, sizes, dims, getRot: () => rot, getScale: () => scale, scroller, root, getRec: () => rec, anchor: bar,
     onChange: ({ annots, form }) => { rec = { ...rec, annots, form, updated: Date.now() }; clearTimeout(saveT); saveT = setTimeout(() => putDoc(rec).catch(() => {}), 500); },
   });
   const currentBlob = async () => {
     if (!ann.hasChanges()) return rec.blob;
     toast('Préparation du PDF…', 60000);
-    try { return await ann.exportBlob(rec); } catch (e) { console.error(e); toast('Impossible d’incorporer les modifications', 4000); return rec.blob; }
+    try { return await ann.exportBlob(rec, pdfPw); } catch (e) { console.error(e); toast('Impossible d’incorporer les modifications', 4000); return rec.blob; }
   };
   const fitScale = () => {
     const [w, hh] = dims(Math.max(0, cur - 1));

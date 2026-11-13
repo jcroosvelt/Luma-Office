@@ -690,3 +690,13 @@ section:first-child > .rd-pn { margin-top: 0; border-top: 0; }
 .rd-seg.on { background: var(--rd-fg); color: var(--rd-bg); }
 .rd-sz { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .rd-bar { transition: none; } }
+
+/* Signature, modification PDF */
+.sig-tabs { display: flex; gap: 6px; } .sig-tab { flex: 1; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font-weight: 700; }
+.sig-tab.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.sig-opts { display: grid; gap: 8px; } .sig-fonts { display: flex; gap: 6px; flex-wrap: wrap; }
+.sig-prev { max-width: 100%; max-height: 120px; object-fit: contain; background: #fff; border: 1px dashed var(--line); border-radius: 12px; padding: 8px; }
+.annot-layer.annot-pick { cursor: pointer; }
+.annbar { overflow-x: auto; flex-wrap: nowrap; }
+.annbar .icon-btn { flex: none; }
+@media (max-width: 520px) { .viewbar .icon-btn[aria-label="Zoom arrière"], .viewbar .icon-btn[aria-label="Zoom avant"] { display: none; } }

@@ -2,7 +2,7 @@
 import { h, icon, sheet, toast, safeName } from './ui.js';
 import { putDoc, newId, listDocs } from './storage.js';
 
-const lib = () => import('pdf-lib');
+const lib = () => import('@cantoo/pdf-lib');
 const readBytes = async (b) => new Uint8Array(await b.arrayBuffer());
 
 /* ---------- construction ---------- */
@@ -142,4 +142,20 @@ export async function openMerge({ onDone }) {
     h('p', { class: 'muted' }, 'Ajoutez les PDF dans l’ordre voulu (flèches pour réordonner).'),
     h('button', { class: 'btn', onclick: () => pick.click() }, icon('upload', 18), 'Ajouter des fichiers…'),
     lib2, list.el, title, h('button', { class: 'btn primary', onclick: go }, 'Fusionner'), pick), { wide: true });
+}
+
+/* ---------- protection par mot de passe ---------- */
+export async function protectPdf(blob, { password, perms }, srcPw) {
+  const { PDFDocument } = await lib();
+  const pdf = await PDFDocument.load(await readBytes(blob), srcPw ? { password: srcPw } : undefined);
+  pdf.encrypt({
+    userPassword: password, ownerPassword: password + '#' + Math.random().toString(36).slice(2, 10),
+    permissions: { printing: perms.print ? 'highResolution' : false, copying: !!perms.copy, modifying: !!perms.modify, annotating: !!perms.modify, fillingForms: !!perms.modify, contentAccessibility: true, documentAssembly: !!perms.modify },
+  });
+  return new Blob([await pdf.save()], { type: 'application/pdf' });
+}
+export async function unprotectPdf(blob, pw) {
+  const { PDFDocument } = await lib();
+  const pdf = await PDFDocument.load(await readBytes(blob), { password: pw });
+  return new Blob([await pdf.save()], { type: 'application/pdf' });
 }
