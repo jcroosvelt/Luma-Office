@@ -3,21 +3,48 @@
 import { pref } from './storage.js';
 
 export const MODELS = [
-  ['gemini-2.5-flash', 'Rapide (recommandé)'],
-  ['gemini-2.5-flash-lite', 'Très économique'],
-  ['gemini-2.5-pro', 'Plus précis, plus lent'],
+  ['auto', 'Automatique (recommandé)'],
   ['custom', 'Autre modèle (saisir le nom)'],
 ];
-const DEF = { enabled: true, mode: 'server', ownKey: '', model: 'gemini-2.5-flash', customModel: '', code: '', consent: false };
+const DEF = { enabled: true, mode: 'server', ownKey: '', model: 'auto', customModel: '', code: '', consent: false };
 export const aiPrefs = {
-  get() { return { ...DEF, ...(pref.get('ai', {}) || {}) }; },
+  get() { const p = { ...DEF, ...(pref.get('ai', {}) || {}) }; if (/^gemini-2\.5-/.test(p.model)) p.model = 'auto'; return p; }, // anciens choix → automatique
   set(patch) { pref.set('ai', { ...aiPrefs.get(), ...patch }); },
 };
-export const modelName = () => { const p = aiPrefs.get(); return p.model === 'custom' ? (p.customModel.trim() || DEF.model) : p.model; };
+export const modelName = () => { const p = aiPrefs.get(); return p.model === 'custom' ? p.customModel.trim() : ''; }; // vide = automatique
 
 export class AiError extends Error { constructor(message, code) { super(message); this.code = code; } }
 
 const apiUrl = () => new URL('api/gemini', document.baseURI).href;
+// Choix automatique du modèle (mode « ma propre clé »)
+
+const NOT_TEXT = /embed|image|tts|audio|live|robotics|computer|exp|learnlm|gemma|aqa|vision|thinking|customtools|research|banana/i;
+function pickBest(names) {
+  const fams = { 'flash': [], 'flash-lite': [], 'pro': [] };
+  for (const n of names) {
+    if (NOT_TEXT.test(n)) continue;
+    const m = /^gemini-(\d+(?:\.\d+)?)-(flash-lite|flash|pro)(?:-(.*))?$/.exec(n);
+    if (!m) continue;
+    const stable = !m[3] || /^(\d{3}|latest)$/.test(m[3]);
+    fams[m[2]].push({ n, v: parseFloat(m[1]), stable, plain: !m[3] });
+  }
+  for (const f of ['flash', 'flash-lite', 'pro']) {
+    const list = fams[f].sort((a, b) => (b.stable - a.stable) || (b.v - a.v) || (b.plain - a.plain));
+    if (list.length) return list[0].n;
+  }
+  return null;
+}
+let directBest = null;
+async function discoverDirect(key) {
+  if (directBest) return directBest;
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key } });
+    if (!r.ok) return null;
+    const j = await r.json();
+    directBest = pickBest((j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m) => String(m.name).replace(/^models\//, '')));
+  } catch { /* ignore */ }
+  return directBest;
+}
 const DIRECT = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
 
 function describeHttp(status, body) {
@@ -43,9 +70,12 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
   let res;
   try {
     if (p.mode === 'own' && p.ownKey.trim()) {
-      res = await fetch(DIRECT(model), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': p.ownKey.trim() }, body: JSON.stringify(body), signal });
+      const key = p.ownKey.trim();
+      const go = (m) => fetch(DIRECT(m), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal });
+      res = await go(model || (await discoverDirect(key)) || 'gemini-flash-latest');
+      if (res.status === 404) { directBest = null; const alt = await discoverDirect(key); if (alt) res = await go(alt); }
     } else {
-      res = await fetch(apiUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(p.code ? { 'x-access-code': p.code } : {}) }, body: JSON.stringify({ ...body, model }), signal });
+      res = await fetch(apiUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(p.code ? { 'x-access-code': p.code } : {}) }, body: JSON.stringify({ ...body, ...(model ? { model } : {}) }), signal });
     }
   } catch (e) {
     if (e.name === 'AbortError') throw e;
@@ -91,7 +121,7 @@ export async function testConnection() {
       if (!st.configured) return { ok: false, message: 'Le serveur répond mais la clé de l’assistant n’est pas définie côté serveur (voir le guide d’installation).' };
     } else if (!p.ownKey.trim()) return { ok: false, message: 'Collez d’abord votre clé API.' };
     const t = await generate({ messages: [{ role: 'user', text: 'Réponds uniquement par le mot : OK' }], maxTokens: 20, temperature: 0 });
-    return { ok: true, message: `Connexion réussie ✓ (${modelName()}) — réponse : « ${t.trim().slice(0, 30)} »` };
+    return { ok: true, message: `Connexion réussie ✓ — réponse : « ${t.trim().slice(0, 30)} »` };
   } catch (e) { return { ok: false, message: e.message || 'Échec du test.' }; }
 }
 

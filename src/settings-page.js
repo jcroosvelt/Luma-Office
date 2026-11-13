@@ -81,7 +81,7 @@ export async function showSettings(host, { refresh }) {
       row('Activer l’assistant', toggle(() => aiPrefs.get().enabled, (v) => aiPrefs.set({ enabled: v })), 'Reformuler, corriger, résumer, traduire, rédiger ; questions sur un PDF. Le texte traité est envoyé à Google.'),
       row('Source de la clé', seg([['server', 'Serveur du site'], ['own', 'Ma clé']], () => aiPrefs.get().mode, (v) => { aiPrefs.set({ mode: v }); syncAi(); }), '« Serveur du site » garde la clé secrète sur Vercel (recommandé).'),
       rowKey, rowCode,
-      row('Modèle', select(MODELS, ai0.model, (v) => { aiPrefs.set({ model: v }); syncAi(); }), 'Flash : rapide et économique, Pro : plus précis.'),
+      row('Modèle', select(MODELS, ai0.model, (v) => { aiPrefs.set({ model: v }); syncAi(); }), 'Automatique : choisit tout seul le meilleur modèle disponible.'),
       rowCustom,
       row('Vérification', h('div', { class: 'ai-testwrap' }, aiTestBtn, aiTest)),
       aiHelp),

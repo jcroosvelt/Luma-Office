@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Assistant IA : plus d'erreur « modèle introuvable »** : le modèle est maintenant choisi automatiquement (le meilleur « flash » disponible avec la clé). Si un modèle est retiré ou inconnu, le serveur bascule tout seul sur un modèle disponible. Réglage « Modèle » = Automatique par défaut ; l'ancien choix mémorisé (gemini-2.5-…) est remplacé par Automatique. La variable GEMINI_MODEL sur Vercel n'est plus nécessaire : si elle contient un ancien nom, elle est ignorée en cas d'erreur 404 (ou supprimez-la).
 - **Nouvel onglet « Travailler avec l'IA »** (entre Mise en page et Révision) : Assistant IA, Rédiger, Corriger, Reformuler, Raccourcir, Développer, Résumer, En liste, Plan, Continuer, Ton formel, Ton amical, Simplifier, Traduire. Chaque bouton lance directement l'action sur la sélection (ou le document entier). Le bouton ✨ de la barre du haut est supprimé ; l'assistant reste aussi dans le menu ⋮.
 - **Plus aucune mention de « Gemini »** dans l'interface (réglages, messages, avertissement). Seuls restent des identifiants techniques internes.
 - **Emojis supprimés de toute l'application** (modèles, assistant IA, paramètres, listes, messages). Les cartes de modèles de l'accueil utilisent maintenant des icônes sobres par catégorie, les statuts des modèles sont en toutes lettres. Les symboles typographiques (✓, →, ☐, ▲, ★…) sont conservés.
