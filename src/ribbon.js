@@ -223,6 +223,9 @@ export function buildRibbon(app) {
     {
       id: 'layout', label: 'Mise en page', build: () => [
         group(
+          btn({ icon: 'sparkle', label: 'Mise en page IA', title: 'L’IA analyse le document et propose une mise en page professionnelle', run: () => app.openAutoLayout() }),
+        ),
+        group(
           btn({ icon: 'margins', label: 'Marges', run: () => app.openMarginSheet() }),
           btn({ icon: 'portrait', label: 'Portrait', run: () => app.updateSettings({ orientation: 'portrait' }), active: () => app.settings.orientation === 'portrait' }),
           btn({ icon: 'landscape', label: 'Paysage', run: () => app.updateSettings({ orientation: 'landscape' }), active: () => app.settings.orientation === 'landscape' }),

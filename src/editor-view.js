@@ -1559,6 +1559,10 @@ export function mountEditor(host, docRec, hooks) {
         onInsert: (html) => editor.chain().focus().insertContentAt(from !== to ? to : editor.state.selection.to, html).run(),
       });
     },
+    async openAutoLayout() {
+      const m = await import('./ai-layout.js');
+      m.openAutoLayout({ editor, getSettings: () => settings, updateSettings });
+    },
     async readAloud() {
       if (speaker) { speaker.stop(); return; }
       const m = await import('./tts.js');

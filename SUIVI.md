@@ -3,6 +3,9 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Mise en page IA** (onglet Mise en page › « Mise en page IA ») : l'IA lit le document, reconnaît sa nature (lettre, rapport, CV, contrat…) et propose format de page, marges, police, interligne, titres, date/signature/objet, numérotation. Rien n'est appliqué sans accord ; « Annuler la mise en page » remet tout comme avant.
+- **Assistant façon chat** : la consigne reste affichée (et dans la zone de saisie), la réponse s'écrit en direct dans une bulle avec curseur clignotant, « L'assistant réfléchit… » avant le premier mot, conversation conservée.
+- **Correctif serveur** : la température et la longueur demandées par l'application étaient ignorées par la fonction `/api/gemini` ; elles sont maintenant transmises.
 - **Assistant IA : plus d'erreur « modèle introuvable »** : le modèle est maintenant choisi automatiquement (le meilleur « flash » disponible avec la clé). Si un modèle est retiré ou inconnu, le serveur bascule tout seul sur un modèle disponible. Réglage « Modèle » = Automatique par défaut ; l'ancien choix mémorisé (gemini-2.5-…) est remplacé par Automatique. La variable GEMINI_MODEL sur Vercel n'est plus nécessaire : si elle contient un ancien nom, elle est ignorée en cas d'erreur 404 (ou supprimez-la).
 - **Nouvel onglet « Travailler avec l'IA »** (entre Mise en page et Révision) : Assistant IA, Rédiger, Corriger, Reformuler, Raccourcir, Développer, Résumer, En liste, Plan, Continuer, Ton formel, Ton amical, Simplifier, Traduire. Chaque bouton lance directement l'action sur la sélection (ou le document entier). Le bouton ✨ de la barre du haut est supprimé ; l'assistant reste aussi dans le menu ⋮.
 - **Plus aucune mention de « Gemini »** dans l'interface (réglages, messages, avertissement). Seuls restent des identifiants techniques internes.

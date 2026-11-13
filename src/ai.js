@@ -60,11 +60,11 @@ function describeHttp(status, body) {
 }
 
 // Génère la réponse en flux : appelle onText(delta) à chaque morceau et renvoie le texte complet.
-export async function generate({ system, messages, signal, temperature = 0.7, maxTokens = 4096, onText }) {
+export async function generate({ system, messages, signal, temperature = 0.7, maxTokens = 4096, json = false, onText }) {
   const p = aiPrefs.get(), model = modelName();
   const body = {
     contents: messages.map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text }] })),
-    generationConfig: { temperature, maxOutputTokens: maxTokens },
+    generationConfig: { temperature, maxOutputTokens: maxTokens, ...(json ? { responseMimeType: 'application/json' } : {}) },
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
   };
   let res;

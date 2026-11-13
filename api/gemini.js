@@ -104,10 +104,13 @@ export default async function handler(req, res) {
   let model = /^gemini-[a-z0-9.\-]+$/i.test(body.model || '') ? body.model : DEFAULT_MODEL();
   if (!model || dead.has(model)) model = (await discover(key)) || 'gemini-flash-latest';
 
+  const gc = { ...(body.generationConfig || {}) };
+  if (gc.temperature === undefined && body.temperature !== undefined) gc.temperature = body.temperature;
+  if (gc.maxOutputTokens === undefined && body.maxOutputTokens !== undefined) gc.maxOutputTokens = body.maxOutputTokens;
   // seuls les champs utiles sont transmis (pas d'outils, pas de paramètres arbitraires)
   const payload = {
     contents: body.contents.map((c) => ({ role: c.role === 'model' ? 'model' : 'user', parts: (c.parts || []).map((p) => ({ text: String(p.text ?? '') })) })),
-    generationConfig: { temperature: Math.min(2, Math.max(0, +body.temperature || 0.7)), maxOutputTokens: Math.min(16384, Math.max(64, +body.maxOutputTokens || 4096)) },
+    generationConfig: { temperature: Math.min(2, Math.max(0, Number.isFinite(+gc.temperature) ? +gc.temperature : 0.7)), maxOutputTokens: Math.min(16384, Math.max(64, +gc.maxOutputTokens || 4096)), ...(gc.responseMimeType === 'application/json' ? { responseMimeType: 'application/json' } : {}) },
   };
   if (body.systemInstruction?.parts) payload.systemInstruction = { parts: body.systemInstruction.parts.map((p) => ({ text: String(p.text ?? '') })) };
 

@@ -41,7 +41,8 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
   const words = (t) => (t.match(/\S+/g) || []).length;
   let messages = [], lastResult = '', ctrl = null, running = false, s;
 
-  const out = h('div', { class: 'ai-out', hidden: true });
+  const chat = h('div', { class: 'ai-chat', hidden: true, 'aria-live': 'polite' });
+  const scrollChat = () => { chat.scrollTop = chat.scrollHeight; };
   const status = h('div', { class: 'ai-status' });
   const errBox = h('div', { class: 'ai-err', hidden: true });
   const stopBtn = h('button', { class: 'btn sm', hidden: true, onclick: () => ctrl?.abort() }, icon('stop', 16), 'Arrêter');
@@ -55,20 +56,28 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
   const docText = () => { const t = getDocument?.() || ''; return t.length > MAX_CHARS ? t.slice(0, MAX_CHARS) + '\n[… document tronqué]' : t; };
   const contextText = () => (isPdf ? docText() : sel || docText());
 
-  async function run(userMsgs, system, { temperature = 0.7 } = {}) {
+  async function run(userMsgs, system, { temperature = 0.7, user = '' } = {}) {
     if (running) return;
     running = true; ctrl = new AbortController(); messages = userMsgs;
-    errBox.hidden = true; applyRow.hidden = true; out.hidden = false; out.textContent = ''; stopBtn.hidden = false; send.disabled = true;
-    status.textContent = 'L’assistant écrit…';
+    errBox.hidden = true; applyRow.hidden = true; stopBtn.hidden = false; send.disabled = true;
+    // conversation façon chat : la consigne reste affichée, la réponse s'écrit en direct
+    chat.hidden = false;
+    if (user) chat.append(h('div', { class: 'ai-msg me' }, user));
+    const cur = h('div', { class: 'ai-msg bot typing' }, h('span', { class: 'ai-dots' }, h('i'), h('i'), h('i')));
+    chat.append(cur); scrollChat();
+    status.textContent = 'L’assistant réfléchit…';
+    let first = true;
     try {
-      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, onText: (_d, full) => { out.textContent = full; out.scrollTop = out.scrollHeight; } });
+      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, onText: (_d, full) => { if (first) { first = false; status.textContent = 'L’assistant écrit…'; } cur.innerHTML = mdToHtml(full); scrollChat(); } });
       messages = [...messages, { role: 'model', text: lastResult }];
+      cur.innerHTML = mdToHtml(lastResult);
       status.textContent = `${words(lastResult)} mots`; buildApply();
       ta.placeholder = 'Demander une modification du résultat… (ex. « plus court », « plus poli »)';
     } catch (e) {
-      if (e.name === 'AbortError') { status.textContent = 'Arrêté.'; if (out.textContent) { lastResult = out.textContent; buildApply(); } else out.hidden = true; }
-      else { status.textContent = ''; out.hidden = !out.textContent; showError(e); }
-    } finally { running = false; ctrl = null; stopBtn.hidden = true; send.disabled = false; }
+      const partial = !first && cur.textContent.trim();
+      if (e.name === 'AbortError') { status.textContent = 'Arrêté.'; if (partial) { lastResult = cur.textContent; buildApply(); } else cur.remove(); }
+      else { status.textContent = ''; if (!partial) cur.remove(); showError(e); }
+    } finally { cur.classList.remove('typing'); running = false; ctrl = null; stopBtn.hidden = true; send.disabled = false; scrollChat(); }
   }
   function showError(e) {
     errBox.hidden = false;
@@ -85,15 +94,17 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
       if (onInsert) items.push(btn('Insérer à la suite', 'plus', () => { onInsert(html); s.close(); toast('Texte inséré ✓', 2500); }, !sel));
     } else if (onNewDoc) items.push(btn('Créer un document', 'file', () => { onNewDoc(html); s.close(); }, true));
     items.push(btn('Copier', 'copy', async () => { try { await navigator.clipboard.writeText(lastResult); toast('Copié ✓'); } catch { toast('Copie impossible'); } }));
-    items.push(btn('Nouvelle demande', 'close', () => { messages = []; lastResult = ''; out.hidden = true; applyRow.hidden = true; status.textContent = ''; ta.placeholder = isPdf ? 'Posez une question sur ce PDF…' : 'Ou écrivez ce que vous voulez…'; }));
+    items.push(btn('Nouvelle demande', 'close', () => { messages = []; lastResult = ''; chat.replaceChildren(); chat.hidden = true; applyRow.hidden = true; status.textContent = ''; ta.placeholder = isPdf ? 'Posez une question sur ce PDF…' : 'Ou écrivez ce que vous voulez…'; }));
     applyRow.replaceChildren(...items); applyRow.hidden = false;
   }
 
   function doQuick(id, prompt) {
     const text = contextText();
     if (!text.trim()) { toast(isPdf ? 'Ce PDF ne contient pas de texte' : 'Écrivez ou sélectionnez d’abord du texte', 3000); return; }
-    if (isPdf) run([{ role: 'user', text: `${prompt}\n\nDocument :\n${text}` }], PDF_SYS, { temperature: 0.3 });
-    else run([{ role: 'user', text: `${prompt}\n\nTexte :\n${text}` }], EDIT_SYS, { temperature: id === 'fix' ? 0.1 : 0.6 });
+    const label = (isPdf ? PDF_ACTIONS : EDIT_ACTIONS).find((x) => x[0] === id)?.[1] || prompt;
+    const user = label + (isPdf ? ' — PDF entier' : sel ? ' — sélection' : ' — document entier');
+    if (isPdf) run([{ role: 'user', text: `${prompt}\n\nDocument :\n${text}` }], PDF_SYS, { temperature: 0.3, user });
+    else run([{ role: 'user', text: `${prompt}\n\nTexte :\n${text}` }], EDIT_SYS, { temperature: id === 'fix' ? 0.1 : 0.6, user });
   }
   function quick(id, label, prompt) {
     return h('button', { class: 'chip', onclick: () => doQuick(id, prompt) }, label);
@@ -102,24 +113,24 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
     const text = contextText();
     if (!text.trim()) { toast('Écrivez ou sélectionnez d’abord du texte'); return; }
     const p = `Traduis ce ${isPdf ? 'document' : 'texte'} en ${langSel.value}, en conservant le sens, le ton et la mise en paragraphes.`;
-    run([{ role: 'user', text: `${p}\n\n${isPdf ? 'Document' : 'Texte'} :\n${text}` }], isPdf ? PDF_SYS : EDIT_SYS, { temperature: 0.2 });
+    run([{ role: 'user', text: `${p}\n\n${isPdf ? 'Document' : 'Texte'} :\n${text}` }], isPdf ? PDF_SYS : EDIT_SYS, { temperature: 0.2, user: `Traduire en ${langSel.value}` });
   }
   function ask() {
     const q = ta.value.trim(); if (!q) { toast('Écrivez votre demande'); return; }
-    ta.value = '';
-    if (lastResult) { run([...messages, { role: 'user', text: q }], isPdf ? PDF_SYS : GEN_SYS); return; } // suite de la conversation
-    if (isPdf) { const t = docText(); if (!t.trim()) { toast('Ce PDF ne contient pas de texte'); return; } run([{ role: 'user', text: `Document :\n${t}\n\nQuestion : ${q}` }], PDF_SYS, { temperature: 0.3 }); return; }
+    // la consigne reste dans la zone de saisie (modifiable, à renvoyer) et s'affiche aussi dans la conversation
+    if (lastResult) { run([...messages, { role: 'user', text: q }], isPdf ? PDF_SYS : GEN_SYS, { user: q }); return; } // suite de la conversation
+    if (isPdf) { const t = docText(); if (!t.trim()) { toast('Ce PDF ne contient pas de texte'); return; } run([{ role: 'user', text: `Document :\n${t}\n\nQuestion : ${q}` }], PDF_SYS, { temperature: 0.3, user: q }); return; }
     const ctx = sel || (useDoc.checked ? docText() : '');
-    run([{ role: 'user', text: ctx ? `${q}\n\nTexte concerné :\n${ctx}` : q }], ctx ? EDIT_SYS : GEN_SYS);
+    run([{ role: 'user', text: ctx ? `${q}\n\nTexte concerné :\n${ctx}` : q }], ctx ? EDIT_SYS : GEN_SYS, { user: q });
   }
 
   const ctxLabel = isPdf ? `PDF entier (${words(docText()).toLocaleString('fr-FR')} mots)` : sel ? `Sélection : ${words(sel)} mot${words(sel) > 1 ? 's' : ''}` : 'Aucun texte sélectionné : les actions portent sur le document entier';
   s = sheet(title, h('div', { class: 'form ai-box' },
     h('div', { class: 'ai-ctx' }, icon('sparkle', 16), h('span', {}, ctxLabel)),
     h('div', { class: 'chips ai-chips' }, ...(isPdf ? PDF_ACTIONS : EDIT_ACTIONS).map(([id, l, p]) => quick(id, l, p)), h('span', { class: 'ai-tr' }, h('button', { class: 'chip', onclick: translate }, 'Traduire en'), langSel)),
+    chat, applyRow, errBox,
     ta, !isPdf && !sel ? h('label', { class: 'chk' }, useDoc, ' Utiliser le document comme contexte pour ma consigne') : null,
     h('div', { class: 'row' }, send, stopBtn, status),
-    errBox, out, applyRow,
     h('small', { class: 'muted' }, 'Le résultat peut contenir des erreurs : relisez-le avant de l’utiliser.')),
   { wide: true, onClose: () => ctrl?.abort() });
   // Lancement direct depuis l'onglet « Travailler avec l'IA » : « write » = champ de saisie, « translate » = choix de la langue
