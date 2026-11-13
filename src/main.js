@@ -10,6 +10,7 @@ import { TEMPLATES, templateSettings } from './templates.js';
 import { createDocFromHtml, openFiles } from './files.js';
 import { applyTheme, h, toast } from './ui.js';
 import { initAppBridge, sendState } from './appbridge.js';
+import { trackOnce } from './track.js';
 
 // Écran de démarrage avec le logo (une fois par session)
 try {
@@ -24,11 +25,12 @@ try {
 
 registerSW({ immediate: true });
 persist();
+trackOnce('visit');
 applyTheme(pref.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(pref.get('theme', 'auto')));
 
 // Cloud : suivi des suppressions et synchronisation automatique (si activés dans la page Cloud)
-try { if (pref.get('cloud', null)?.key) import('./cloud.js').then((m) => m.initCloud()); } catch { /* ignore */ }
+try { if (pref.get('cloud2', null)?.token) import('./cloud.js').then((m) => m.initCloud()); } catch { /* ignore */ }
 
 const app = document.getElementById('app');
 let current = null;
@@ -97,6 +99,8 @@ async function render() {
     go(rec.id);
   };
   const refresh = () => render();
+  if (location.hash === '#/admin') { document.documentElement.classList.add('in-admin'); await (await import('./admin-page.js')).showAdmin(app); return; }
+  document.documentElement.classList.remove('in-admin');
   if (location.hash === '#/outils') { await (await import('./tools-page.js')).showTools(app, { onOpen: go, refresh }); return; }
   if (location.hash === '#/cloud') { await (await import('./cloud-page.js')).showCloud(app, { onOpen: go, refresh }); return; }
   if (location.hash === '#/modeles') { await showTemplates(app, { onUse: useTemplate, refresh }); return; }

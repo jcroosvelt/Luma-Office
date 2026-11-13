@@ -4,6 +4,7 @@
 //  - Ordinateur (Chrome / Edge) : installation PWA native ; iPhone / iPad : consignes.
 import { h, icon, toast, sheet } from './ui.js';
 import { pref, fmtBytes } from './storage.js';
+import { track } from './track.js';
 
 // Le vrai APK est dans le dossier public du site (public/luma-office.apk)
 export const APK_URL = new URL('luma-office.apk', document.baseURI).href;
@@ -59,6 +60,7 @@ export async function downloadApk(silent) {
   document.body.append(a);
   a.click();
   setTimeout(() => a.remove(), 1000);
+  track('apk_download');
   pref.set('installDismissed', Date.now());
   toast('Téléchargement de l’application lancé. Ouvrez le fichier téléchargé pour l’installer.', 6000);
   return true;
@@ -67,6 +69,7 @@ export async function downloadApk(silent) {
 // Fenêtre d'installation (Android, navigateur) : informations sur l'application puis bouton Télécharger
 export async function openInstallDialog() {
   if (document.querySelector('.ins-box')) return;
+  track('install_open');
   const meta = h('div', { class: 'ins-meta' }, 'Application Android (APK)');
   const err = h('div', { class: 'ai-err', hidden: true });
   const go = h('button', { class: 'btn primary ins-go', onclick: async () => {

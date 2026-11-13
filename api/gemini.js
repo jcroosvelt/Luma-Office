@@ -9,6 +9,7 @@
 //   AI_RATE_PER_MIN     (facultatif)  requêtes par minute et par adresse IP (20 par défaut)
 //   GEMINI_API_BASE     (facultatif)  adresse de l'API (tests uniquement)
 import { timingSafeEqual } from 'node:crypto';
+import { logEvent } from './_db.js';
 
 const BASE = () => process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
 const DEFAULT_MODEL = () => process.env.GEMINI_MODEL || ''; // vide = choix automatique du meilleur modèle disponible
@@ -119,6 +120,7 @@ export default async function handler(req, res) {
   // Réflexion réduite : la mise en forme et la réécriture de texte n'ont pas besoin de longue « réflexion » interne,
   // qui retardait la première réponse jusqu'à dépasser la durée maximale de la fonction (erreur 504).
   const thinkingFor = (m) => (/gemini-2\.5-flash/.test(m) ? { thinkingBudget: 0 } : /gemini-2\.5-pro/.test(m) ? { thinkingBudget: 128 } : /gemini-3/.test(m) ? { thinkingLevel: 'low' } : null);
+  const t0 = Date.now();
   const FIRST_BYTE_MS = +process.env.AI_FIRST_BYTE_MS || 25_000; // au-delà, on bascule sur un autre modèle
   const call = async (m, think = true) => {
     const ac = new AbortController();
@@ -151,10 +153,11 @@ export default async function handler(req, res) {
       console.error('[ai] modèle', m, '→', upstream.status);
       m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n));
     }
-  } catch { return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
-  if (!upstream.ok) { let b = null; try { b = await upstream.json(); } catch { /* ignore */ } return fail(res, upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status, explain(upstream.status, b)); }
+  } catch { await logEvent('ai_error', { model, status: 502, ms: Date.now() - t0 }); return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
+  if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } return fail(res, upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status, explain(upstream.status, b)); }
 
-  res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  await logEvent('ai', { model, ms: Date.now() - t0 });
+  res.writeHead(200, { 'X-AI-Model': model, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   try { for await (const chunk of upstream.body) res.write(chunk); } catch { /* connexion interrompue */ }
   res.end();
 }

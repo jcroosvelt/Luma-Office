@@ -10,6 +10,7 @@
 //   window.onNetworkChange(online).
 import { createDocFromHtml, openFiles } from './files.js';
 import { toast } from './ui.js';
+import { trackOnce } from './track.js';
 
 export const inApp = () => typeof window !== 'undefined' && !!window.AppBridge?.postMessage;
 
@@ -85,6 +86,9 @@ export function initAppBridge({ go }) {
       return false;
     }
   };
+  // version de l'application Android (transmise par l'APK)
+  window.onAppVersion = (v) => { window.__APP_VERSION__ = v; trackOnce('app_open', { v: String(v).slice(0, 16) }); };
+  if (window.__APP_VERSION__) window.onAppVersion(window.__APP_VERSION__);
   // état du réseau : simple classe CSS, aucun message à l'écran
   window.onNetworkChange = (online) => {
     document.documentElement.classList.toggle('offline', !(online === true || online === 'true'));
