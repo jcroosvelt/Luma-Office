@@ -121,6 +121,7 @@ export function buildRibbon(app) {
         ),
         group(
           btn({ icon: 'table', label: 'Tableau', run: () => app.openTableSheet() }),
+          btn({ icon: 'text2tab', label: 'Texte → tableau', title: 'Convertir le texte sélectionné en tableau', run: () => app.textToTable() }),
           btn({ icon: 'image', label: 'Image', run: () => app.pickImage(false) }),
           btn({ icon: 'camera', label: 'Photo', run: () => app.pickImage(true) }),
           btn({ icon: 'shape', label: 'Formes', run: () => app.openShapesSheet() }),
@@ -169,6 +170,16 @@ export function buildRibbon(app) {
           btn({ icon: 'split', label: 'Scinder', run: run((c) => c.splitCell().run()), disabled: () => !editor.can().splitCell() }),
           btn({ icon: 'headerRow', label: 'En-tête', run: run((c) => c.toggleHeaderRow().run()) }),
           btn({ icon: 'fill', label: 'Fond', run: () => app.pickColor('cell') }),
+        ),
+        group(
+          btn({ icon: 'sort', label: 'Trier A→Z', title: 'Trier la colonne (croissant)', run: () => app.sortTable('asc') }),
+          btn({ icon: 'sort', label: 'Trier Z→A', title: 'Trier la colonne (décroissant)', run: () => app.sortTable('desc') }),
+          btn({ icon: 'sigma', label: 'Formule', title: 'Somme, moyenne, minimum, maximum', run: () => app.openFormula() }),
+          btn({ icon: 'history', label: 'Recalculer', run: () => app.recalc() }),
+        ),
+        group(
+          btn({ icon: 'borders', label: 'Bordures', title: 'Style, couleur et épaisseur des bordures', run: () => app.openTableBorders() }),
+          btn({ icon: 'tab2text', label: 'En texte', title: 'Convertir le tableau en texte', run: () => app.tableToText() }),
         ),
         group(btn({ icon: 'colw', label: 'Largeurs', run: () => app.openColWidth() })),
         group(btn({ icon: 'trash', label: 'Suppr. tableau', run: run((c) => c.deleteTable().run()) })),

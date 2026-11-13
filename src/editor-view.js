@@ -25,6 +25,7 @@ import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_P
 import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
 import { permsOf } from './lock.js';
+import * as TP from './tables-pro.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
 import { inApp, send as bridgeSend, blobToBase64, sendState } from './appbridge.js';
@@ -109,7 +110,7 @@ export function mountEditor(host, docRec, hooks) {
         return false;
       },
     },
-    onUpdate: () => { scheduleSave(); scheduleLayout(); scheduleInline(); },
+    onUpdate: () => { scheduleSave(); scheduleLayout(); scheduleInline(); scheduleRecalc(); },
     onSelectionUpdate: () => ribbon.refresh(),
     onTransaction: ({ transaction }) => {
       if (!ready) return;
@@ -1540,7 +1541,11 @@ export function mountEditor(host, docRec, hooks) {
     root.classList.toggle('perm-noexport', !p.export); root.classList.toggle('perm-noprint', !p.print);
   }
   for (const ev of ['copy', 'cut']) pmHost.addEventListener(ev, (e) => { if (!permsOf(docRec).copy) { e.preventDefault(); toast('Copie non autorisée : document protégé', 2500); } });
+  let recalcT = 0;
+  function scheduleRecalc() { clearTimeout(recalcT); recalcT = setTimeout(() => { if (ready && !destroyed) TP.recalcFormulas(editor); }, 500); }
   const pro = {
+    sortTable: (dir) => TP.sortTable(editor, dir), openFormula: () => TP.openFormulaSheet(editor), recalc: () => { const n = TP.recalcFormulas(editor); toast(n ? `${n} formule${n > 1 ? 's' : ''} recalculée${n > 1 ? 's' : ''}` : 'Formules à jour'); },
+    openTableBorders: () => TP.openBordersSheet(editor), textToTable: () => TP.openTextToTable(editor), tableToText: () => TP.tableToText(editor),
     async openVersions() {
       const m = await import('./versions.js');
       m.openVersions({ getRec: () => ({ ...docRec, title, words: editor.storage.characterCount.words() }), getJson: () => editor.getJSON(), editor, onRestore: (v) => { editor.commands.setContent(v.json); scheduleSave(200); toast('Version restaurée ✓'); }, onCompare: (v) => pro.openCompare(v.id) });

@@ -658,7 +658,16 @@ input[type=checkbox].pdf-widget, input[type=radio].pdf-widget { padding: 0; acce
 .rot-l { display: inline-flex; transform: rotate(-90deg); } .rot-r { display: inline-flex; transform: rotate(90deg); }
 label.chk { display: flex; align-items: center; gap: 8px; }
 
-.doc-content table[data-borderless] td, .doc-content table[data-borderless] th { border-color: transparent; }
+.doc-content table { --tb-color: #a6a6a6; --tb-w: 1px; }
+.doc-content td, .doc-content th { border: var(--tb-w) solid var(--tb-color); }
+.doc-content table[data-bstyle="none"] td, .doc-content table[data-bstyle="none"] th { border-color: transparent; }
+.doc-content table[data-bstyle="outer"] { border: var(--tb-w) solid var(--tb-color); }
+.doc-content table[data-bstyle="outer"] td, .doc-content table[data-bstyle="outer"] th { border: 0; }
+.doc-content table[data-bstyle="horizontal"] td, .doc-content table[data-bstyle="horizontal"] th { border: 0; border-top: var(--tb-w) solid var(--tb-color); border-bottom: var(--tb-w) solid var(--tb-color); }
+.doc-content table[data-bstyle="vertical"] td, .doc-content table[data-bstyle="vertical"] th { border: 0; border-left: var(--tb-w) solid var(--tb-color); border-right: var(--tb-w) solid var(--tb-color); }
+.doc-content td[data-formula], .doc-content th[data-formula] { box-shadow: inset 0 -2px 0 var(--accent, #f5a300); }
+.tt-table { border-collapse: collapse; width: 100%; font-size: 12px; } .tt-table td, .tt-table th { border: 1px solid var(--line); padding: 3px 6px; } .tt-table th { background: var(--brand-tint); }
+.color-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 /* Mode lecture PDF */
 .rd-pdf { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--rd-bg, #fff); color: var(--rd-fg, #1c2333); }

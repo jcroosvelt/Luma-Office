@@ -249,9 +249,10 @@ export async function buildPdf(json, settings, title, opts = {}) {
       while (line.length < cols) line.push({ text: '' });
       body.push(line);
     }
+    const bs = node.attrs?.bstyle || 'all', lw = node.attrs?.bwidth ? node.attrs.bwidth : 0.75, lineColor = node.attrs?.bcolor ? colorOf(node.attrs.bcolor) : '#a6a6a6';
     return {
       table: { widths, body, headerRows: rows[0]?.content?.[0]?.type === 'tableHeader' ? 1 : 0, dontBreakRows: true },
-      layout: { hLineColor: () => '#a6a6a6', vLineColor: () => '#a6a6a6', hLineWidth: () => (node.attrs?.borderless ? 0 : 0.75), vLineWidth: () => (node.attrs?.borderless ? 0 : 0.75), paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 2 },
+      layout: { hLineColor: () => lineColor, vLineColor: () => lineColor, hLineWidth: (i, t) => ((bs === 'all' || bs === 'horizontal' || ((bs === 'outer') && (i === 0 || i === t.table.body.length))) ? lw : 0), vLineWidth: (i, t) => ((bs === 'all' || bs === 'vertical' || ((bs === 'outer') && (i === 0 || i === t.table.widths.length))) ? lw : 0), paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 2 },
       margin: [0, 0, 0, 8],
     };
   }

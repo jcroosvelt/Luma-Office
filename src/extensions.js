@@ -142,6 +142,11 @@ export const LumaCell = TableCell.extend({
         parseHTML: (el) => el.style.backgroundColor || el.getAttribute('data-bg') || null,
         renderHTML: (a) => (a.backgroundColor ? { 'data-bg': a.backgroundColor, style: `background-color:${a.backgroundColor}` } : {}),
       },
+      formula: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-formula') || null,
+        renderHTML: (a) => (a.formula ? { 'data-formula': a.formula } : {}),
+      },
     };
   },
 });
@@ -161,10 +166,20 @@ export const LumaTable = Table.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
-      borderless: {
-        default: false,
-        parseHTML: (el) => el.hasAttribute('data-borderless'),
-        renderHTML: (a) => (a.borderless ? { 'data-borderless': '1' } : {}),
+      bstyle: {
+        default: 'all',
+        parseHTML: (el) => el.getAttribute('data-bstyle') || (el.hasAttribute('data-borderless') ? 'none' : 'all'),
+        renderHTML: (a) => (a.bstyle && a.bstyle !== 'all' ? { 'data-bstyle': a.bstyle } : {}),
+      },
+      bcolor: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-bcolor') || null,
+        renderHTML: (a) => (a.bcolor ? { 'data-bcolor': a.bcolor, style: `--tb-color:${a.bcolor}` } : {}),
+      },
+      bwidth: {
+        default: null,
+        parseHTML: (el) => parseFloat(el.getAttribute('data-bwidth')) || null,
+        renderHTML: (a) => (a.bwidth ? { 'data-bwidth': a.bwidth, style: `--tb-w:${a.bwidth}pt` } : {}),
       },
     };
   },

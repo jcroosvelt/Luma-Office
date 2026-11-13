@@ -288,7 +288,14 @@ export async function buildDocx(json, settings, title, commentList = []) {
     const total = colW.reduce((a, b) => a + b, 0);
     const scale = total > contentTw ? contentTw / total : 1;
     const widths = colW.map((w) => Math.round(w * scale));
-    const border = node.attrs?.borderless ? { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } : { style: BorderStyle.SINGLE, size: 4, color: 'A6A6A6' };
+    const bs = node.attrs?.bstyle || 'all';
+    const border = { style: BorderStyle.SINGLE, size: Math.max(2, Math.round((node.attrs?.bwidth || 0.75) * 8)), color: toHex(node.attrs?.bcolor) || 'A6A6A6' };
+    const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+    const tblBorders = { all: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
+      outer: { top: border, bottom: border, left: border, right: border, insideHorizontal: none, insideVertical: none },
+      horizontal: { top: border, bottom: border, left: none, right: none, insideHorizontal: border, insideVertical: none },
+      vertical: { top: none, bottom: none, left: border, right: border, insideHorizontal: none, insideVertical: border },
+      none: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none } }[bs] || null;
     const trs = [];
     for (const row of rows) {
       const cells = [];
@@ -313,7 +320,7 @@ export async function buildDocx(json, settings, title, commentList = []) {
     return new Table({
       rows: trs, columnWidths: widths, layout: TableLayoutType.FIXED,
       width: { size: widths.reduce((a, b) => a + b, 0), type: WidthType.DXA },
-      borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
+      borders: tblBorders,
     });
   }
 
