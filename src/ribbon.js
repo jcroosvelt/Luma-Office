@@ -1,11 +1,14 @@
 // Ruban d'outils façon Office, adapté au tactile : onglets + groupes défilables.
 import { h, icon, dropdown } from './ui.js';
 
-export const FONTS = ['Calibri', 'Cambria', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Trebuchet MS', 'Garamond', 'Courier New', 'Tahoma'];
+export const FONTS = ['Calibri', 'Cambria', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Trebuchet MS', 'Garamond', 'Courier New', 'Tahoma',
+  'Open Sans', 'Roboto', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Source Sans 3', 'Merriweather', 'Lora', 'Playfair Display', 'Dancing Script'];
 export const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 72];
 export const DEFAULT_FONT = 'Calibri';
 export const DEFAULT_SIZE = 11;
 
+// nom de police utilisable en CSS (guillemets si espaces ou chiffres, ex. « Source Sans 3 »)
+export const cssFam = (f) => (/[\s\d]/.test(f) ? `"${f}"` : f);
 const norm = (f) => (f || '').split(',')[0].replace(/["']/g, '').trim();
 
 export function buildRibbon(app) {
@@ -80,7 +83,7 @@ export function buildRibbon(app) {
       id: 'home', label: 'Accueil', build: () => [
         group(
           select({ title: 'Style de paragraphe', w: 118, options: [['p', 'Normal', { style: { fontSize: '15px' } }], ['h1', 'Titre 1', { style: { fontSize: '22px', fontWeight: 700, color: '#1f3864' } }], ['h2', 'Titre 2', { style: { fontSize: '18px', fontWeight: 700, color: '#1f3864' } }], ['h3', 'Titre 3', { style: { fontSize: '16px', fontWeight: 700, color: '#1f3864' } }], ['quote', 'Citation', { style: { fontStyle: 'italic', color: '#595959' } }], ['code', 'Bloc de code', { style: { fontFamily: 'Consolas, "Courier New", monospace', fontSize: '14px' } }]], get: getStyle, set: setStyle }),
-          select({ title: 'Police', w: 140, labelFont: true, options: FONTS.map((f) => [f, f, { style: { fontFamily: f } }]), get: () => norm(textAttr('fontFamily')) || DEFAULT_FONT, set: (v) => editor.chain().focus().setFontFamily(v).run() }),
+          select({ title: 'Police', w: 140, labelFont: true, options: FONTS.map((f) => [f, f, { style: { fontFamily: cssFam(f) } }]), get: () => norm(textAttr('fontFamily')) || DEFAULT_FONT, set: (v) => editor.chain().focus().setFontFamily(cssFam(v)).run() }),
           select({ title: 'Taille de police', w: 66, options: SIZES.map((s) => [s, String(s).replace('.', ',')]), get: () => curSize(), set: (v) => editor.chain().focus().setFontSize(v + 'pt').run() }),
           btn({ icon: 'size', title: 'Agrandir la police', run: () => stepSize(1) }),
           btn({ icon: 'sizeDown', title: 'Réduire la police', run: () => stepSize(-1) }),

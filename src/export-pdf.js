@@ -7,9 +7,10 @@ const PT_CM = 72 / 2.54;
 const FAMILY = {
   calibri: 'Carlito', carlito: 'Carlito', cambria: 'Caladea', arial: 'Arimo', verdana: 'Arimo', tahoma: 'Arimo', 'trebuchet ms': 'Arimo',
   helvetica: 'Arimo', 'times new roman': 'Tinos', garamond: 'Tinos', georgia: 'Gelasio', 'courier new': 'Cousine', consolas: 'Cousine',
+  'open sans': 'OpenSans', 'roboto': 'Roboto', 'lato': 'Lato', 'montserrat': 'Montserrat', 'poppins': 'Poppins', 'nunito': 'Nunito', 'source sans 3': 'SourceSans3', 'merriweather': 'Merriweather', 'lora': 'Lora', 'playfair display': 'PlayfairDisplay', 'dancing script': 'DancingScript',
 };
 const FILES = (fam) => ({ normal: `${fam}-Regular.ttf`, bold: `${fam}-Bold.ttf`, italics: `${fam}-Italic.ttf`, bolditalics: `${fam}-BoldItalic.ttf` });
-const ALL_FAMILIES = ['Carlito', 'Caladea', 'Arimo', 'Tinos', 'Gelasio', 'Cousine'];
+const ALL_FAMILIES = ['Carlito', 'Caladea', 'Arimo', 'Tinos', 'Gelasio', 'Cousine', 'OpenSans', 'Roboto', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'SourceSans3', 'Merriweather', 'Lora', 'PlayfairDisplay', 'DancingScript'];
 const LH = 1.15 / 1.22; // interligne CSS -> multiplicateur pdfmake (basé sur la hauteur naturelle de la police)
 
 const famOf = (name) => FAMILY[(name || '').split(',')[0].replace(/["']/g, '').trim().toLowerCase()] || 'Carlito';
@@ -36,7 +37,14 @@ export async function buildPdf(json, settings, title, opts = {}) {
   const pdfMake = (await import('pdfmake/build/pdfmake.js')).default;
   const base = new URL(import.meta.env.BASE_URL || './', location.href).href;
   const fonts = {};
-  const used = opts.families || ALL_FAMILIES;
+  // seules les polices réellement utilisées sont téléchargées
+  const used = opts.families || (() => {
+    const set = new Set(['Carlito']);
+    const txt = JSON.stringify(json || {});
+    for (const m of txt.matchAll(/"fontFamily":"((?:[^"\\]|\\.)*)"/g)) set.add(famOf(m[1].replace(/\\"/g, '"')));
+    if (/"type":"code(Block)?"|"type":"code"/.test(txt)) set.add('Cousine');
+    return ALL_FAMILIES.filter((f) => set.has(f));
+  })();
   for (const f of used) fonts[f] = Object.fromEntries(Object.entries(FILES(f)).map(([k, v]) => [k, base + 'fonts/' + v]));
   pdfMake.addFonts(fonts);
 

@@ -18,7 +18,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
 import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
-import { buildRibbon } from './ribbon.js';
+import { buildRibbon, cssFam } from './ribbon.js';
 import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX, NUMBER_FORMATS, pageNumberText, WATERMARK_PRESETS, BORDER_STYLES, columnWidthCm } from './layout.js';
@@ -1031,7 +1031,7 @@ export function mountEditor(host, docRec, hooks) {
   function tipContent(f) {
     const l2 = [...f.flags, f.align].filter(Boolean).join(' · ');
     return [
-      h('div', { class: 'l1' }, h('b', { style: { fontFamily: f.font } }, f.font), ` · ${f.size} pt`),
+      h('div', { class: 'l1' }, h('b', { style: { fontFamily: cssFam(f.font) } }, f.font), ` · ${f.size} pt`),
       l2 ? h('div', { class: 'l2' }, l2) : null,
       h('div', { class: 'l3' }, f.color ? h('span', { class: 'dot', style: { background: f.color } }) : null, `Style : ${f.style}`, f.link ? ` · lien` : ''),
     ].filter(Boolean);
@@ -1074,7 +1074,7 @@ export function mountEditor(host, docRec, hooks) {
   function fmtSegment() {
     const f = describeSelection(editor.state);
     return h('button', { class: 'fmt-seg', title: 'Mise en forme du texte (touchez pour le détail)', onclick: () => showCaretTip(true) },
-      h('span', { style: { fontFamily: f.font } }, f.font), `${f.size} pt`, f.bold ? h('b', {}, 'G') : null, f.italic ? h('i', {}, 'I') : null, f.underline ? h('u', {}, 'S') : null);
+      h('span', { style: { fontFamily: cssFam(f.font) } }, f.font), `${f.size} pt`, f.bold ? h('b', {}, 'G') : null, f.italic ? h('i', {}, 'I') : null, f.underline ? h('u', {}, 'S') : null);
   }
 
   /* ---------- Images : poignées de déplacement et de taille, monter / descendre, habillage ---------- */

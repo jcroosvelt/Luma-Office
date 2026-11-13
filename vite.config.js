@@ -12,7 +12,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,woff2,ttf,mjs,svg,webmanifest}'],
         // Modules lourds chargés à la demande (PDF, export, lecteur) : non téléchargés à l'installation,
         // mis en cache à la première utilisation (voir runtimeCaching ci-dessous) → installation et mises à jour plus légères.
-        globIgnores: ['**/pdf.worker*', '**/pdfmake-*', '**/pdf-*.js', '**/pdf-view-*', '**/pdf_viewer*', '**/es-*.js', '**/dist-*.js', '**/pdfjs/**', '**/screens/**', '**/import-docx-*', '**/sheet-view-*', '**/xlsx-*', '**/pdf-tools-*', '**/pdf-annot-*'],
+        globIgnores: ['**/pdf.worker*', '**/pdfmake-*', '**/pdf-*.js', '**/pdf-view-*', '**/pdf_viewer*', '**/es-*.js', '**/dist-*.js', '**/pdfjs/**', '**/screens/**', '**/import-docx-*', '**/sheet-view-*', '**/xlsx-*', '**/pdf-tools-*', '**/pdf-annot-*', '**/fonts/**', '**/{open-sans,roboto,lato,montserrat,poppins,nunito,source-sans-3,merriweather,lora,playfair-display,dancing-script}-latin-*'],
         importScripts: ['share-target-sw.js'],
         navigateFallbackDenylist: [/share-target/],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
@@ -22,6 +22,12 @@ export default defineConfig({
             urlPattern: ({ url }) => url.origin === self.location.origin && /\/assets\/.+\.(js|mjs|css)$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'luma-modules', expiration: { maxEntries: 80 } },
+          },
+          {
+            // polices supplémentaires (affichage et export PDF) : mises en cache à la première utilisation
+            urlPattern: ({ url }) => url.origin === self.location.origin && /\.(woff2|ttf)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'luma-fonts', expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
           {
             // ressources du lecteur PDF (polices, cmaps, wasm) : disponibles hors ligne après la première lecture

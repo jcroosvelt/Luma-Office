@@ -264,7 +264,7 @@ export function dropdown({ options, get, set, title = '', width, cls = '', label
     const v = String(get() ?? '');
     const o = options.find((x) => String(x[0]) === v);
     label.textContent = o ? o[1] : v;
-    label.style.fontFamily = labelFont ? (o?.[2]?.style?.fontFamily || v) : '';
+    label.style.fontFamily = labelFont ? (o?.[2]?.style?.fontFamily || (/[\s\d]/.test(v) ? `"${v}"` : v)) : '';
   }
   function close() {
     if (!pop) return;
