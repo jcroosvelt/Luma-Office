@@ -726,3 +726,17 @@ p.cmp-mod { background: #fff8e1; border-left: 3px solid #9a6700; padding: 6px 10
 .lock-card .field, .lock-card .btn { width: 100%; } .lock-err { color: #b3261e; font-weight: 700; margin: 0; min-height: 1.2em; }
 .perm-nocopy .doc-content, .perm-nocopy .pdf-scroll { user-select: none; -webkit-user-select: none; }
 .perm-noexport .exp-btn { display: none; }
+
+/* Équations, signets, publipostage */
+.math-f { display: inline-block; vertical-align: middle; cursor: pointer; padding: 0 2px; border-radius: 4px; }
+.math-f:hover, .ProseMirror-selectednode.math-f { background: rgba(11, 87, 208, .1); }
+.math-f.math-display { display: block; text-align: center; margin: 6pt 0; }
+.math-prev { min-height: 64px; display: grid; place-items: center; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; background: #fff; color: #111; overflow-x: auto; font-size: 1.2em; }
+.math-ta { font-family: Consolas, 'Courier New', monospace; resize: vertical; }
+.math-pal { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow-y: auto; }
+.math-key { min-width: 46px; height: 38px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font-size: 16px; }
+.math-key:active { background: var(--brand-tint); }
+.bookmark { box-shadow: inset 0 -2px 0 rgba(11, 87, 208, .35); } .bm-flash { background: rgba(255, 214, 0, .6) !important; transition: background .3s; }
+.mf-chip { background: #fff4d6; color: #7a4b00; border: 1px solid #f0c36d; border-radius: 6px; padding: 0 5px; font-weight: 700; white-space: nowrap; }
+.mm-info { display: grid; gap: 8px; } .mm-nav { display: grid; gap: 6px; } .mm-prev { max-height: 40vh; }
+.kbd-hint { color: var(--muted); }

@@ -2,6 +2,7 @@
 import { metrics, columnWidthCm, pageNumberText } from './layout.js';
 import { artBorderSvg } from './borders.js';
 import { formatDate } from './datefmt.js';
+import { latexToText } from './math-text.js';
 
 const PT_CM = 72 / 2.54;
 const FAMILY = {
@@ -66,6 +67,8 @@ export async function buildPdf(json, settings, title, opts = {}) {
     const out = [];
     for (const n of nodes) {
       if (n.type === 'hardBreak') { out.push({ text: '\n' }); continue; }
+      if (n.type === 'mathFormula') { out.push({ text: latexToText(n.attrs?.latex || ''), italics: true, ...base }); continue; }
+      if (n.type === 'mergeField') { out.push({ text: `«${n.attrs?.name || ''}»`, ...base }); continue; }
       if (n.type === 'dateField') { out.push({ text: formatDate(n.attrs?.fmt || 'long'), ...base }); continue; }
       if (n.type === 'endnote') { endnotes.push(n.attrs?.text || ''); out.push({ text: String(endnotes.length), sup: true, ...base }); continue; }
       if (n.type === 'image') {
@@ -89,7 +92,7 @@ export async function buildPdf(json, settings, title, opts = {}) {
           case 'superscript': o.sup = true; break;
           case 'code': o.font = 'Cousine'; o.background = '#f1f3f5'; break;
           case 'highlight': o.background = colorOf(a.color) || '#fff59d'; break;
-          case 'link': o.link = a.href; o.color = '#0563c1'; o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'underline']; break;
+          case 'link': if (!String(a.href || '').startsWith('#')) { o.link = a.href; o.color = '#0563c1'; o.decoration = [...(o.decoration ? [].concat(o.decoration) : []), 'underline']; } break;
           case 'textStyle':
             if (a.color) o.color = colorOf(a.color);
             if (a.fontFamily) o.font = famOf(a.fontFamily);

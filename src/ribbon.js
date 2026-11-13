@@ -142,6 +142,12 @@ export function buildRibbon(app) {
           btn({ icon: 'symbol', label: 'Symboles', run: () => app.openSymbols() }),
         ),
         group(
+          btn({ icon: 'math', label: 'Équation', title: 'Éditeur de formules mathématiques', run: () => app.openMath() }),
+          btn({ icon: 'bookmark', label: 'Signet', run: () => app.openBookmarks() }),
+          btn({ icon: 'xref', label: 'Renvoi', title: 'Lien vers un titre ou un signet', run: () => app.openXref() }),
+          btn({ icon: 'field', label: 'Champ', title: 'Champ de publipostage', run: () => app.insertField() }),
+        ),
+        group(
           btn({ icon: 'endnote', label: 'Note de fin', run: () => app.openEndnote() }),
           btn({ icon: 'toc', label: 'Sommaire', title: 'Table des matières', run: () => app.insertToc() }),
           btn({ icon: 'hr', label: 'Ligne', run: run((c) => c.setHorizontalRule().run()) }),
@@ -272,6 +278,10 @@ export function buildRibbon(app) {
         group(
           btn({ icon: 'history', label: 'Versions', title: 'Historique des versions', run: () => app.openVersions() }),
           btn({ icon: 'compare', label: 'Comparer', title: 'Comparer avec un autre document', run: () => app.openCompare() }),
+        ),
+        group(
+          btn({ icon: 'mail', label: 'Publipostage', title: 'Générer des lettres à partir d’une liste Excel', run: () => app.openMerge() }),
+          btn({ icon: 'field', label: 'Champ', title: 'Insérer un champ de fusion', run: () => app.insertField() }),
         ),
         group(
           btn({ icon: 'lock', label: 'Protéger', title: 'Mot de passe et permissions', run: () => app.openLock(), active: () => app.locked }),

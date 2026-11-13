@@ -1,6 +1,7 @@
 // Conversion du document (JSON ProseMirror) vers un vrai fichier Word (.docx).
 import { metrics, CM_TWIP, CM_PX, columnWidthCm } from './layout.js';
 import { MOTIFS } from './borders.js';
+import { latexToText } from './math-text.js';
 
 const TW_PX = 15; // 1 px = 15 twips
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -80,6 +81,8 @@ export async function buildDocx(json, settings, title, commentList = []) {
       for (const id of [...open]) if (!ids.includes(id)) { out.push(new CommentRangeEnd(cIdx.get(id))); out.push(new TextRun({ children: [new CommentReference(cIdx.get(id))] })); open = open.filter((x) => x !== id); }
       for (const id of ids) if (!open.includes(id)) { out.push(new CommentRangeStart(cIdx.get(id))); open.push(id); }
       if (n.type === 'hardBreak') { out.push(new TextRun({ break: 1 })); continue; }
+      if (n.type === 'mathFormula') { out.push(new TextRun({ text: latexToText(n.attrs?.latex || ''), italics: true, font: 'Cambria Math', ...base })); continue; }
+      if (n.type === 'mergeField') { out.push(new TextRun({ text: `«${n.attrs?.name || ''}»`, ...base })); continue; }
       if (n.type === 'dateField') { out.push(new TextRun({ text: formatDate(n.attrs?.fmt || 'long'), ...base })); continue; }
       if (n.type === 'endnote') { ctx.endnotes.push(n.attrs?.text || ''); out.push(new TextRun({ text: String(ctx.endnotes.length), superScript: true, ...base })); continue; }
       if (n.type === 'image') {
@@ -109,7 +112,7 @@ export async function buildDocx(json, settings, title, commentList = []) {
           case 'superscript': o.superScript = true; break;
           case 'code': o.font = 'Consolas'; o.shading = { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' }; break;
           case 'highlight': { const f = toHex(a.color) || 'FFF59D'; o.shading = { type: ShadingType.CLEAR, fill: f, color: 'auto' }; break; }
-          case 'link': link = a.href; o.color = '0563C1'; o.underline = {}; break;
+          case 'link': if (!String(a.href || '').startsWith('#')) { link = a.href; o.color = '0563C1'; o.underline = {}; } break;
           case 'insertion': track = { kind: 'ins', author: a.author, date: a.date }; break;
           case 'deletion': track = { kind: 'del', author: a.author, date: a.date }; break;
           case 'textStyle':

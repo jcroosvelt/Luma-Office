@@ -17,7 +17,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
+import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, Bookmark, MathFormula, MergeField, bmId, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon, cssFam } from './ribbon.js';
 import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
@@ -95,7 +95,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
-      CharacterCount, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
+      CharacterCount, Bookmark, MathFormula, MergeField, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
       attributes: { class: 'doc-content', spellcheck: String(spell), lang: settings.lang.split('-')[0], autocapitalize: 'sentences', 'aria-label': 'Contenu du document', role: 'textbox', 'aria-multiline': 'true' },
@@ -1544,6 +1544,21 @@ export function mountEditor(host, docRec, hooks) {
   let recalcT = 0;
   function scheduleRecalc() { clearTimeout(recalcT); recalcT = setTimeout(() => { if (ready && !destroyed) TP.recalcFormulas(editor); }, 500); }
   const pro = {
+    async openBookmarks() { (await import('./bookmarks.js')).openBookmarks(editor); },
+    async openXref() { (await import('./bookmarks.js')).openXref(editor); },
+    async openMath(editPos) {
+      const m = await import('./math.js');
+      const sel = editor.state.selection; let pos = typeof editPos === 'number' ? editPos : (sel.node?.type.name === 'mathFormula' ? sel.from : null);
+      const node = pos != null ? editor.state.doc.nodeAt(pos) : null;
+      m.openMathEditor({ latex: node?.attrs.latex || '', display: !!node?.attrs.display,
+        onSave: (v) => { if (node) editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, null, v)); else editor.chain().focus().insertContent({ type: 'mathFormula', attrs: v }).insertContent(' ').run(); },
+        onDelete: node ? () => editor.view.dispatch(editor.state.tr.delete(pos, pos + 1)) : null });
+    },
+    async openMerge() {
+      const m = await import('./mailmerge.js');
+      m.openMailMerge({ editor, getSource: () => docRec.merge || null, setSource: async (src) => { docRec = { ...docRec, merge: src }; scheduleSave(300); }, getRec: () => docRec, getTitle: () => title, onCreated: (id) => { location.hash = '#/doc/' + id; } });
+    },
+    async insertField() { (await import('./mailmerge.js')).openFieldPicker(editor, docRec.merge || null); },
     sortTable: (dir) => TP.sortTable(editor, dir), openFormula: () => TP.openFormulaSheet(editor), recalc: () => { const n = TP.recalcFormulas(editor); toast(n ? `${n} formule${n > 1 ? 's' : ''} recalculée${n > 1 ? 's' : ''}` : 'Formules à jour'); },
     openTableBorders: () => TP.openBordersSheet(editor), textToTable: () => TP.openTextToTable(editor), tableToText: () => TP.tableToText(editor),
     async openVersions() {
@@ -1556,6 +1571,12 @@ export function mountEditor(host, docRec, hooks) {
       m.openLockSheet(docRec, async (patch) => { docRec = { ...docRec, lock: patch.lock || undefined }; await save(); applyPerms(); ribbon.refresh(); });
     },
   };
+  editor.storage.mathFormula.onEdit = (pos) => pro.openMath(pos);
+  pmHost.addEventListener('click', (e) => {
+    const a = e.target.closest?.('a[href^="#bm-"]'); if (!a) return;
+    e.preventDefault(); const t = pmHost.querySelector('#' + CSS.escape(a.getAttribute('href').slice(1)));
+    if (t) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('bm-flash'); setTimeout(() => t.classList.remove('bm-flash'), 1500); } else toast('Signet introuvable');
+  });
   Object.assign(app, pro, { get locked() { return !!docRec.lock; } });
 
   /* ---------- Démarrage ---------- */

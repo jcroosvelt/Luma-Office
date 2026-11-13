@@ -6,6 +6,7 @@ import Image from '@tiptap/extension-image';
 import { TableCell, Table } from '@tiptap/extension-table';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import { formatDate } from './datefmt.js';
+import { latexToText } from './math-text.js';
 
 /* ---------- Mise en forme de paragraphe : interligne, retrait, espacement ---------- */
 export const INDENT_PT = 36;
@@ -516,4 +517,62 @@ export const DateField = Node.create({
   addAttributes() { return { fmt: { default: 'long', parseHTML: (el) => el.getAttribute('data-fmt') || 'long', renderHTML: (a) => ({ 'data-fmt': a.fmt }) } }; },
   parseHTML() { return [{ tag: 'span[data-datefield]', priority: 100 }]; },
   renderHTML({ node, HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-datefield': '', class: 'datefield', title: 'Date mise à jour automatiquement' }), formatDate(node.attrs.fmt)]; },
+});
+
+/* ---------- Signets (ancres nommées) ---------- */
+export const bmId = (name) => 'bm-' + (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+export const Bookmark = Mark.create({
+  name: 'bookmark',
+  inclusive: false,
+  excludes: '',
+  addAttributes() { return { name: { default: '', parseHTML: (el) => el.getAttribute('data-bookmark') || '', renderHTML: (a) => ({ 'data-bookmark': a.name, id: bmId(a.name) }) } }; },
+  parseHTML() { return [{ tag: 'span[data-bookmark]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { class: 'bookmark' }), 0]; },
+});
+
+/* ---------- Équation (LaTeX rendu avec KaTeX) ---------- */
+let katexLib = null, katexLoading = null;
+function loadKatex() { return (katexLoading ||= Promise.all([import('katex'), import('./katex.css')]).then(([m]) => { katexLib = m.default; return katexLib; })); }
+export function renderMath(dom, latex, display) {
+  dom.dataset.latex = latex; dom.classList.toggle('math-display', !!display);
+  const draw = () => { try { dom.innerHTML = katexLib.renderToString(latex || '\\square', { displayMode: !!display, throwOnError: false, output: 'html', strict: false }); } catch { dom.textContent = latex; } };
+  if (katexLib) draw(); else { dom.textContent = latex; loadKatex().then(draw).catch(() => {}); }
+}
+export const MathFormula = Node.create({
+  name: 'mathFormula',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addStorage() { return { onEdit: null }; },
+  addAttributes() {
+    return {
+      latex: { default: '', parseHTML: (el) => el.getAttribute('data-latex') || '', renderHTML: (a) => ({ 'data-latex': a.latex }) },
+      display: { default: false, parseHTML: (el) => el.getAttribute('data-display') === '1', renderHTML: (a) => (a.display ? { 'data-display': '1' } : {}) },
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-math]' }]; },
+  renderHTML({ node, HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-math': '', class: 'math-f' }), latexToText(node.attrs.latex)]; },
+  renderText({ node }) { return latexToText(node.attrs.latex); },
+  addNodeView() {
+    return ({ node, getPos, editor }) => {
+      const dom = document.createElement('span'); dom.className = 'math-f'; dom.contentEditable = 'false';
+      renderMath(dom, node.attrs.latex, node.attrs.display);
+      dom.addEventListener('click', () => { const pos = getPos(); if (pos != null) editor.storage.mathFormula.onEdit?.(pos); });
+      return { dom, update(n) { if (n.type.name !== 'mathFormula') return false; renderMath(dom, n.attrs.latex, n.attrs.display); return true; } };
+    };
+  },
+});
+
+/* ---------- Champ de fusion (publipostage) ---------- */
+export const MergeField = Node.create({
+  name: 'mergeField',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() { return { name: { default: '', parseHTML: (el) => el.getAttribute('data-field') || '', renderHTML: (a) => ({ 'data-field': a.name }) } }; },
+  parseHTML() { return [{ tag: 'span[data-merge-field]' }]; },
+  renderHTML({ node, HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-merge-field': '', class: 'mf-chip' }), `«${node.attrs.name}»`]; },
+  renderText({ node }) { return `«${node.attrs.name}»`; },
 });
