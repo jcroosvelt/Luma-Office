@@ -145,6 +145,7 @@ const P = {
   borders: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M12 3v18M3 12h18" stroke-dasharray="2 2"/>',
   xref: '<path d="M9 17H7a5 5 0 0 1 0-10h2M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>',
   field: '<path d="M8 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3M16 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3"/><path d="M9 9h6M9 13h4"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
   gotopage: '<path d="M4 12h13"/><path d="m12 6 6 6-6 6"/><path d="M21 4v16"/>',
   words: '<path d="M4 7h16M4 12h10M4 17h13"/>',

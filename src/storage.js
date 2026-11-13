@@ -33,13 +33,18 @@ export const listDocs = async () => (await tx('readonly', (s) => s.getAll())).fi
 export const listUserTemplates = async () => (await tx('readonly', (s) => s.getAll())).filter((d) => d.kind === 'template').sort((a, b) => b.updated - a.updated);
 export const listEverything = () => tx('readonly', (s) => s.getAll());
 export const getDoc = (id) => tx('readonly', (s) => s.get(id));
-export const putDoc = (d) => tx('readwrite', (s) => s.put(d));
+// Crochets du cloud : appelés après chaque enregistrement / suppression locale (voir cloud.js)
+export const hooks = { onPut: null, onDelete: null };
+export const putDocQuiet = (d) => tx('readwrite', (s) => s.put(d)); // sans déclencher le cloud (documents reçus du cloud)
+export const putDoc = async (d) => { const r = await tx('readwrite', (s) => s.put(d)); try { if (d?.kind !== 'version') hooks.onPut?.(d); } catch { /* ignore */ } return r; };
 export const deleteDocRaw = (id) => tx('readwrite', (s) => s.delete(id));
+export const deleteDocQuiet = deleteDocRaw;
 // Versions d'un document : enregistrements « version » dont l'identifiant commence par <id>:v:
 export const listVersions = async (docId) => (await tx('readonly', (s) => s.getAll(IDBKeyRange.bound(docId + ':v:', docId + ':v:\uffff')))).sort((a, b) => b.t - a.t);
 export const deleteDoc = async (id) => {
   await deleteDocRaw(id);
   try { for (const v of await listVersions(id)) await deleteDocRaw(v.id); } catch { /* ignore */ }
+  try { hooks.onDelete?.(id); } catch { /* ignore */ }
 };
 // Dossiers de l'appareil connectés pour la recherche (poignées FileSystemDirectoryHandle)
 export const listFolders = () => tx('readonly', (s) => s.getAll(), FOLDERS);

@@ -3,6 +3,8 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Onglet Outils** (barre de navigation) : Scanneur, Image vers PDF, Image vers DOC (OCR), Image vers PPT (fichier .pptx, une image par diapositive), Partage d'images, Exporter des images (pages d'un PDF ou images d'un Word / PowerPoint / Excel), Compression d'image (qualité, dimensions, JPEG/WebP), Convertir le format d'image (PNG / JPEG / WebP), Fusionner des PDF. Chaque résultat s'enregistre, se partage ou s'exporte en .zip.
+- **Onglet Cloud** : sauvegarde et synchronisation de vos documents entre appareils, **chiffrées dans l'application** (AES-GCM) avant l'envoi ; « compte » = clé personnelle ; synchro manuelle ou automatique, restaurer, supprimer, vider. Nécessite la base Neon reliée à Vercel (variable `DATABASE_URL`) : voir `GUIDE-CLOUD.md`. Limites : 3 Mo par document, 300 documents.
 - **IA : bascule automatique de modèle** : si le modèle choisi est surchargé (503/500), refusé ou trop lent (> 25 s sans réponse), le serveur essaie jusqu'à 3 modèles disponibles (stables d'abord) avant d'afficher une erreur.
 - **Assistant IA / Mise en page IA : fin de l'erreur 504** : la « réflexion » interne du modèle est réduite côté serveur (la première réponse n'attend plus que la fonction Vercel dépasse sa durée maximale) ; si le modèle refuse ce réglage, la requête est rejouée sans. Message plus clair si le délai est quand même dépassé.
 - **APK 1.14.0** (`public/luma-office.apk`, 15,3 Mo) : un seul fichier avec les architectures ARM 32 et 64 bits (corrige l'arrêt au démarrage sur les téléphones 32 bits, ex. Tecno/Infinix), Android 5 et plus, bibliothèques compressées.

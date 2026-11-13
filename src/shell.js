@@ -1,7 +1,7 @@
 // Structure commune des pages (Documents, Modèles, Paramètres) : en-tête avec logo et navigation.
 import { h, icon } from './ui.js';
 
-const NAV = [['#/', 'Documents', 'file'], ['#/modeles', 'Modèles', 'layout'], ['#/parametres', 'Paramètres', 'settings']];
+const NAV = [['#/', 'Documents', 'file'], ['#/modeles', 'Modèles', 'layout'], ['#/outils', 'Outils', 'grid'], ['#/cloud', 'Cloud', 'cloud'], ['#/parametres', 'Paramètres', 'settings']];
 
 export function shell(active, content, { fab, headExtra } = {}) {
   const nav = (cls) => h('nav', { class: 'appnav ' + cls, 'aria-label': 'Navigation principale' },

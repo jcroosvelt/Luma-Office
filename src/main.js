@@ -27,6 +27,9 @@ persist();
 applyTheme(pref.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(pref.get('theme', 'auto')));
 
+// Cloud : suivi des suppressions et synchronisation automatique (si activés dans la page Cloud)
+try { if (pref.get('cloud', null)?.key) import('./cloud.js').then((m) => m.initCloud()); } catch { /* ignore */ }
+
 const app = document.getElementById('app');
 let current = null;
 let token = 0;
@@ -94,6 +97,8 @@ async function render() {
     go(rec.id);
   };
   const refresh = () => render();
+  if (location.hash === '#/outils') { await (await import('./tools-page.js')).showTools(app, { onOpen: go, refresh }); return; }
+  if (location.hash === '#/cloud') { await (await import('./cloud-page.js')).showCloud(app, { onOpen: go, refresh }); return; }
   if (location.hash === '#/modeles') { await showTemplates(app, { onUse: useTemplate, refresh }); return; }
   if (location.hash === '#/parametres') { await showSettings(app, { refresh }); return; }
   await showDocuments(app, { onOpen: go, onNew: useTemplate, onImportFiles: (files) => openFiles(files, go), refresh });
