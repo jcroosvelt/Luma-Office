@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **APK 1.14.0** (`public/luma-office.apk`, 15,3 Mo) : un seul fichier avec les architectures ARM 32 et 64 bits (corrige l'arrêt au démarrage sur les téléphones 32 bits, ex. Tecno/Infinix), Android 5 et plus, bibliothèques compressées.
 - **Fenêtre d'installation** (Android, navigateur) : « Installer » (popup, accueil, Paramètres) ouvre d'abord une fenêtre avec le logo, la version et la taille de l'APK, les avantages et les 3 étapes d'installation ; le bouton « Télécharger » lance ensuite le téléchargement. Version lue dans `public/apk-info.json` (à mettre à jour avec l'APK).
 - **APK publié** : `public/luma-office.apk` (≈ 17,5 Mo, arm64) est dans le dépôt ; le bouton « Installer l'app » le télécharge. À remplacer à chaque nouvelle version de l'application.
 - **Android (navigateur) : plus aucune installation PWA** : le manifeste est retiré de la page, donc Chrome ne propose plus « Installer l'application » ; seul le bouton / la fenêtre « Installer l'app » (téléchargement de l'APK) reste. Si `public/luma-office.apk` n'est pas publié, un message clair s'affiche au lieu d'une page d'erreur. IMPORTANT : le fichier `public/luma-office.apk` doit être déposé dans le dépôt (voir docs/PUBLIER-APK.md de l'app).
