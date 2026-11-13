@@ -1,11 +1,11 @@
-// Assistant IA (Google Gemini) : réglages, appel en flux (streaming) et gestion des erreurs.
+// Assistant IA : réglages, appel en flux (streaming) et gestion des erreurs.
 // Deux modes : « serveur » (clé stockée sur Vercel, fonction /api/gemini) ou « ma clé » (appel direct depuis l'appareil).
 import { pref } from './storage.js';
 
 export const MODELS = [
-  ['gemini-2.5-flash', 'Gemini 2.5 Flash — rapide (recommandé)'],
-  ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash-Lite — très économique'],
-  ['gemini-2.5-pro', 'Gemini 2.5 Pro — plus précis, plus lent'],
+  ['gemini-2.5-flash', 'Rapide (recommandé)'],
+  ['gemini-2.5-flash-lite', 'Très économique'],
+  ['gemini-2.5-pro', 'Plus précis, plus lent'],
   ['custom', 'Autre modèle (saisir le nom)'],
 ];
 const DEF = { enabled: true, mode: 'server', ownKey: '', model: 'gemini-2.5-flash', customModel: '', code: '', consent: false };
@@ -26,8 +26,8 @@ function describeHttp(status, body) {
   if (status === 401) return new AiError(msg || 'Code d’accès incorrect.', 'bad-code');
   if (status === 404 && !msg) return new AiError('L’assistant n’est pas disponible ici : la fonction serveur /api/gemini est introuvable (elle n’existe que sur le site déployé sur Vercel). Vous pouvez utiliser « Ma propre clé » dans les Paramètres.', 'no-api');
   if (status === 400 && /API key/i.test(msg)) return new AiError('Clé API invalide : vérifiez-la dans les Paramètres.', 'bad-key');
-  if (status === 403) return new AiError(msg || 'Accès refusé par Gemini (clé sans droit ou région non prise en charge).', 'forbidden');
-  if (status === 429) return new AiError(msg || 'Quota Gemini atteint : réessayez dans une minute.', 'quota');
+  if (status === 403) return new AiError(msg || 'Accès refusé par le service d’IA (clé sans droit ou région non prise en charge).', 'forbidden');
+  if (status === 429) return new AiError(msg || 'Quota de l’assistant atteint : réessayez dans une minute.', 'quota');
   if (status === 413) return new AiError(msg || 'Texte trop volumineux : sélectionnez un passage plus court.', 'too-big');
   return new AiError(msg || `Erreur du service (${status}).`, 'http');
 }
@@ -53,7 +53,7 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
   }
   if (!res.ok) { let b = null; try { b = await res.json(); } catch { /* ignore */ } throw describeHttp(res.status, b); }
   const ct = res.headers.get('content-type') || '';
-  if (!/event-stream/.test(ct)) { // réponse HTML (ex. site sans fonction serveur) : pas une réponse Gemini
+  if (!/event-stream/.test(ct)) { // réponse HTML (ex. site sans fonction serveur) : pas une réponse de l’assistant
     throw new AiError('L’assistant n’est pas disponible ici : la fonction serveur /api/gemini est introuvable. Utilisez « Ma propre clé » dans les Paramètres ou déployez sur Vercel.', 'no-api');
   }
   const reader = res.body.getReader(), dec = new TextDecoder();
@@ -75,7 +75,7 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
     let i; while ((i = buf.search(/\r?\n\r?\n/)) >= 0) { const evt = buf.slice(0, i); buf = buf.slice(i).replace(/^\r?\n\r?\n/, ''); evt.split(/\r?\n/).forEach(handle); }
   }
   buf.split(/\r?\n/).forEach(handle);
-  if (!full && blocked) throw new AiError('Gemini a refusé de traiter ce contenu (' + blocked.toLowerCase() + '). Reformulez ou changez le texte.', 'blocked');
+  if (!full && blocked) throw new AiError('L’assistant a refusé de traiter ce contenu (' + blocked.toLowerCase() + '). Reformulez ou changez le texte.', 'blocked');
   if (!full) throw new AiError('Réponse vide de l’assistant. Réessayez.', 'empty');
   return full;
 }
@@ -88,7 +88,7 @@ export async function testConnection() {
       let st = null;
       try { const r = await fetch(apiUrl(), { headers: p.code ? { 'x-access-code': p.code } : {} }); if (r.ok && /json/.test(r.headers.get('content-type') || '')) st = await r.json(); } catch { /* ignore */ }
       if (!st) return { ok: false, message: 'Fonction serveur /api/gemini introuvable : le site doit être déployé sur Vercel avec le dossier api/ (ou choisissez « Ma propre clé »).' };
-      if (!st.configured) return { ok: false, message: 'Le serveur répond mais la variable GEMINI_API_KEY n’est pas définie (voir étape 3 du guide).' };
+      if (!st.configured) return { ok: false, message: 'Le serveur répond mais la clé de l’assistant n’est pas définie côté serveur (voir le guide d’installation).' };
     } else if (!p.ownKey.trim()) return { ok: false, message: 'Collez d’abord votre clé API.' };
     const t = await generate({ messages: [{ role: 'user', text: 'Réponds uniquement par le mot : OK' }], maxTokens: 20, temperature: 0 });
     return { ok: true, message: `Connexion réussie ✓ (${modelName()}) — réponse : « ${t.trim().slice(0, 30)} »` };

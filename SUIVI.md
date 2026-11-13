@@ -3,6 +3,8 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Nouvel onglet « Travailler avec l'IA »** (entre Mise en page et Révision) : Assistant IA, Rédiger, Corriger, Reformuler, Raccourcir, Développer, Résumer, En liste, Plan, Continuer, Ton formel, Ton amical, Simplifier, Traduire. Chaque bouton lance directement l'action sur la sélection (ou le document entier). Le bouton ✨ de la barre du haut est supprimé ; l'assistant reste aussi dans le menu ⋮.
+- **Plus aucune mention de « Gemini »** dans l'interface (réglages, messages, avertissement). Seuls restent des identifiants techniques internes.
 - **Emojis supprimés de toute l'application** (modèles, assistant IA, paramètres, listes, messages). Les cartes de modèles de l'accueil utilisent maintenant des icônes sobres par catégorie, les statuts des modèles sont en toutes lettres. Les symboles typographiques (✓, →, ☐, ▲, ★…) sont conservés.
 - **Téléchargement de l'APK depuis le dossier public du site** : le bouton « Installer l'app » (Android, navigateur) télécharge `/luma-office.apk`. Le fichier `public/luma-office.apk` doit être déposé dans le dépôt (voir ci-dessous) ; à remplacer à chaque nouvelle version de l'app.
 - **Plus de messages « connexion rétablie / hors connexion » ni « prêt à fonctionner hors ligne »** (l'enregistrement local continue sans rien afficher).

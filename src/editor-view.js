@@ -68,7 +68,6 @@ export function mountEditor(host, docRec, hooks) {
     titleInput, saveState, saveBtn,
     h('button', { class: 'exp-btn', 'aria-label': 'Exporter en Word', title: 'Exporter en Word (.docx)', onclick: () => exportDocx() }, icon('word', 20), h('span', {}, 'Word')),
     h('button', { class: 'exp-btn', 'aria-label': 'Exporter en PDF', title: 'Exporter en PDF', onclick: () => exportPdf() }, icon('pdf', 20), h('span', {}, 'PDF')),
-    h('button', { class: 'icon-btn ai-btn', 'aria-label': 'Assistant IA', title: 'Assistant IA : reformuler, corriger, résumer, traduire, rédiger', onmousedown: (e) => e.preventDefault(), onclick: () => pro.openAI() }, icon('sparkle', 22)),
     undoBtn, redoBtn,
     h('button', { class: 'icon-btn', 'aria-label': 'Menu fichier', onclick: () => openFileMenu() }, icon('more', 22)));
 
@@ -1547,11 +1546,12 @@ export function mountEditor(host, docRec, hooks) {
   function scheduleRecalc() { clearTimeout(recalcT); recalcT = setTimeout(() => { if (ready && !destroyed) TP.recalcFormulas(editor); }, 500); }
   let speaker = null;
   const pro = {
-    async openAI() {
+    async openAI(action) {
       const m = await import('./ai-ui.js');
       const { from, to } = editor.state.selection;
       const leaf = (l) => (l.type.name === 'mathFormula' ? l.attrs.latex : '');
       m.openAssistant({
+        action: typeof action === 'string' ? action : null,
         getSelection: () => (from !== to ? editor.state.doc.textBetween(from, to, '\n\n', leaf) : ''),
         getDocument: () => editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n\n', leaf),
         onReplace: (html) => editor.chain().focus().insertContentAt({ from, to }, html).run(),

@@ -249,10 +249,33 @@ export function buildRibbon(app) {
       ],
     },
     {
-      id: 'review', label: 'Révision', build: () => [
+      id: 'ai', label: 'Travailler avec l’IA', build: () => [
         group(
-          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Reformuler, corriger, résumer, traduire, rédiger avec Gemini', run: () => app.openAI() }),
+          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Ouvrir l’assistant : écrivez ce que vous voulez', run: () => app.openAI('write') }),
+          btn({ icon: 'edit', label: 'Rédiger', title: 'Demander à l’IA de rédiger un texte', run: () => app.openAI('write') }),
         ),
+        group(
+          btn({ icon: 'spell', label: 'Corriger', title: 'Corriger l’orthographe et la grammaire', run: () => app.openAI('fix') }),
+          btn({ icon: 'eraser', label: 'Reformuler', title: 'Reformuler pour plus de clarté', run: () => app.openAI('rewrite') }),
+          btn({ icon: 'sizeDown', label: 'Raccourcir', run: () => app.openAI('shorter') }),
+          btn({ icon: 'size', label: 'Développer', run: () => app.openAI('longer') }),
+        ),
+        group(
+          btn({ icon: 'words', label: 'Résumer', run: () => app.openAI('summary') }),
+          btn({ icon: 'list', label: 'En liste', title: 'Transformer en liste à puces', run: () => app.openAI('bullets') }),
+          btn({ icon: 'toc', label: 'Plan', title: 'Proposer un plan détaillé', run: () => app.openAI('plan') }),
+          btn({ icon: 'play', label: 'Continuer', title: 'Continuer le texte', run: () => app.openAI('continue') }),
+        ),
+        group(
+          btn({ icon: 'lock', label: 'Ton formel', run: () => app.openAI('formal') }),
+          btn({ icon: 'star', label: 'Ton amical', run: () => app.openAI('friendly') }),
+          btn({ icon: 'check', label: 'Simplifier', run: () => app.openAI('simple') }),
+          btn({ icon: 'gotopage', label: 'Traduire', title: 'Traduire le texte', run: () => app.openAI('translate') }),
+        ),
+      ],
+    },
+    {
+      id: 'review', label: 'Révision', build: () => [
         group(
           btn({ icon: 'commentAdd', label: 'Commenter', run: () => app.addComment() }),
           btn({ icon: 'comment', label: 'Commentaires', run: () => app.openComments(), dyn: () => `Commentaires${app.commentCount ? ' (' + app.commentCount + ')' : ''}` }),
@@ -278,9 +301,6 @@ export function buildRibbon(app) {
     },
     {
       id: 'tools', label: 'Outils', build: () => [
-        group(
-          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Reformuler, corriger, résumer, traduire, rédiger avec Gemini', run: () => app.openAI() }),
-        ),
         group(
           btn({ icon: 'history', label: 'Versions', title: 'Historique des versions', run: () => app.openVersions() }),
           btn({ icon: 'compare', label: 'Comparer', title: 'Comparer avec un autre document', run: () => app.openCompare() }),

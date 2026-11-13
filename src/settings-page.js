@@ -43,11 +43,11 @@ export async function showSettings(host, { refresh }) {
   const installBtn = h('button', { class: 'btn sm', onclick: async () => { if (canInstall()) await promptInstall(); else toast(matchMedia('(display-mode: standalone)').matches ? 'L’application est déjà installée ✓' : 'Utilisez le menu du navigateur : « Installer l’application » ou « Sur l’écran d’accueil ».', 5000); } }, icon('download', 18), 'Installer');
   onInstallAvailable(() => { installBtn.title = canInstall() ? 'Prêt à installer' : ''; });
 
-  /* ----- Assistant IA (Gemini) ----- */
+  /* ----- Assistant IA ----- */
   const ai0 = aiPrefs.get();
-  const keyIn = h('input', { class: 'field', type: 'password', value: ai0.ownKey, placeholder: 'Collez votre clé (commence par AIza…)', autocomplete: 'off', 'aria-label': 'Clé API Gemini', onchange: (e) => { aiPrefs.set({ ownKey: e.target.value.trim() }); toast('Clé enregistrée sur cet appareil'); } });
+  const keyIn = h('input', { class: 'field', type: 'password', value: ai0.ownKey, placeholder: 'Collez votre clé d’accès', autocomplete: 'off', 'aria-label': 'Clé API de l’assistant', onchange: (e) => { aiPrefs.set({ ownKey: e.target.value.trim() }); toast('Clé enregistrée sur cet appareil'); } });
   const codeIn = h('input', { class: 'field', type: 'password', value: ai0.code, placeholder: 'Code d’accès (facultatif)', autocomplete: 'off', 'aria-label': 'Code d’accès', onchange: (e) => { aiPrefs.set({ code: e.target.value.trim() }); toast('Code enregistré'); } });
-  const customIn = h('input', { class: 'field', value: ai0.customModel, placeholder: 'ex. gemini-2.5-flash', 'aria-label': 'Nom du modèle', onchange: (e) => aiPrefs.set({ customModel: e.target.value.trim() }) });
+  const customIn = h('input', { class: 'field', value: ai0.customModel, placeholder: 'Nom du modèle (avancé)', 'aria-label': 'Nom du modèle', onchange: (e) => aiPrefs.set({ customModel: e.target.value.trim() }) });
   const aiTest = h('p', { class: 'ai-test' }, '');
   const aiTestBtn = h('button', { class: 'btn sm', onclick: async () => { aiTest.className = 'ai-test'; aiTest.textContent = 'Test en cours…'; aiTestBtn.disabled = true; const r = await testConnection(); aiTestBtn.disabled = false; aiTest.className = 'ai-test ' + (r.ok ? 'ok' : 'bad'); aiTest.textContent = r.message; } }, icon('sparkle', 16), 'Tester la connexion');
   const rowKey = row('Ma clé API', keyIn, 'Enregistrée uniquement sur cet appareil. Obtenez-la gratuitement sur aistudio.google.com/apikey');
@@ -56,7 +56,7 @@ export async function showSettings(host, { refresh }) {
   const syncAi = () => { const a = aiPrefs.get(); rowKey.hidden = a.mode !== 'own'; rowCode.hidden = a.mode === 'own'; rowCustom.hidden = a.model !== 'custom'; };
   const aiHelp = h('details', { class: 'ai-help' }, h('summary', {}, 'Comment configurer l’assistant ?'),
     h('ol', {}, h('li', {}, 'Ouvrez aistudio.google.com/apikey, connectez-vous avec votre compte Google, puis « Créer une clé API ».'),
-      h('li', {}, 'Recommandé : sur vercel.com, ouvrez votre projet › Settings › Environment Variables, ajoutez GEMINI_API_KEY (collez la clé), enregistrez, puis redéployez.'),
+      h('li', {}, 'Recommandé : la clé de l’assistant est enregistrée côté serveur (voir le guide d’installation GUIDE-IA.md).'),
       h('li', {}, 'Ici, laissez « Serveur du site » et touchez « Tester la connexion ».'),
       h('li', {}, 'Sans Vercel (test rapide) : choisissez « Ma clé » et collez la clé ci-dessus.')),
     h('small', {}, 'Guide complet : fichier GUIDE-IA.md du dépôt.'));
@@ -77,7 +77,7 @@ export async function showSettings(host, { refresh }) {
       row('Orientation', seg([['portrait', 'Portrait'], ['landscape', 'Paysage']], () => defaults().orientation, (v) => setDef({ orientation: v }))),
       row('Marges', select(Object.entries(MARGIN_PRESETS).map(([k, p]) => [k, p.label]), marginKey, (v) => setDef({ margins: { ...MARGIN_PRESETS[v].v } }))),
       row('Numéroter les pages', toggle(() => defaults().pageNumbers, (v) => setDef({ pageNumbers: v })), 'S’applique aux documents créés ensuite ; certains modèles ont leurs propres réglages.')),
-    group('Assistant IA (Gemini)',
+    group('Assistant IA',
       row('Activer l’assistant', toggle(() => aiPrefs.get().enabled, (v) => aiPrefs.set({ enabled: v })), 'Reformuler, corriger, résumer, traduire, rédiger ; questions sur un PDF. Le texte traité est envoyé à Google.'),
       row('Source de la clé', seg([['server', 'Serveur du site'], ['own', 'Ma clé']], () => aiPrefs.get().mode, (v) => { aiPrefs.set({ mode: v }); syncAi(); }), '« Serveur du site » garde la clé secrète sur Vercel (recommandé).'),
       rowKey, rowCode,

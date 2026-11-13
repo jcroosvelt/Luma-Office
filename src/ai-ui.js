@@ -29,11 +29,11 @@ const PDF_ACTIONS = [
   ['todo', 'Actions à faire', 'Liste les actions, obligations ou échéances qui concernent le lecteur de ce document.'],
 ];
 
-export async function openAssistant({ kind = 'editor', title = 'Assistant IA', getSelection, getDocument, onReplace, onReplaceAll, onInsert, onNewDoc }) {
+export async function openAssistant({ kind = 'editor', title = 'Assistant IA', action = null, getSelection, getDocument, onReplace, onReplaceAll, onInsert, onNewDoc }) {
   const prefs = aiPrefs.get();
   if (!prefs.enabled) { toast('L’assistant IA est désactivé (Paramètres › Assistant IA)', 3500); return; }
   if (!prefs.consent) {
-    if (!(await confirmDialog('L’assistant envoie le texte concerné (sélection, document ou PDF) à Google Gemini pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'J’ai compris, continuer'))) return;
+    if (!(await confirmDialog('L’assistant envoie le texte concerné (sélection, document ou PDF) à un service d’intelligence artificielle pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'J’ai compris, continuer'))) return;
     aiPrefs.set({ consent: true });
   }
   const sel = (getSelection?.() || '').trim();
@@ -89,13 +89,14 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', g
     applyRow.replaceChildren(...items); applyRow.hidden = false;
   }
 
+  function doQuick(id, prompt) {
+    const text = contextText();
+    if (!text.trim()) { toast(isPdf ? 'Ce PDF ne contient pas de texte' : 'Écrivez ou sélectionnez d’abord du texte', 3000); return; }
+    if (isPdf) run([{ role: 'user', text: `${prompt}\n\nDocument :\n${text}` }], PDF_SYS, { temperature: 0.3 });
+    else run([{ role: 'user', text: `${prompt}\n\nTexte :\n${text}` }], EDIT_SYS, { temperature: id === 'fix' ? 0.1 : 0.6 });
+  }
   function quick(id, label, prompt) {
-    return h('button', { class: 'chip', onclick: () => {
-      const text = contextText();
-      if (!text.trim()) { toast(isPdf ? 'Ce PDF ne contient pas de texte' : 'Écrivez ou sélectionnez d’abord du texte', 3000); return; }
-      if (isPdf) run([{ role: 'user', text: `${prompt}\n\nDocument :\n${text}` }], PDF_SYS, { temperature: 0.3 });
-      else run([{ role: 'user', text: `${prompt}\n\nTexte :\n${text}` }], EDIT_SYS, { temperature: id === 'fix' ? 0.1 : 0.6 });
-    } }, label);
+    return h('button', { class: 'chip', onclick: () => doQuick(id, prompt) }, label);
   }
   function translate() {
     const text = contextText();
@@ -121,5 +122,9 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', g
     errBox, out, applyRow,
     h('small', { class: 'muted' }, 'Le résultat peut contenir des erreurs : relisez-le avant de l’utiliser.')),
   { wide: true, onClose: () => ctrl?.abort() });
-  setTimeout(() => ta.focus(), 300);
+  // Lancement direct depuis l'onglet « Travailler avec l'IA » : « write » = champ de saisie, « translate » = choix de la langue
+  if (action === 'write') setTimeout(() => ta.focus(), 300);
+  else if (action === 'translate') setTimeout(() => langSel.focus(), 300);
+  else if (action) { const a = (isPdf ? PDF_ACTIONS : EDIT_ACTIONS).find((x) => x[0] === action); if (a) setTimeout(() => doQuick(a[0], a[2]), 250); else setTimeout(() => ta.focus(), 300); }
+  else setTimeout(() => ta.focus(), 300);
 }
