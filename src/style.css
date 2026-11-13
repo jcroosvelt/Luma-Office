@@ -700,3 +700,20 @@ section:first-child > .rd-pn { margin-top: 0; border-top: 0; }
 .annbar { overflow-x: auto; flex-wrap: nowrap; }
 .annbar .icon-btn { flex: none; }
 @media (max-width: 520px) { .viewbar .icon-btn[aria-label="Zoom arrière"], .viewbar .icon-btn[aria-label="Zoom avant"] { display: none; } }
+
+/* Versions, comparaison, protection */
+.ver-list { display: grid; gap: 8px; } .ver-row { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); }
+.ver-meta { display: grid; gap: 2px; } .ver-meta small { color: var(--muted); } .ver-act { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ver-prev { background: #fff; color: #111; border-radius: 8px; padding: 16px; max-height: 60vh; overflow: auto; }
+.cmp-out { display: grid; gap: 6px; } .cmp-stats { display: flex; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 14px; }
+.cmp-ins { color: #1a7f37; } .cmp-del { color: #b3261e; } .cmp-mod { color: #9a6700; }
+p.cmp-ins { background: #e8f5e9; border-left: 3px solid #1a7f37; padding: 6px 10px; margin: 0; border-radius: 6px; }
+p.cmp-del { background: #fdecea; border-left: 3px solid #b3261e; padding: 6px 10px; margin: 0; border-radius: 6px; text-decoration: line-through; }
+p.cmp-mod { background: #fff8e1; border-left: 3px solid #9a6700; padding: 6px 10px; margin: 0; border-radius: 6px; color: var(--text); }
+.cmp-mod ins { background: #c8e6c9; text-decoration: none; border-radius: 3px; } .cmp-mod del { background: #ffcdd2; border-radius: 3px; }
+.cmp-eq { color: var(--muted); font-size: 12px; text-align: center; padding: 2px 0; }
+.lock-screen { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); padding: 20px; }
+.lock-card { display: grid; gap: 12px; justify-items: center; text-align: center; width: min(360px, 100%); padding: 28px 22px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.lock-card .field, .lock-card .btn { width: 100%; } .lock-err { color: #b3261e; font-weight: 700; margin: 0; min-height: 1.2em; }
+.perm-nocopy .doc-content, .perm-nocopy .pdf-scroll { user-select: none; -webkit-user-select: none; }
+.perm-noexport .exp-btn { display: none; }

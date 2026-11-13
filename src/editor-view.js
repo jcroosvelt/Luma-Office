@@ -24,6 +24,7 @@ import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
 import { applyPageVars, metrics, mergeSettings, PAGE_SIZES, MARGIN_PRESETS, CM_PX, NUMBER_FORMATS, pageNumberText, WATERMARK_PRESETS, BORDER_STYLES, columnWidthCm } from './layout.js';
 import { putDoc, pref, persist, newId } from './storage.js';
 import { openAbout } from './about.js';
+import { permsOf } from './lock.js';
 import { buildDocx, DOCX_MIME } from './export-docx.js';
 import { buildPdf, printDocument } from './export-pdf.js';
 import { inApp, send as bridgeSend, blobToBase64, sendState } from './appbridge.js';
@@ -169,6 +170,7 @@ export function mountEditor(host, docRec, hooks) {
     try {
       await putDoc(docRec);
       lastSaved = new Date();
+      import('./versions.js').then((m) => m.maybeAutoVersion(docRec, docRec.json)).catch(() => {});
       if (!persisted) persist().then((ok) => { persisted = ok; });
     } catch (err) {
       dirty = true;
@@ -710,12 +712,14 @@ export function mountEditor(host, docRec, hooks) {
     try { await fn(); } catch (e) { console.error(e); toast('Échec de l’export : ' + (e.message || 'erreur')); } finally { busy = false; }
   }
   const makeDocx = () => { refreshToc(); return buildDocx(editor.getJSON(), settings, title, comments); };
-  const exportDocx = () => withBusy('Création du fichier Word…', async () => { saveBlob(await makeDocx(), fileName('docx')); toast('Fichier Word exporté ✓'); });
+  const deny = (k) => (permsOf(docRec)[k] ? false : (toast('Action non autorisée : document protégé', 3000), true));
+  const exportDocx = () => deny('export') || withBusy('Création du fichier Word…', async () => { saveBlob(await makeDocx(), fileName('docx')); toast('Fichier Word exporté ✓'); });
   const makePdf = () => { refreshToc(); return buildPdf(editor.getJSON(), settings, title, { html: editor.getHTML() }); };
-  const exportPdf = () => withBusy('Création du PDF…', async () => { saveBlob(await makePdf(), fileName('pdf')); toast('PDF exporté ✓'); });
-  const shareDocx = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makeDocx(), fileName('docx'), DOCX_MIME); toast('Terminé'); });
-  const sharePdf = () => withBusy('Préparation du partage…', async () => { await shareBlob(await makePdf(), fileName('pdf'), 'application/pdf'); toast('Terminé'); });
+  const exportPdf = () => deny('export') || withBusy('Création du PDF…', async () => { saveBlob(await makePdf(), fileName('pdf')); toast('PDF exporté ✓'); });
+  const shareDocx = () => deny('export') || withBusy('Préparation du partage…', async () => { await shareBlob(await makeDocx(), fileName('docx'), DOCX_MIME); toast('Terminé'); });
+  const sharePdf = () => deny('export') || withBusy('Préparation du partage…', async () => { await shareBlob(await makePdf(), fileName('pdf'), 'application/pdf'); toast('Terminé'); });
   function doPrint() {
+    if (deny('print')) return;
     findOpen && toggleFind(false); refreshToc();
     // dans l'application Android, window.print() est sans effet : on envoie un PDF à l'impression Android
     if (inApp()) return withBusy('Préparation de l’impression…', async () => { bridgeSend('print', { title, pdfBase64: await blobToBase64(await makePdf()) }); });
@@ -735,6 +739,9 @@ export function mountEditor(host, docRec, hooks) {
       canShare ? { icon: 'share', label: 'Partager en Word', run: shareDocx } : null,
       canShare ? { icon: 'share', label: 'Partager en PDF', run: sharePdf } : null,
       { sep: 'Document' },
+      { icon: 'history', label: 'Historique des versions', hint: 'Revenir à une version précédente', run: pro.openVersions },
+      { icon: 'compare', label: 'Comparer avec un autre document', run: () => pro.openCompare() },
+      { icon: 'lock', label: docRec.lock ? 'Protection du document…' : 'Protéger par mot de passe…', hint: 'Mot de passe et permissions', run: pro.openLock },
       { icon: 'search', label: 'Rechercher et remplacer', run: () => toggleFind(true) },
       { icon: 'stats', label: 'Statistiques', run: openStats },
       { icon: 'edit', label: 'Nom de l’auteur', hint: pref.get('author', '') || 'Utilisé pour les commentaires et le suivi', run: async () => { const a = await promptDialog('Votre nom', 'Nom affiché sur vos commentaires et modifications', pref.get('author', ''), 'Enregistrer'); if (a?.trim()) { pref.set('author', a.trim()); editor.storage.trackChanges.author = a.trim(); } } },
@@ -1525,8 +1532,30 @@ export function mountEditor(host, docRec, hooks) {
   root.append(readerBar);
   function toggleWordCount() { showWc = !showWc; pref.set('wc', showWc); updateStatus(); updatePagePill(); ribbon.refresh(); }
 
+  /* ---------- Outils avancés : versions, comparaison, protection ---------- */
+  function applyPerms() {
+    const p = permsOf(docRec);
+    editor.setEditable(p.edit);
+    root.classList.toggle('perm-ro', !p.edit); root.classList.toggle('perm-nocopy', !p.copy);
+    root.classList.toggle('perm-noexport', !p.export); root.classList.toggle('perm-noprint', !p.print);
+  }
+  for (const ev of ['copy', 'cut']) pmHost.addEventListener(ev, (e) => { if (!permsOf(docRec).copy) { e.preventDefault(); toast('Copie non autorisée : document protégé', 2500); } });
+  const pro = {
+    async openVersions() {
+      const m = await import('./versions.js');
+      m.openVersions({ getRec: () => ({ ...docRec, title, words: editor.storage.characterCount.words() }), getJson: () => editor.getJSON(), editor, onRestore: (v) => { editor.commands.setContent(v.json); scheduleSave(200); toast('Version restaurée ✓'); }, onCompare: (v) => pro.openCompare(v.id) });
+    },
+    async openCompare(pre) { const m = await import('./compare.js'); m.openCompare({ currentTitle: title, currentJson: editor.getJSON(), currentId: docRec.id, preselect: pre }); },
+    async openLock() {
+      const m = await import('./lock.js');
+      m.openLockSheet(docRec, async (patch) => { docRec = { ...docRec, lock: patch.lock || undefined }; await save(); applyPerms(); ribbon.refresh(); });
+    },
+  };
+  Object.assign(app, pro, { get locked() { return !!docRec.lock; } });
+
   /* ---------- Démarrage ---------- */
   ready = true;
+  applyPerms();
   applyPageVars(root, settings);
   scheduleLayout();
   updateStatus();

@@ -10,7 +10,7 @@ export function jsonText(node, out = []) {
   else if (node.content) { node.content.forEach((c) => jsonText(c, out)); if (['paragraph', 'heading', 'listItem', 'tableCell', 'tableHeader', 'blockquote', 'codeBlock'].includes(node.type)) out.push('\n'); }
   return out.join('').replace(/[ \t]+/g, ' ');
 }
-export const docText = (rec) => rec.text ?? (rec.json ? jsonText(rec.json) : '');
+export const docText = (rec) => (rec.lock ? '' : rec.text ?? (rec.json ? jsonText(rec.json) : ''));
 
 // Alignement des indices : on normalise caractère par caractère
 function alignedNorm(text) { let s = ''; for (let i = 0; i < text.length; i++) s += norm(text[i]) || text[i]; return s; }

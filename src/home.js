@@ -29,7 +29,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
 
   function card({ doc: d, snippet }) {
     const k = KIND[d.kind];
-    const thumb = d.kind === 'pdf' && d.thumb
+    const thumb = d.lock ? h('div', { class: 'thumb' }, h('div', { class: 'thumb-text lockthumb' }, icon('lock', 34), 'Protégé')) : d.kind === 'pdf' && d.thumb
       ? h('div', { class: 'thumb pdfthumb' }, h('img', { src: d.thumb, alt: '' }))
       : h('div', { class: 'thumb' }, snippet ? snippetEl(h, snippet) : h('div', { class: 'thumb-text' }, d.preview || (k ? k[0] : 'Document vide')));
     return h('article', { class: 'doccard', tabindex: '0', onclick: () => onOpen(d.id), onkeydown: (e) => { if (e.key === 'Enter') onOpen(d.id); } },
@@ -59,6 +59,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
     s = sheet(d.title, menuList([
       { icon: 'file', label: 'Ouvrir', run: () => onOpen(d.id) },
       { icon: 'edit', label: 'Renommer', run: async () => { const t = await promptDialog('Renommer', 'Titre du document', d.title); if (t?.trim()) { await putDoc({ ...d, title: t.trim() }); refresh(); } } },
+      { icon: 'lock', label: d.lock ? 'Protection…' : 'Protéger par mot de passe…', run: async () => { const L = await import('./lock.js'); L.openLockSheet(d, async (patch) => { await putDoc({ ...d, lock: patch.lock || undefined }); refresh(); }, { pdf: d.kind === 'pdf' || d.kind === 'sheet' }); } },
       { icon: 'copy', label: 'Dupliquer', run: async () => { await putDoc({ ...d, id: newId(), title: d.title + ' (copie)', updated: Date.now() }); refresh(); } },
       { icon: 'trash', label: 'Supprimer', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${d.title} » définitivement ?`, 'Supprimer', true)) { await deleteDoc(d.id); refresh(); } } },
     ], () => s.close()));

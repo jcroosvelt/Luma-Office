@@ -3,6 +3,7 @@ import { h, icon, toast, saveBlob, shareBlob, safeName, promptDialog, sheet } fr
 import { putDoc, newId } from './storage.js';
 import { createAnnotator } from './pdf-annot.js';
 import { createReader } from './pdf-reader.js';
+import { permsOf, openLockSheet } from './lock.js';
 import { rebuildPdf, stampPdf, parseRanges, saveAsDoc, protectPdf, unprotectPdf } from './pdf-tools.js';
 import { loadPdfjs, useWorkerMode, pageText, pageParagraphs } from './pdf-lib.js';
 import { viewerTopbar, deleteItem, searchSheet } from './viewer-ui.js';
@@ -390,6 +391,7 @@ export async function mountPdf(host, rec, hooks) {
     document.fullscreenEnabled || document.webkitFullscreenEnabled ? { icon: 'sidebar', label: 'Plein écran', run: fullscreen } : null,
     { sep: 'Sécurité' },
     { icon: 'lock', label: 'Protéger par mot de passe', hint: 'Crée une copie chiffrée du PDF', run: openProtect },
+    { icon: 'lock', label: rec.lock ? 'Verrouillage dans l’app…' : 'Verrouiller dans l’app…', hint: 'Mot de passe demandé à l’ouverture + permissions', run: () => openLockSheet(rec, async (patch) => { rec = { ...rec, lock: patch.lock || undefined }; await putDoc(rec); }, { pdf: true }) },
     pdfPw ? { icon: 'unlock', label: 'Retirer le mot de passe', hint: 'Crée une copie sans mot de passe', run: removeProtection } : null,
     { sep: 'Outils PDF' },
     { icon: 'grid', label: 'Organiser les pages', hint: 'Déplacer, pivoter, supprimer', run: openOrganize },
@@ -397,10 +399,10 @@ export async function mountPdf(host, rec, hooks) {
     { icon: 'watermark', label: 'Filigrane et numérotation', run: openStamp },
     { sep: 'Document' },
     { icon: 'info', label: 'Propriétés du document', run: info },
-    { icon: 'print', label: 'Imprimer', run: print },
+    permsOf(rec).print ? { icon: 'print', label: 'Imprimer', run: print } : null,
     { icon: 'search', label: 'Rechercher dans le PDF', run: openFind },
-    { icon: 'download', label: 'Télécharger le PDF', hint: ann.hasChanges() ? 'Avec vos annotations et champs remplis' : null, run: async () => saveBlob(await currentBlob(), safeName(rec.title) + '.pdf') },
-    navigator.canShare ? { icon: 'share', label: 'Partager', run: async () => shareBlob(await currentBlob(), safeName(rec.title) + '.pdf', 'application/pdf') } : null,
+    !permsOf(rec).export ? null : { icon: 'download', label: 'Télécharger le PDF', hint: ann.hasChanges() ? 'Avec vos annotations et champs remplis' : null, run: async () => saveBlob(await currentBlob(), safeName(rec.title) + '.pdf') },
+    navigator.canShare && permsOf(rec).export ? { icon: 'share', label: 'Partager', run: async () => shareBlob(await currentBlob(), safeName(rec.title) + '.pdf', 'application/pdf') } : null,
     { icon: 'save', label: 'Enregistrer une copie dans mes documents', hint: 'Annotations et champs remplis incorporés au PDF', run: saveCopy },
     { icon: 'word', label: 'Convertir en document modifiable', hint: 'Texte seulement, sans la mise en page d’origine', run: convert },
     { sep: 'Fichier' },

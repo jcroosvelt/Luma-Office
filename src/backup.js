@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { listEverything, putDoc, deleteDoc, listFolders, deleteFolder } from './storage.js';
 
 export async function exportBackup() {
-  const all = await listEverything();
+  const all = (await listEverything()).filter((d) => d.kind !== 'version');
   const zip = new JSZip();
   for (const rec of all) {
     const { blob, ...rest } = rec;

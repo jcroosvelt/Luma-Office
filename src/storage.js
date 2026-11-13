@@ -29,12 +29,18 @@ async function tx(mode, fn, store = STORE) {
   });
 }
 
-export const listDocs = async () => (await tx('readonly', (s) => s.getAll())).filter((d) => d.kind !== 'template').sort((a, b) => b.updated - a.updated);
+export const listDocs = async () => (await tx('readonly', (s) => s.getAll())).filter((d) => d.kind !== 'template' && d.kind !== 'version').sort((a, b) => b.updated - a.updated);
 export const listUserTemplates = async () => (await tx('readonly', (s) => s.getAll())).filter((d) => d.kind === 'template').sort((a, b) => b.updated - a.updated);
 export const listEverything = () => tx('readonly', (s) => s.getAll());
 export const getDoc = (id) => tx('readonly', (s) => s.get(id));
 export const putDoc = (d) => tx('readwrite', (s) => s.put(d));
-export const deleteDoc = (id) => tx('readwrite', (s) => s.delete(id));
+export const deleteDocRaw = (id) => tx('readwrite', (s) => s.delete(id));
+// Versions d'un document : enregistrements « version » dont l'identifiant commence par <id>:v:
+export const listVersions = async (docId) => (await tx('readonly', (s) => s.getAll(IDBKeyRange.bound(docId + ':v:', docId + ':v:\uffff')))).sort((a, b) => b.t - a.t);
+export const deleteDoc = async (id) => {
+  await deleteDocRaw(id);
+  try { for (const v of await listVersions(id)) await deleteDocRaw(v.id); } catch { /* ignore */ }
+};
 // Dossiers de l'appareil connectés pour la recherche (poignées FileSystemDirectoryHandle)
 export const listFolders = () => tx('readonly', (s) => s.getAll(), FOLDERS);
 export const putFolder = (f) => tx('readwrite', (s) => s.put(f), FOLDERS);

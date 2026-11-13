@@ -63,6 +63,7 @@ async function render() {
   if (m) {
     const rec = await getDoc(m[1]);
     if (!rec || rec.kind === 'template') { go(null); return; }
+    if (rec.lock) { const L = await import('./lock.js'); if (!L.isUnlocked(rec.id) && !(await L.unlockGate(rec, app))) { go(null); return; } }
     document.documentElement.classList.add('in-editor');
     const hooks = {
       onBack: () => go(null),

@@ -257,6 +257,17 @@ export function buildRibbon(app) {
       ],
     },
     {
+      id: 'tools', label: 'Outils', build: () => [
+        group(
+          btn({ icon: 'history', label: 'Versions', title: 'Historique des versions', run: () => app.openVersions() }),
+          btn({ icon: 'compare', label: 'Comparer', title: 'Comparer avec un autre document', run: () => app.openCompare() }),
+        ),
+        group(
+          btn({ icon: 'lock', label: 'Protéger', title: 'Mot de passe et permissions', run: () => app.openLock(), active: () => app.locked }),
+        ),
+      ],
+    },
+    {
       id: 'view', label: 'Affichage', build: () => [
         group(
           btn({ icon: 'book', label: 'Mode lecteur', run: () => app.toggleReader(), active: () => app.reader }),
