@@ -4,7 +4,7 @@ import { pref, storageInfo, fmtBytes, persist } from './storage.js';
 import { PAGE_SIZES, MARGIN_PRESETS, DEFAULT_SETTINGS } from './layout.js';
 import { shell } from './shell.js';
 import { poweredBy, openAbout } from './about.js';
-import { canInstall, promptInstall, onInstallAvailable } from './install.js';
+import { canInstall, promptInstall, onInstallAvailable, isApp } from './install.js';
 import { allFolders, addFolder, removeFolder, hasDirPicker } from './device-search.js';
 import { exportBackup, importBackup, wipeAll } from './backup.js';
 import { aiPrefs, MODELS, testConnection } from './ai.js';
@@ -94,8 +94,8 @@ export async function showSettings(host, { refresh }) {
       row('Protéger les données', h('button', { class: 'btn sm', onclick: async () => { const ok = await persist(); toast(ok ? 'Stockage protégé ✓' : 'Le navigateur refuse pour l’instant : installez l’application, puis réessayez.', 5000); } }, '🔒 Demander la protection')),
       row('Tout effacer', h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmDialog('Supprimer TOUS vos documents, modèles et réglages de cet appareil ? Cette action est définitive.', 'Tout supprimer', true)) { await wipeAll(); toast('Données effacées'); refresh(); } } }, icon('trash', 18), 'Effacer mes données'))),
     group('Application',
-      row('Installer Luma Office', installBtn, 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),
-      row('Invitation d’installation', h('button', { class: 'btn sm', onclick: () => { pref.set('installDismissed', 0); pref.set('installed', false); toast('L’invitation s’affichera à la prochaine visite'); } }, 'Réafficher')),
+      isApp() ? null : row('Installer Luma Office', installBtn, /android/i.test(navigator.userAgent) ? 'Télécharge l’application Android (APK).' : 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),
+      isApp() ? null : row('Invitation d’installation', h('button', { class: 'btn sm', onclick: () => { pref.set('installDismissed', 0); pref.set('installed', false); toast('L’invitation s’affichera à la prochaine visite'); } }, 'Réafficher')),
       row('Version', h('span', { class: 'ver' }, pkg.version)),
       row('À propos', h('button', { class: 'btn sm', onclick: openAbout }, icon('info', 18), 'Ouvrir'))),
   );
