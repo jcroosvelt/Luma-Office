@@ -3,6 +3,10 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Barre bleue de l'éditeur deux fois moins haute** (56 → 28 px) : logo, boutons et titre réduits.
+- **Zoom avec le clavier** (mode page) : à l'ouverture du clavier le zoom passe à 100 % (texte plus gros, le curseur reste visible) ; à la fermeture, retour au zoom précédent (ajusté à la page, ~50 %). Si l'utilisateur a zoomé lui-même avec les doigts, son zoom est conservé.
+- **Zoom à deux doigts** : fonctionne maintenant dans tous les modes (le pincement bascule en mode page puis zoome de 30 à 300 %).
+- **Version** : site 1.6.0 + date de compilation affichées dans Paramètres › Version ; l'APK reçoit un numéro de version qui augmente à chaque compilation (voir dépôt de l'app).
 - **Mise en page IA** (onglet Mise en page › « Mise en page IA ») : l'IA lit le document, reconnaît sa nature (lettre, rapport, CV, contrat…) et propose format de page, marges, police, interligne, titres, date/signature/objet, numérotation. Rien n'est appliqué sans accord ; « Annuler la mise en page » remet tout comme avant.
 - **Assistant façon chat** : la consigne reste affichée (et dans la zone de saisie), la réponse s'écrit en direct dans une bulle avec curseur clignotant, « L'assistant réfléchit… » avant le premier mot, conversation conservée.
 - **Correctif serveur** : la température et la longueur demandées par l'application étaient ignorées par la fonction `/api/gemini` ; elles sont maintenant transmises.

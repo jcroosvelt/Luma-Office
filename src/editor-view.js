@@ -328,11 +328,16 @@ export function mountEditor(host, docRec, hooks) {
   // Pincer pour zoomer (mode page)
   let pinch = null;
   const dist = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-  scroller.addEventListener('touchstart', (e) => { if (e.touches.length === 2 && mode === 'page') pinch = { d: dist(e), z: curZoom() }; }, { passive: true });
+  scroller.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 2 || reader) return;
+    if (mode !== 'page') { zoomMode = 'fit'; setMode('page'); layoutPages(); } // le pincement bascule en mode page, puis zoome
+    pinch = { d: dist(e), z: curZoom() };
+  }, { passive: true });
   scroller.addEventListener('touchmove', (e) => {
     if (pinch && e.touches.length === 2) {
       e.preventDefault();
       zoomMode = Math.max(0.3, Math.min(3, pinch.z * (dist(e) / pinch.d)));
+      kbZoom.manual = true; // l'utilisateur a choisi son zoom : on ne le remplace plus automatiquement
       scheduleLayout();
     }
   }, { passive: false });
@@ -349,6 +354,28 @@ export function mountEditor(host, docRec, hooks) {
     root.style.transform = vv.offsetTop ? `translateY(${vv.offsetTop}px)` : '';
     scheduleLayout();
   };
+  // Clavier ouvert : zoom (texte plus gros, mode page) ; clavier fermé : retour au zoom précédent (ajusté à la page, ~50 %)
+  const kbZoom = { base: vv ? vv.height : innerHeight, saved: null, open: false, manual: false };
+  const KB_ZOOM = 1;
+  const kbCheck = () => {
+    if (!vv || mode !== 'page' || reader) return;
+    kbZoom.base = Math.max(kbZoom.base * 0.999, vv.height); // hauteur sans clavier (suit les rotations)
+    const open = vv.height < kbZoom.base - 140;
+    if (open === kbZoom.open) return;
+    kbZoom.open = open;
+    if (open) {
+      kbZoom.saved = zoomMode; kbZoom.manual = false;
+      if (curZoom() < KB_ZOOM) {
+        zoomMode = KB_ZOOM; layoutPages();
+        setTimeout(() => { try { editor.commands.scrollIntoView(); } catch { /* ignore */ } }, 60);
+      }
+    } else if (kbZoom.saved != null) {
+      if (!kbZoom.manual) { zoomMode = kbZoom.saved; layoutPages(); }
+      kbZoom.saved = null;
+    }
+  };
+  vv?.addEventListener('resize', kbCheck);
+  addEventListener('orientationchange', () => { kbZoom.base = vv ? vv.height : innerHeight; });
   vv?.addEventListener('resize', fitViewport);
   vv?.addEventListener('scroll', fitViewport);
   fitViewport();

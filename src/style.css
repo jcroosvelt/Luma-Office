@@ -45,8 +45,15 @@ button { cursor: pointer; }
 /* ---------- Écran d'édition ---------- */
 .editor-view { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--bg); }
 .topbar { order: 0; display: flex; align-items: center; gap: 2px; padding: env(safe-area-inset-top) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left));
-  min-height: calc(56px + env(safe-area-inset-top)); background: linear-gradient(100deg, var(--navy) 0%, var(--navy2) 100%); color: #fff; position: relative; }
-.topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--yellow), var(--accent) 45%, var(--accent2) 70%, var(--brand)); }
+  min-height: calc(28px + env(safe-area-inset-top)); background: linear-gradient(100deg, var(--navy) 0%, var(--navy2) 100%); color: #fff; position: relative; }
+.topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--yellow), var(--accent) 45%, var(--accent2) 70%, var(--brand)); }
+/* barre du haut de l'éditeur : moitié moins haute */
+.topbar .icon-btn { width: 30px; height: 28px; border-radius: 8px; } .topbar .icon-btn .ic svg, .topbar .icon-btn svg { width: 18px; height: 18px; }
+.topbar .mark-btn { width: 30px; height: 28px; } .topbar .mark-btn img { width: 24px; height: 24px; border-radius: 7px; padding: 1px; }
+.topbar .save-btn { height: 26px; padding: 0 10px 0 7px; font-size: 12px; gap: 4px; margin: 0 3px 0 1px; } .topbar .save-btn svg { width: 16px; height: 16px; }
+.topbar .exp-btn { height: 26px; padding: 0 7px; border-radius: 8px; font-size: 12px; gap: 4px; } .topbar .exp-btn svg { width: 16px; height: 16px; }
+.topbar .title-input { height: 26px; font-size: 14px; padding: 0 8px; }
+@media (max-width: 520px) { .topbar .exp-btn { width: 30px; padding: 0; } }
 .mark-btn { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: none; border: 0; padding: 0; }
 .mark-btn img { width: 38px; height: 38px; border-radius: 10px; background: #fff; padding: 2px; display: block; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
 .save-btn { flex: none; height: 40px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px;
