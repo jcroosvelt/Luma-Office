@@ -377,10 +377,18 @@ export async function mountPdf(host, rec, hooks) {
     sheet('Propriétés du document', h('div', { class: 'info-grid' }, rows.map(([k, v]) => h('div', { class: 'info-row' }, h('span', {}, k), h('b', {}, v)))));
   }
 
+  async function openAI() {
+    toast('Lecture du document…', 2000);
+    const t = await ensureText();
+    const full = t.map((p, i) => `[Page ${i + 1}]\n${p}`).join('\n\n');
+    const m = await import('./ai-ui.js');
+    m.openAssistant({ kind: 'pdf', title: 'Assistant IA — ' + rec.title, getDocument: () => full, getSelection: () => '', onNewDoc: (html) => hooks.onConvert({ title: rec.title + ' (assistant)', html }) });
+  }
   const reader = createReader({ doc, N, title: rec.title, getCur: () => cur, onClose: (p) => { goTo(p); } });
   const openReader = () => { if (ann.isOpen()) ann.closeBar(); reader.open(); };
 
   const menu = () => [
+    { icon: 'sparkle', label: 'Assistant IA', hint: 'Résumer, poser des questions, traduire, extraire', run: openAI },
     { icon: 'book', label: 'Mode lecture', hint: 'Texte réaffiché pour le téléphone et la tablette', run: openReader },
     { sep: 'Navigation' },
     { icon: 'grid', label: 'Miniatures des pages', run: openThumbs },

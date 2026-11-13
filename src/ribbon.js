@@ -251,6 +251,9 @@ export function buildRibbon(app) {
     {
       id: 'review', label: 'Révision', build: () => [
         group(
+          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Reformuler, corriger, résumer, traduire, rédiger avec Gemini', run: () => app.openAI() }),
+        ),
+        group(
           btn({ icon: 'commentAdd', label: 'Commenter', run: () => app.addComment() }),
           btn({ icon: 'comment', label: 'Commentaires', run: () => app.openComments(), dyn: () => `Commentaires${app.commentCount ? ' (' + app.commentCount + ')' : ''}` }),
         ),
@@ -275,6 +278,9 @@ export function buildRibbon(app) {
     },
     {
       id: 'tools', label: 'Outils', build: () => [
+        group(
+          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Reformuler, corriger, résumer, traduire, rédiger avec Gemini', run: () => app.openAI() }),
+        ),
         group(
           btn({ icon: 'history', label: 'Versions', title: 'Historique des versions', run: () => app.openVersions() }),
           btn({ icon: 'compare', label: 'Comparer', title: 'Comparer avec un autre document', run: () => app.openCompare() }),

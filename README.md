@@ -28,6 +28,10 @@ Export **Word (.docx)** et **PDF vectoriel (texte sélectionnable)**, import fid
 - **Page Paramètres** : thème, affichage, orthographe, auteur, valeurs par défaut des nouveaux documents, dossiers de recherche, sauvegarde / restauration (.zip), installation
 - **Hors ligne** : documents et images conservés localement ; les images distantes sont copiées dans le document et mises en cache
 
+## Assistant IA (Gemini)
+
+Reformuler, corriger, résumer, traduire, rédiger, questions sur un PDF. Configuration pas à pas : voir **[GUIDE-IA.md](GUIDE-IA.md)** (clé stockée côté serveur dans la variable Vercel `GEMINI_API_KEY`, fonction `api/gemini.js`).
+
 ## Développement
 
 ```bash

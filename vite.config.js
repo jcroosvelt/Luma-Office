@@ -14,7 +14,7 @@ export default defineConfig({
         // mis en cache à la première utilisation (voir runtimeCaching ci-dessous) → installation et mises à jour plus légères.
         globIgnores: ['**/pdf.worker*', '**/pdfmake-*', '**/pdf-*.js', '**/pdf-view-*', '**/pdf_viewer*', '**/es-*.js', '**/dist-*.js', '**/pdfjs/**', '**/screens/**', '**/import-docx-*', '**/sheet-view-*', '**/xlsx-*', '**/pdf-tools-*', '**/pdf-annot-*', '**/fonts/**', '**/katex*', '**/KaTeX_*', '**/mailmerge-*', '**/math-*.js', '**/bookmarks-*', '**/versions-*', '**/compare-*', '**/ocr/**', '**/{open-sans,roboto,lato,montserrat,poppins,nunito,source-sans-3,merriweather,lora,playfair-display,dancing-script}-latin-*'],
         importScripts: ['share-target-sw.js'],
-        navigateFallbackDenylist: [/share-target/],
+        navigateFallbackDenylist: [/share-target/, /^\/api\//],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {

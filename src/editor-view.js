@@ -740,6 +740,7 @@ export function mountEditor(host, docRec, hooks) {
       canShare ? { icon: 'share', label: 'Partager en Word', run: shareDocx } : null,
       canShare ? { icon: 'share', label: 'Partager en PDF', run: sharePdf } : null,
       { sep: 'Document' },
+      { icon: 'sparkle', label: 'Assistant IA', hint: 'Reformuler, corriger, résumer, traduire, rédiger', run: pro.openAI },
       { icon: 'history', label: 'Historique des versions', hint: 'Revenir à une version précédente', run: pro.openVersions },
       { icon: 'compare', label: 'Comparer avec un autre document', run: () => pro.openCompare() },
       { icon: 'lock', label: docRec.lock ? 'Protection du document…' : 'Protéger par mot de passe…', hint: 'Mot de passe et permissions', run: pro.openLock },
@@ -1545,6 +1546,18 @@ export function mountEditor(host, docRec, hooks) {
   function scheduleRecalc() { clearTimeout(recalcT); recalcT = setTimeout(() => { if (ready && !destroyed) TP.recalcFormulas(editor); }, 500); }
   let speaker = null;
   const pro = {
+    async openAI() {
+      const m = await import('./ai-ui.js');
+      const { from, to } = editor.state.selection;
+      const leaf = (l) => (l.type.name === 'mathFormula' ? l.attrs.latex : '');
+      m.openAssistant({
+        getSelection: () => (from !== to ? editor.state.doc.textBetween(from, to, '\n\n', leaf) : ''),
+        getDocument: () => editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n\n', leaf),
+        onReplace: (html) => editor.chain().focus().insertContentAt({ from, to }, html).run(),
+        onReplaceAll: (html) => editor.chain().focus().setContent(html, true).run(),
+        onInsert: (html) => editor.chain().focus().insertContentAt(from !== to ? to : editor.state.selection.to, html).run(),
+      });
+    },
     async readAloud() {
       if (speaker) { speaker.stop(); return; }
       const m = await import('./tts.js');
