@@ -576,3 +576,23 @@ export const MergeField = Node.create({
   renderHTML({ node, HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-merge-field': '', class: 'mf-chip' }), `«${node.attrs.name}»`]; },
   renderText({ node }) { return `«${node.attrs.name}»`; },
 });
+
+/* ---------- Surlignage du passage lu à voix haute ---------- */
+export const ttsKey = new PluginKey('luma-tts');
+export const ReadAloudHighlight = Extension.create({
+  name: 'readAloudHighlight',
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      key: ttsKey,
+      state: {
+        init: () => DecorationSet.empty,
+        apply(tr, old, _o, st) {
+          const m = tr.getMeta(ttsKey);
+          if (m !== undefined) return m ? DecorationSet.create(st.doc, [Decoration.inline(m.from, m.to, { class: 'tts-hl' })]) : DecorationSet.empty;
+          return old.map(tr.mapping, tr.doc);
+        },
+      },
+      props: { decorations(state) { return ttsKey.getState(state); } },
+    })];
+  },
+});

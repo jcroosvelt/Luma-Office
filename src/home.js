@@ -1,5 +1,5 @@
 // Page « Documents » : modèles rapides, recherche plein texte, bibliothèque, import de fichiers.
-import { h, icon, sheet, menuList, confirmDialog, promptDialog } from './ui.js';
+import { h, icon, sheet, menuList, confirmDialog, promptDialog, toast } from './ui.js';
 import { listDocs, deleteDoc, putDoc, newId } from './storage.js';
 import { TEMPLATES } from './templates.js';
 import { canInstall, onInstallAvailable, promptInstall } from './install.js';
@@ -69,6 +69,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
     let s;
     s = sheet('Outils PDF', menuList([
       { icon: 'camera', label: 'Scanner / images → PDF', hint: 'Photographiez des pages ou assemblez des images', run: async () => (await import('./pdf-tools.js')).openScanner({ onDone: (id) => { refresh(); onOpen(id); } }) },
+      { icon: 'scan', label: 'Photo → document modifiable (OCR)', hint: 'Lit le texte d’une page photographiée', run: async () => { const m = await import('./ocr.js'); const { createDocFromHtml } = await import('./files.js'); m.openOcr({ title: 'Photo → document (OCR)', cta: 'Créer le document', onResult: async (text) => { const rec = await createDocFromHtml({ title: 'Texte numérisé ' + new Date().toLocaleDateString('fr-FR'), html: m.paragraphsToHtml(m.textToParagraphs(text)) }); toast('Document créé ✓ — relisez-le : la reconnaissance peut contenir des erreurs', 4500); refresh(); onOpen(rec.id); } }); } },
       { icon: 'copy', label: 'Fusionner des PDF', hint: 'Assembler plusieurs PDF en un seul', run: async () => (await import('./pdf-tools.js')).openMerge({ onDone: (id) => { refresh(); onOpen(id); } }) },
     ], () => s.close()));
   }

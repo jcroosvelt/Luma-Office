@@ -740,3 +740,8 @@ p.cmp-mod { background: #fff8e1; border-left: 3px solid #9a6700; padding: 6px 10
 .mf-chip { background: #fff4d6; color: #7a4b00; border: 1px solid #f0c36d; border-radius: 6px; padding: 0 5px; font-weight: 700; white-space: nowrap; }
 .mm-info { display: grid; gap: 8px; } .mm-nav { display: grid; gap: 6px; } .mm-prev { max-height: 40vh; }
 .kbd-hint { color: var(--muted); }
+
+.tts-hl { background: rgba(255, 193, 7, .45); border-radius: 3px; }
+.tts-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 80; display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0, 0, 0, .28); max-width: calc(100vw - 16px); }
+.tts-lbl { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 38px; text-align: center; }
+.tts-sel { height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font-size: 13px; max-width: 120px; }

@@ -17,7 +17,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 
-import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, Bookmark, MathFormula, MergeField, bmId, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
+import { Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, LumaImage, LumaCell, LumaTable, LumaRule, SearchReplace, ReadAloudHighlight, ttsKey, Bookmark, MathFormula, MergeField, bmId, searchKey, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges, collectChanges } from './extensions.js';
 import { buildRibbon, cssFam } from './ribbon.js';
 import { h, icon, dropdown, choiceDialog, sheet, menuList, toast, promptDialog, confirmDialog, saveBlob, shareBlob, safeName, applyTheme } from './ui.js';
 import { MOTIFS, motifIcon, artBorderSvg, svgDataUrl } from './borders.js';
@@ -95,7 +95,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
-      CharacterCount, Bookmark, MathFormula, MergeField, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
+      CharacterCount, ReadAloudHighlight, Bookmark, MathFormula, MergeField, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
       attributes: { class: 'doc-content', spellcheck: String(spell), lang: settings.lang.split('-')[0], autocapitalize: 'sentences', 'aria-label': 'Contenu du document', role: 'textbox', 'aria-multiline': 'true' },
@@ -1543,7 +1543,26 @@ export function mountEditor(host, docRec, hooks) {
   for (const ev of ['copy', 'cut']) pmHost.addEventListener(ev, (e) => { if (!permsOf(docRec).copy) { e.preventDefault(); toast('Copie non autorisée : document protégé', 2500); } });
   let recalcT = 0;
   function scheduleRecalc() { clearTimeout(recalcT); recalcT = setTimeout(() => { if (ready && !destroyed) TP.recalcFormulas(editor); }, 500); }
+  let speaker = null;
   const pro = {
+    async readAloud() {
+      if (speaker) { speaker.stop(); return; }
+      const m = await import('./tts.js');
+      const leafText = (leaf) => (leaf.type.name === 'mathFormula' ? ' formule ' : leaf.type.name === 'mergeField' ? leaf.attrs.name : '');
+      const sel = editor.state.selection, items = [];
+      if (!sel.empty) { const t = editor.state.doc.textBetween(sel.from, sel.to, ' ', leafText).trim(); if (t) items.push({ text: t, from: sel.from, to: sel.to }); }
+      else editor.state.doc.descendants((node, pos) => { if (!node.isTextblock) return true; const t = node.textBetween(0, node.content.size, ' ', leafText).trim(); if (t) items.push({ text: t, from: pos + 1, to: pos + node.nodeSize - 1 }); return false; });
+      let start = 0; if (sel.empty) { const i = items.findIndex((it) => it.to >= sel.from); if (editor.isFocused && i > 0) start = i; }
+      speaker = m.readAloud({ items, start, lang: settings.lang || 'fr-FR',
+        onHighlight: (it) => { editor.view.dispatch(editor.state.tr.setMeta(ttsKey, it ? { from: it.from, to: it.to } : null)); if (it) { const dom = editor.view.domAtPos(it.from).node; (dom.nodeType === 3 ? dom.parentElement : dom)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } },
+        onClose: () => { speaker = null; ribbon.refresh(); } });
+      ribbon.refresh();
+    },
+    get speaking() { return !!speaker; },
+    async openOcr() {
+      const m = await import('./ocr.js');
+      m.openOcr({ title: 'Scanner un texte (OCR)', cta: 'Insérer le texte dans le document', onResult: async (text) => { editor.chain().focus().insertContent(m.paragraphsToHtml(m.textToParagraphs(text))).run(); toast('Texte inséré ✓ — relisez-le : la reconnaissance peut contenir des erreurs', 4500); } });
+    },
     async openBookmarks() { (await import('./bookmarks.js')).openBookmarks(editor); },
     async openXref() { (await import('./bookmarks.js')).openXref(editor); },
     async openMath(editPos) {

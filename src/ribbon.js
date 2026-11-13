@@ -280,6 +280,10 @@ export function buildRibbon(app) {
           btn({ icon: 'compare', label: 'Comparer', title: 'Comparer avec un autre document', run: () => app.openCompare() }),
         ),
         group(
+          btn({ icon: 'speaker', label: 'Lire', title: 'Lire le document à voix haute', run: () => app.readAloud(), active: () => app.speaking }),
+          btn({ icon: 'scan', label: 'OCR', title: 'Photographier une page et la transformer en texte', run: () => app.openOcr() }),
+        ),
+        group(
           btn({ icon: 'mail', label: 'Publipostage', title: 'Générer des lettres à partir d’une liste Excel', run: () => app.openMerge() }),
           btn({ icon: 'field', label: 'Champ', title: 'Insérer un champ de fusion', run: () => app.insertField() }),
         ),

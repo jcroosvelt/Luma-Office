@@ -212,6 +212,13 @@ export async function mountPdf(host, rec, hooks) {
         if (n < N) html += '<div data-page-break></div><p></p>';
         if (n % 3 === 0) await new Promise((r) => setTimeout(r, 0));
       }
+      if (!html.replace(/<[^>]+>|\s/g, '')) {
+        // PDF scanné : lecture du texte par OCR (30 premières pages)
+        const o = await import('./ocr.js'); const pages = Math.min(N, 30), canv = [];
+        for (let n = 1; n <= pages; n++) { toast(`Préparation de la page ${n} / ${pages}…`, 60000); const pg = await doc.getPage(n), vp = pg.getViewport({ scale: 2 }); const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; await pg.render({ canvasContext: c.getContext('2d'), viewport: vp, canvas: c }).promise; canv.push(c); }
+        const texts = await o.recognize(canv, (i, t, p) => toast(`Lecture (OCR) page ${i + 1} / ${t}… ${Math.round(p * 100)} %`, 60000));
+        html = texts.map((t, i) => o.paragraphsToHtml(o.textToParagraphs(t)) + (i < texts.length - 1 ? '<div data-page-break></div><p></p>' : '')).join('');
+      }
       hooks.onConvert({ title: rec.title + ' (texte)', html: html || '<p></p>' });
     } catch { toast('Conversion impossible'); }
   }
@@ -404,7 +411,7 @@ export async function mountPdf(host, rec, hooks) {
     !permsOf(rec).export ? null : { icon: 'download', label: 'Télécharger le PDF', hint: ann.hasChanges() ? 'Avec vos annotations et champs remplis' : null, run: async () => saveBlob(await currentBlob(), safeName(rec.title) + '.pdf') },
     navigator.canShare && permsOf(rec).export ? { icon: 'share', label: 'Partager', run: async () => shareBlob(await currentBlob(), safeName(rec.title) + '.pdf', 'application/pdf') } : null,
     { icon: 'save', label: 'Enregistrer une copie dans mes documents', hint: 'Annotations et champs remplis incorporés au PDF', run: saveCopy },
-    { icon: 'word', label: 'Convertir en document modifiable', hint: 'Texte seulement, sans la mise en page d’origine', run: convert },
+    { icon: 'word', label: 'Convertir en Word / document modifiable', hint: 'Texte (OCR si le PDF est un scan) ; ensuite bouton Word pour exporter', run: convert },
     { sep: 'Fichier' },
     deleteItem(rec, hooks),
   ];
