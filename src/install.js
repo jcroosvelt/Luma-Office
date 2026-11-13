@@ -5,8 +5,8 @@
 import { h, icon, toast } from './ui.js';
 import { pref } from './storage.js';
 
-// Adresse stable du vrai APK (publié par la compilation de l'application dans une « release » du dépôt public du site)
-export const APK_URL = 'https://github.com/jcroosvelt/Luma-Office/releases/download/apk/luma-office.apk';
+// Le vrai APK est dans le dossier public du site (public/luma-office.apk)
+export const APK_URL = new URL('luma-office.apk', document.baseURI).href;
 
 let deferred = null;
 let banner = null;
