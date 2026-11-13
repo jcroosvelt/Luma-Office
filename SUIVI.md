@@ -3,6 +3,8 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Barre bleue de l'éditeur** : plus basse (56 → 34 px) mais les icônes, boutons et textes gardent leur taille d'origine (seule la hauteur des cadres diminue ; le logo passe de 38 à 32 px).
+- **Version** : plus affichée sur le site web. Dans l'application Android, Paramètres › « Version de l'application » (numéro transmis par l'APK : 1.<n° de compilation>.0, aussi visible dans Android › Infos sur l'application).
 - **Barre bleue de l'éditeur deux fois moins haute** (56 → 28 px) : logo, boutons et titre réduits.
 - **Zoom avec le clavier** (mode page) : à l'ouverture du clavier le zoom passe à 100 % (texte plus gros, le curseur reste visible) ; à la fermeture, retour au zoom précédent (ajusté à la page, ~50 %). Si l'utilisateur a zoomé lui-même avec les doigts, son zoom est conservé.
 - **Zoom à deux doigts** : fonctionne maintenant dans tous les modes (le pincement bascule en mode page puis zoome de 30 à 300 %).

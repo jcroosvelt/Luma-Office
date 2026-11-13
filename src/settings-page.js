@@ -96,7 +96,7 @@ export async function showSettings(host, { refresh }) {
     group('Application',
       isApp() ? null : row('Installer Luma Office', installBtn, /android/i.test(navigator.userAgent) ? 'Télécharge l’application Android (APK).' : 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),
       isApp() ? null : row('Invitation d’installation', h('button', { class: 'btn sm', onclick: () => { pref.set('installDismissed', 0); pref.set('installed', false); toast('L’invitation s’affichera à la prochaine visite'); } }, 'Réafficher')),
-      row('Version', h('span', { class: 'ver' }, `${pkg.version} · ${typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : ''}`)),
+      isApp() ? row('Version de l’application', h('span', { class: 'ver' }, window.__APP_VERSION__ || '—')) : null, // visible seulement dans l'application Android
       row('À propos', h('button', { class: 'btn sm', onclick: openAbout }, icon('info', 18), 'Ouvrir'))),
   );
   host.replaceChildren(shell('#/parametres', h('div', { class: 'page' }, content, h('div', { class: 'home-foot' }, poweredBy()))));
