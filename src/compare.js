@@ -90,7 +90,7 @@ export async function openCompare({ currentTitle, currentJson, currentId, presel
     }
     flush();
     out.replaceChildren(
-      h('div', { class: 'cmp-stats' }, h('span', { class: 'cmp-ins' }, `+ ${add} ajouté${add > 1 ? 's' : ''}`), h('span', { class: 'cmp-del' }, `− ${del} supprimé${del > 1 ? 's' : ''}`), h('span', { class: 'cmp-mod' }, `✎ ${mod} modifié${mod > 1 ? 's' : ''}`), h('span', {}, `${words >= 0 ? '+' : '−'}${Math.abs(words)} mots`)),
+      h('div', { class: 'cmp-stats' }, h('span', { class: 'cmp-ins' }, `+ ${add} ajouté${add > 1 ? 's' : ''}`), h('span', { class: 'cmp-del' }, `− ${del} supprimé${del > 1 ? 's' : ''}`), h('span', { class: 'cmp-mod' }, `~ ${mod} modifié${mod > 1 ? 's' : ''}`), h('span', {}, `${words >= 0 ? '+' : '−'}${Math.abs(words)} mots`)),
       ...(add + del + mod ? rows : [h('p', { class: 'muted' }, 'Les deux documents ont exactement le même texte.')]),
       add + del + mod ? h('button', { class: 'btn primary', onclick: makeDoc }, icon('compare', 18), 'Créer un document de comparaison') : null);
   };

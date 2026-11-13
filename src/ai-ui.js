@@ -9,24 +9,24 @@ const LANGS = ['anglais', 'espagnol', 'allemand', 'italien', 'portugais', 'arabe
 const MAX_CHARS = 400000;
 
 const EDIT_ACTIONS = [
-  ['rewrite', '✍ Reformuler', 'Reformule ce texte pour qu’il soit plus clair et fluide, en gardant le sens et la longueur environ.'],
-  ['fix', '✔ Corriger', 'Corrige l’orthographe, la grammaire, la conjugaison et la ponctuation, sans changer le style ni le sens.'],
-  ['shorter', '✂ Raccourcir', 'Raccourcis ce texte de moitié environ en gardant l’essentiel.'],
-  ['longer', '➕ Développer', 'Développe ce texte avec plus de détails et d’exemples pertinents, en gardant le même ton.'],
-  ['formal', '👔 Ton formel', 'Réécris ce texte sur un ton formel et professionnel.'],
-  ['friendly', '😊 Ton amical', 'Réécris ce texte sur un ton chaleureux et amical.'],
-  ['simple', '💡 Simplifier', 'Réécris ce texte avec des mots simples et des phrases courtes, compréhensibles par tous.'],
-  ['summary', '📝 Résumer', 'Résume ce texte en quelques phrases.'],
+  ['rewrite', 'Reformuler', 'Reformule ce texte pour qu’il soit plus clair et fluide, en gardant le sens et la longueur environ.'],
+  ['fix', 'Corriger', 'Corrige l’orthographe, la grammaire, la conjugaison et la ponctuation, sans changer le style ni le sens.'],
+  ['shorter', 'Raccourcir', 'Raccourcis ce texte de moitié environ en gardant l’essentiel.'],
+  ['longer', 'Développer', 'Développe ce texte avec plus de détails et d’exemples pertinents, en gardant le même ton.'],
+  ['formal', 'Ton formel', 'Réécris ce texte sur un ton formel et professionnel.'],
+  ['friendly', 'Ton amical', 'Réécris ce texte sur un ton chaleureux et amical.'],
+  ['simple', 'Simplifier', 'Réécris ce texte avec des mots simples et des phrases courtes, compréhensibles par tous.'],
+  ['summary', 'Résumer', 'Résume ce texte en quelques phrases.'],
   ['bullets', '• En liste', 'Transforme ce texte en liste à puces claire (une idée par puce, avec « - »).'],
-  ['plan', '🗂 Plan', 'Propose un plan détaillé (titres avec # et ##, puces avec -) pour ce texte.'],
-  ['continue', '➡ Continuer', 'Continue ce texte de façon cohérente (même style, même langue). Écris seulement la suite, sans répéter le début.'],
+  ['plan', 'Plan', 'Propose un plan détaillé (titres avec # et ##, puces avec -) pour ce texte.'],
+  ['continue', 'Continuer', 'Continue ce texte de façon cohérente (même style, même langue). Écris seulement la suite, sans répéter le début.'],
 ];
 const PDF_ACTIONS = [
-  ['summary', '📝 Résumer', 'Fais un résumé clair de ce document en une dizaine de lignes.'],
-  ['keys', '🔑 Points clés', 'Liste les points clés de ce document sous forme de puces (« - »), avec la page quand c’est possible.'],
-  ['simple', '💡 Expliquer simplement', 'Explique ce document avec des mots simples, comme à quelqu’un qui découvre le sujet.'],
-  ['extract', '📅 Dates, montants, noms', 'Extrais de ce document toutes les dates, tous les montants et tous les noms de personnes ou d’organisations importants, en liste avec la page.'],
-  ['todo', '✅ Actions à faire', 'Liste les actions, obligations ou échéances qui concernent le lecteur de ce document.'],
+  ['summary', 'Résumer', 'Fais un résumé clair de ce document en une dizaine de lignes.'],
+  ['keys', 'Points clés', 'Liste les points clés de ce document sous forme de puces (« - »), avec la page quand c’est possible.'],
+  ['simple', 'Expliquer simplement', 'Explique ce document avec des mots simples, comme à quelqu’un qui découvre le sujet.'],
+  ['extract', 'Dates, montants, noms', 'Extrais de ce document toutes les dates, tous les montants et tous les noms de personnes ou d’organisations importants, en liste avec la page.'],
+  ['todo', 'Actions à faire', 'Liste les actions, obligations ou échéances qui concernent le lecteur de ce document.'],
 ];
 
 export async function openAssistant({ kind = 'editor', title = 'Assistant IA', getSelection, getDocument, onReplace, onReplaceAll, onInsert, onNewDoc }) {
@@ -73,7 +73,7 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', g
   function showError(e) {
     errBox.hidden = false;
     const cfg = e instanceof AiError && ['not-configured', 'no-api', 'bad-key', 'bad-code'].includes(e.code);
-    errBox.replaceChildren(h('b', {}, '⚠ ' + (e.message || 'Erreur')), cfg ? h('button', { class: 'btn sm', onclick: () => { s.close(); location.hash = '#/parametres'; } }, 'Ouvrir les paramètres de l’assistant') : null);
+    errBox.replaceChildren(h('b', {}, '' + (e.message || 'Erreur')), cfg ? h('button', { class: 'btn sm', onclick: () => { s.close(); location.hash = '#/parametres'; } }, 'Ouvrir les paramètres de l’assistant') : null);
   }
   function buildApply() {
     const html = mdToHtml(lastResult);
@@ -115,7 +115,7 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', g
   const ctxLabel = isPdf ? `PDF entier (${words(docText()).toLocaleString('fr-FR')} mots)` : sel ? `Sélection : ${words(sel)} mot${words(sel) > 1 ? 's' : ''}` : 'Aucun texte sélectionné : les actions portent sur le document entier';
   s = sheet(title, h('div', { class: 'form ai-box' },
     h('div', { class: 'ai-ctx' }, icon('sparkle', 16), h('span', {}, ctxLabel)),
-    h('div', { class: 'chips ai-chips' }, ...(isPdf ? PDF_ACTIONS : EDIT_ACTIONS).map(([id, l, p]) => quick(id, l, p)), h('span', { class: 'ai-tr' }, h('button', { class: 'chip', onclick: translate }, '🌐 Traduire en'), langSel)),
+    h('div', { class: 'chips ai-chips' }, ...(isPdf ? PDF_ACTIONS : EDIT_ACTIONS).map(([id, l, p]) => quick(id, l, p)), h('span', { class: 'ai-tr' }, h('button', { class: 'chip', onclick: translate }, 'Traduire en'), langSel)),
     ta, !isPdf && !sel ? h('label', { class: 'chk' }, useDoc, ' Utiliser le document comme contexte pour ma consigne') : null,
     h('div', { class: 'row' }, send, stopBtn, status),
     errBox, out, applyRow,

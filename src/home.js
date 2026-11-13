@@ -1,7 +1,7 @@
 // Page « Documents » : modèles rapides, recherche plein texte, bibliothèque, import de fichiers.
 import { h, icon, sheet, menuList, confirmDialog, promptDialog, toast } from './ui.js';
 import { listDocs, deleteDoc, putDoc, newId } from './storage.js';
-import { TEMPLATES } from './templates.js';
+import { TEMPLATES, CAT_ICON } from './templates.js';
 import { canInstall, onInstallAvailable, promptInstall } from './install.js';
 import { poweredBy, openAbout } from './about.js';
 import { shell } from './shell.js';
@@ -81,7 +81,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
     h('section', {},
       h('div', { class: 'row between' }, h('h2', {}, 'Nouveau document'), h('a', { class: 'seeall', href: '#/modeles' }, 'Tous les modèles →')),
       h('div', { class: 'tplrow' }, TEMPLATES.filter((t) => ['blank', 'letter', 'report', 'minutes', 'invoice', 'cv'].includes(t.id)).map((t) =>
-        h('button', { class: 'tpl', onclick: () => onNew(t) }, h('span', { class: 'tpl-ic' }, t.emoji), h('b', {}, t.name), h('small', {}, t.desc))))),
+        h('button', { class: 'tpl', onclick: () => onNew(t) }, h('span', { class: 'tpl-ic' }, icon(CAT_ICON[t.cat] || 'file', 24)), h('b', {}, t.name), h('small', {}, t.desc))))),
     h('section', {},
       h('div', { class: 'row between' }, h('h2', {}, 'Mes documents'),
         h('div', { class: 'row' },

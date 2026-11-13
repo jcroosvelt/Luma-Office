@@ -26,7 +26,7 @@ export function openAbout() {
     store,
     poweredBy()));
   persist().then(() => storageInfo()).then((s) => {
-    store.textContent = `${s.persisted ? '🔒 Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`;
+    store.textContent = `${s.persisted ? 'Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`;
     if (!s.persisted) store.title = 'Installez l’application pour protéger vos documents contre un nettoyage automatique du navigateur.';
   });
 }

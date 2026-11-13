@@ -36,7 +36,7 @@ const PALETTE = [
   ['#f4b6b6', '#ffd9a0', '#fff2a8', '#d4edb4', '#b4e5d0', '#b9e3f7', '#b8cdf2', '#d3c4ec', '#f3c1e0', '#e2d2b8'],
   ['#e57373', '#ffb74d', '#fff176', '#aed581', '#4db6ac', '#4fc3f7', '#7986cb', '#ba68c8', '#f06292', '#a1887f'],
 ];
-const SYMBOLS = '© ® ™ € £ ¥ $ ¢ § ¶ † ‡ ° ± × ÷ ≠ ≈ ≤ ≥ ∞ ½ ¼ ¾ ‰ µ π Ω Σ Δ « » “ ” ‘ ’ – — … • · ◦ ▪ ✓ ✗ ★ ☆ → ← ↑ ↓ ⇒ ⇔ ☎ ✉ ® æ œ Æ Œ ç Ç é è ê à â ù û î ô'.split(' ');
+const SYMBOLS = '© ® ™ € £ ¥ $ ¢ § ¶ † ‡ ° ± × ÷ ≠ ≈ ≤ ≥ ∞ ½ ¼ ¾ ‰ µ π Ω Σ Δ « » “ ” ‘ ’ – — … • · ◦ ▪ ✓ ✗ ★ ☆ → ← ↑ ↓ ⇒ ⇔ ® æ œ Æ Œ ç Ç é è ê à â ù û î ô'.split(' ');
 
 export function mountEditor(host, docRec, hooks) {
   let settings = mergeSettings(docRec.settings);
@@ -1474,7 +1474,7 @@ export function mountEditor(host, docRec, hooks) {
       setTimeout(() => { num.focus(); num.select(); }, 280);
       return h('div', { class: 'form' },
         h('div', { class: 'goto-big' }, h('span', {}, 'Page'), num, h('span', {}, `/ ${N}`)), rng,
-        h('div', { class: 'row gotobtns' }, b('⏮ Première', () => set(1)), b('−10', () => set(v - 10)), b('−1', () => set(v - 1)), b('+1', () => set(v + 1)), b('+10', () => set(v + 10)), b('Dernière ⏭', () => set(N))),
+        h('div', { class: 'row gotobtns' }, b('Première', () => set(1)), b('−10', () => set(v - 10)), b('−1', () => set(v - 1)), b('+1', () => set(v + 1)), b('+10', () => set(v + 10)), b('Dernière ', () => set(N))),
         h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => { set(num.value); sh.close(); } }, 'Aller à la page')));
     };
     const titlesTab = () => {

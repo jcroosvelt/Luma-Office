@@ -38,7 +38,7 @@ export async function showSettings(host, { refresh }) {
       h('button', { class: 'btn sm', onclick: async () => { if (await addFolder()) renderFolders(); } }, icon('plus', 16), 'Ajouter un dossier'));
   }
   const store = h('small', {}, 'Calcul…');
-  storageInfo().then((s) => { store.textContent = `${s.persisted ? '🔒 Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`; });
+  storageInfo().then((s) => { store.textContent = `${s.persisted ? 'Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`; });
   const restoreIn = h('input', { type: 'file', accept: '.zip', hidden: true, onchange: async () => { const f = restoreIn.files[0]; restoreIn.value = ''; if (!f) return; try { toast('Restauration…', 60000); const n = await importBackup(f); toast(`${n} élément${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''} ✓`); } catch (e) { toast(e.message || 'Restauration impossible', 5000); } } });
   const installBtn = h('button', { class: 'btn sm', onclick: async () => { if (canInstall()) await promptInstall(); else toast(matchMedia('(display-mode: standalone)').matches ? 'L’application est déjà installée ✓' : 'Utilisez le menu du navigateur : « Installer l’application » ou « Sur l’écran d’accueil ».', 5000); } }, icon('download', 18), 'Installer');
   onInstallAvailable(() => { installBtn.title = canInstall() ? 'Prêt à installer' : ''; });
@@ -91,7 +91,7 @@ export async function showSettings(host, { refresh }) {
       row('Vos données', store, 'Documents, PDF et classeurs sont gardés sur cet appareil, sans compte.'),
       row('Sauvegarder', h('button', { class: 'btn sm', onclick: async () => { try { toast('Création de la sauvegarde…', 60000); const { blob, count } = await exportBackup(); saveBlob(blob, `Luma-Office-sauvegarde-${new Date().toISOString().slice(0, 10)}.zip`); toast(`Sauvegarde de ${count} élément${count > 1 ? 's' : ''} ✓`); } catch { toast('Sauvegarde impossible'); } } }, icon('download', 18), 'Tout sauvegarder (.zip)'), 'Conservez ce fichier pour changer d’appareil ou par précaution.'),
       row('Restaurer', h('div', {}, h('button', { class: 'btn sm', onclick: () => restoreIn.click() }, icon('upload', 18), 'Restaurer une sauvegarde'), restoreIn)),
-      row('Protéger les données', h('button', { class: 'btn sm', onclick: async () => { const ok = await persist(); toast(ok ? 'Stockage protégé ✓' : 'Le navigateur refuse pour l’instant : installez l’application, puis réessayez.', 5000); } }, '🔒 Demander la protection')),
+      row('Protéger les données', h('button', { class: 'btn sm', onclick: async () => { const ok = await persist(); toast(ok ? 'Stockage protégé ✓' : 'Le navigateur refuse pour l’instant : installez l’application, puis réessayez.', 5000); } }, 'Demander la protection')),
       row('Tout effacer', h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmDialog('Supprimer TOUS vos documents, modèles et réglages de cet appareil ? Cette action est définitive.', 'Tout supprimer', true)) { await wipeAll(); toast('Données effacées'); refresh(); } } }, icon('trash', 18), 'Effacer mes données'))),
     group('Application',
       isApp() ? null : row('Installer Luma Office', installBtn, /android/i.test(navigator.userAgent) ? 'Télécharge l’application Android (APK).' : 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),

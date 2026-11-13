@@ -48,6 +48,7 @@ const cols = (...cells2) => `<table data-borderless><tbody><tr>${cells2.map((c) 
 const note = (html, fill = '#eaf2ff', border = C.blue) => `<div data-textbox="" data-fill="${fill}" data-border="${border}" data-width="100" data-accent="1">${html}</div>`;
 const sign = (...who) => cols(...who.map((w) => `<p>${sp(w, { b: true })}</p><p>Date et signature :</p><p></p><p></p>`));
 
+export const CAT_ICON = { Courrier: 'mail', Professionnel: 'file', Finance: 'stats', Personnel: 'star', 'Éducation': 'book', Juridique: 'pborder', 'Événement': 'calendar' };
 export const CATEGORIES = ['Courrier', 'Professionnel', 'Finance', 'Personnel', 'Éducation', 'Juridique', 'Événement'];
 
 const ME = `<p>${sp('Prénom NOM', { b: true, s: 12, c: C.navy })}<br>Adresse<br>Code postal Ville<br>Téléphone · E-mail</p>`;
@@ -58,11 +59,11 @@ const BYE = J('Je vous prie d’agréer, Madame, Monsieur, l’expression de mes
 const SIG = P('Signature<br><br>Prénom NOM', 'right');
 
 export const TEMPLATES = [
-  { id: 'blank', cat: 'Personnel', name: 'Document vierge', desc: 'Une page blanche pour démarrer.', emoji: '📄', settings: {}, html: () => '<p></p>' },
+  { id: 'blank', cat: 'Personnel', name: 'Document vierge', desc: 'Une page blanche pour démarrer.', settings: {}, html: () => '<p></p>' },
 
   /* ===================== COURRIER ===================== */
   {
-    id: 'letter', cat: 'Courrier', name: 'Lettre professionnelle', desc: 'Expéditeur, destinataire, objet, références et formule de politesse.', emoji: '✉️', settings: { pageNumbers: false },
+    id: 'letter', cat: 'Courrier', name: 'Lettre professionnelle', desc: 'Expéditeur, destinataire, objet, références et formule de politesse.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO())}${rule()}${WHEN}
 <p>${sp('N/Réf. : ', { b: true })}… &nbsp;&nbsp;${sp('V/Réf. : ', { b: true })}…<br>${sp('P.J. : ', { b: true })}… document(s) joint(s)</p>
 ${OBJ('…')}
@@ -73,7 +74,7 @@ ${J('Dans l’attente de votre réponse, je vous prie d’agréer, Madame, Monsi
 ${SIG}`,
   },
   {
-    id: 'motivation', cat: 'Courrier', name: 'Lettre de motivation', desc: 'Candidature percutante : accroche, apport, motivation, conclusion.', emoji: '💼', settings: { pageNumbers: false },
+    id: 'motivation', cat: 'Courrier', name: 'Lettre de motivation', desc: 'Candidature percutante : accroche, apport, motivation, conclusion.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO('Nom de l’entreprise<br>Service des ressources humaines'))}${rule(C.blue)}${WHEN}
 ${OBJ('candidature au poste de … (réf. …)')}
 <p>Madame, Monsieur,</p>
@@ -85,7 +86,7 @@ ${BYE}
 ${SIG}`,
   },
   {
-    id: 'resignation', cat: 'Courrier', name: 'Lettre de démission', desc: 'Courrier clair avec préavis et transmission des dossiers.', emoji: '📮', settings: { pageNumbers: false },
+    id: 'resignation', cat: 'Courrier', name: 'Lettre de démission', desc: 'Courrier clair avec préavis et transmission des dossiers.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO())}${rule(C.gray)}${WHEN}
 ${OBJ('démission')}
 ${P(sp('Lettre recommandée avec accusé de réception (ou remise en main propre contre décharge)', { i: true, c: C.gray, s: 9 }))}
@@ -97,7 +98,7 @@ ${BYE}
 ${SIG}`,
   },
   {
-    id: 'attestation', cat: 'Courrier', name: 'Attestation sur l’honneur', desc: 'Attestation encadrée à compléter, avec mention légale.', emoji: '📜', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.navy, width: 1.2, offset: 1 } },
+    id: 'attestation', cat: 'Courrier', name: 'Attestation sur l’honneur', desc: 'Attestation encadrée à compléter, avec mention légale.', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.navy, width: 1.2, offset: 1 } },
     html: () => `<p></p>${P(sp('ATTESTATION SUR L’HONNEUR', { c: C.navy, s: 24, b: true }), 'center')}${P(sp('— ' + year() + ' —', { c: C.gray }), 'center')}<p></p>
 ${J('Je soussigné(e) <strong>Prénom NOM</strong>, né(e) le … à …, de nationalité …, demeurant au …,')}
 ${J('<strong>atteste sur l’honneur</strong> que …')}
@@ -107,7 +108,7 @@ ${note(P(sp('Je suis informé(e) que toute fausse déclaration m’expose à des
 ${SIG}`,
   },
   {
-    id: 'complaint', cat: 'Courrier', name: 'Lettre de réclamation', desc: 'Réclamation argumentée avec demande précise et délai.', emoji: '📣', settings: { pageNumbers: false },
+    id: 'complaint', cat: 'Courrier', name: 'Lettre de réclamation', desc: 'Réclamation argumentée avec demande précise et délai.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO('Nom du service client'))}${rule(C.red)}${WHEN}
 ${OBJ('réclamation — commande / contrat n° …')}
 <p>Madame, Monsieur,</p>
@@ -119,7 +120,7 @@ ${BYE}
 ${SIG}`,
   },
   {
-    id: 'cancel', cat: 'Courrier', name: 'Résiliation d’abonnement / contrat', desc: 'Lettre de résiliation avec référence contrat et accusé de réception.', emoji: '🛑', settings: { pageNumbers: false },
+    id: 'cancel', cat: 'Courrier', name: 'Résiliation d’abonnement / contrat', desc: 'Lettre de résiliation avec référence contrat et accusé de réception.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO('Nom de l’organisme'))}${rule(C.gray)}${WHEN}
 ${OBJ('résiliation du contrat n° …')}
 ${P(sp('Envoi en recommandé avec accusé de réception', { i: true, c: C.gray, s: 9 }))}
@@ -130,7 +131,7 @@ ${BYE}
 ${SIG}`,
   },
   {
-    id: 'leave', cat: 'Courrier', name: 'Demande de congés', desc: 'Demande formelle avec dates, remplaçant et validation hiérarchique.', emoji: '🌴', settings: { pageNumbers: false },
+    id: 'leave', cat: 'Courrier', name: 'Demande de congés', desc: 'Demande formelle avec dates, remplaçant et validation hiérarchique.', settings: { pageNumbers: false },
     html: () => `${cols({ html: ME, w: 300 }, TO('Direction / Responsable'))}${rule(C.teal)}${WHEN}
 ${OBJ('demande de congés')}
 <p>Madame, Monsieur,</p>
@@ -143,7 +144,7 @@ ${H3('Réponse de la direction', C.teal)}
 ${cols('<p>☐ Accordé &nbsp;&nbsp; ☐ Refusé &nbsp;&nbsp; ☐ À reporter</p><p>Motif : …</p>', '<p>Date et visa :</p><p></p>')}`,
   },
   {
-    id: 'reference', cat: 'Courrier', name: 'Lettre de recommandation', desc: 'Recommandation chaleureuse et factuelle pour un collaborateur.', emoji: '🌟', settings: { pageNumbers: false },
+    id: 'reference', cat: 'Courrier', name: 'Lettre de recommandation', desc: 'Recommandation chaleureuse et factuelle pour un collaborateur.', settings: { pageNumbers: false },
     html: () => `${cols({ html: `<p>${sp('Nom de l’entreprise', { b: true, c: C.navy, s: 13 })}<br>Adresse · Téléphone · E-mail</p>`, w: 300 }, `<p style="text-align:right">Ville, le ${today()}</p>`)}${rule(C.gold)}
 ${P(sp('LETTRE DE RECOMMANDATION', { b: true, c: C.navy, s: 18 }), 'center')}
 <p>À qui de droit,</p>
@@ -156,7 +157,7 @@ ${SIG}`,
 
   /* ===================== PROFESSIONNEL ===================== */
   {
-    id: 'report', cat: 'Professionnel', name: 'Rapport', desc: 'Couverture, résumé, analyse chiffrée, recommandations et annexes.', emoji: '📊', settings: { footer: 'Rapport confidentiel', pageNumbers: true, pageNumberAlign: 'right' },
+    id: 'report', cat: 'Professionnel', name: 'Rapport', desc: 'Couverture, résumé, analyse chiffrée, recommandations et annexes.', settings: { footer: 'Rapport confidentiel', pageNumbers: true, pageNumberAlign: 'right' },
     html: () => `${banner('Titre du rapport', 'Sous-titre ou période couverte', C.navy, `${today()} · Auteur · Service · Organisation`)}
 ${H2('Résumé exécutif')}
 ${note(P(sp('À retenir : ', { b: true }) + 'les trois messages clés du rapport, en quelques lignes.'), '#eaf2ff', C.blue)}
@@ -169,18 +170,18 @@ ${H2('4. Conclusion')}${J('Synthèse et prochaines étapes.')}
 ${H2('Annexes')}${P(sp('Annexe A — … · Annexe B — …', { c: C.gray }))}`,
   },
   {
-    id: 'minutes', cat: 'Professionnel', name: 'Compte rendu de réunion', desc: 'Fiche d’identité, discussions, décisions et plan d’actions.', emoji: '📝', settings: { footer: 'Compte rendu de réunion', pageNumbers: true },
+    id: 'minutes', cat: 'Professionnel', name: 'Compte rendu de réunion', desc: 'Fiche d’identité, discussions, décisions et plan d’actions.', settings: { footer: 'Compte rendu de réunion', pageNumbers: true },
     html: () => `${banner('Compte rendu de réunion', 'Intitulé de la réunion', C.slate)}
 ${kv([['Date et heure', `${today()}, …h… – …h…`], ['Lieu / lien', '…'], ['Animateur', '…'], ['Rédacteur', '…'], ['Présents', '…'], ['Absents / excusés', '…']])}
 ${H2('Ordre du jour')}${ol(['Point 1 — …', 'Point 2 — …', 'Questions diverses'])}
 ${H2('Points abordés')}${H3('Point 1 — …')}${J('Résumé des échanges.')}${H3('Point 2 — …')}${J('Résumé des échanges.')}
 ${H2('Décisions prises')}${ul(['Décision 1', 'Décision 2'])}
 ${H2('Plan d’actions')}
-${tb(['Action', 'Responsable', 'Échéance', 'Statut'], [['…', '…', '…', '⏳ À faire'], ['…', '…', '…', '⏳ À faire'], ['…', '…', '…', '✔ Fait']], { fill: C.slate, w: [260, 120, 100, 100] })}
+${tb(['Action', 'Responsable', 'Échéance', 'Statut'], [['…', '…', '…', 'À faire'], ['…', '…', '…', 'À faire'], ['…', '…', '…', 'Fait']], { fill: C.slate, w: [260, 120, 100, 100] })}
 ${note(P(sp('Prochaine réunion : ', { b: true }) + '… à …h… — Lieu : …'), '#f1f5f9', C.slate)}`,
   },
   {
-    id: 'agenda', cat: 'Professionnel', name: 'Ordre du jour', desc: 'Convocation et déroulé minuté d’une réunion.', emoji: '🗓️', settings: { pageNumbers: false },
+    id: 'agenda', cat: 'Professionnel', name: 'Ordre du jour', desc: 'Convocation et déroulé minuté d’une réunion.', settings: { pageNumbers: false },
     html: () => `${banner('Ordre du jour', 'Réunion de …', C.blue)}
 ${kv([['Date et heure', `${today()}, …h…`], ['Lieu / lien visio', '…'], ['Animateur', '…'], ['Participants', '…']])}
 ${H2('Déroulé', C.blue)}
@@ -188,7 +189,7 @@ ${tb(['Heure', 'Sujet', 'Intervenant', 'Durée'], [['…h…', 'Accueil et intro
 ${H2('À préparer avant la réunion', C.blue)}${tasks(['Lire le compte rendu précédent', 'Préparer le point …', 'Apporter …'])}`,
   },
   {
-    id: 'memo', cat: 'Professionnel', name: 'Note de service', desc: 'Communication interne courte avec en-tête structuré.', emoji: '📌', settings: { header: 'Usage interne', pageNumbers: false },
+    id: 'memo', cat: 'Professionnel', name: 'Note de service', desc: 'Communication interne courte avec en-tête structuré.', settings: { header: 'Usage interne', pageNumbers: false },
     html: () => `${bar('Note de service', C.navy)}
 ${kv([['À', 'Ensemble du personnel / Service …'], ['De', 'Direction / Prénom NOM'], ['Date', today()], ['Objet', '…'], ['Référence', 'NS-' + year() + '-…']], 90)}
 ${J('Madame, Monsieur,')}
@@ -199,7 +200,7 @@ ${note(P(sp('Contact : ', { b: true }) + 'Prénom NOM — poste … — e-mail')
 ${J('Nous comptons sur votre collaboration.')}`,
   },
   {
-    id: 'press', cat: 'Professionnel', name: 'Communiqué de presse', desc: 'Titre, chapeau, citation, à propos et contact presse.', emoji: '📰', settings: { pageNumbers: false },
+    id: 'press', cat: 'Professionnel', name: 'Communiqué de presse', desc: 'Titre, chapeau, citation, à propos et contact presse.', settings: { pageNumbers: false },
     html: () => `${cols({ html: P(sp('COMMUNIQUÉ DE PRESSE', { b: true, c: C.red, s: 12 })), w: 330 }, P(`Pour diffusion immédiate — ${today()}`, 'right'))}${rule(C.red)}
 <h1>${sp('Titre accrocheur : le verbe fort, le chiffre clé, le bénéfice', { c: C.navy })}</h1>
 ${P(sp('Ville, ' + today() + ' — ', { b: true }) + sp('Chapeau : l’essentiel de l’annonce en deux phrases (qui, quoi, quand, où).', { i: true, s: 12 }))}
@@ -210,10 +211,10 @@ ${note(`<p>${sp('À propos de …', { b: true, c: C.navy })}</p>${P('Présentati
 ${H3('Contact presse', C.red)}${P('Prénom NOM · fonction · e-mail · téléphone')}`,
   },
   {
-    id: 'proposal', cat: 'Professionnel', name: 'Proposition commerciale', desc: 'Offre complète : enjeux, solution, tarifs, planning et validation.', emoji: '🤝', settings: { footer: 'Proposition confidentielle', pageNumbers: true },
+    id: 'proposal', cat: 'Professionnel', name: 'Proposition commerciale', desc: 'Offre complète : enjeux, solution, tarifs, planning et validation.', settings: { footer: 'Proposition confidentielle', pageNumbers: true },
     html: () => `${banner('Proposition commerciale', 'Préparée pour … — Projet …', C.teal, `${today()} · Validité 30 jours`)}
 ${H2('Comprendre vos enjeux', C.teal)}${J('Reformulez le contexte et les objectifs du client pour démontrer votre compréhension.')}
-${H2('Notre solution', C.teal)}${cols('<p>' + sp('✔ Prestation 1', { b: true }) + '<br>Description et bénéfice.</p>', '<p>' + sp('✔ Prestation 2', { b: true }) + '<br>Description et bénéfice.</p>', '<p>' + sp('✔ Prestation 3', { b: true }) + '<br>Description et bénéfice.</p>')}
+${H2('Notre solution', C.teal)}${cols('<p>' + sp('✓ Prestation 1', { b: true }) + '<br>Description et bénéfice.</p>', '<p>' + sp('✓ Prestation 2', { b: true }) + '<br>Description et bénéfice.</p>', '<p>' + sp('✓ Prestation 3', { b: true }) + '<br>Description et bénéfice.</p>')}
 ${H2('Investissement', C.teal)}
 ${tb(['Désignation', 'Qté', 'Prix unitaire', 'Total HT'], [['Prestation 1', '1', '… €', '… €'], ['Prestation 2', '…', '… €', '… €'], ['Prestation 3', '…', '… €', '… €']], { fill: C.teal, w: [280, 70, 120, 120], align: ['left', 'right', 'right', 'right'], total: ['Total HT', '', '', '… €'] })}
 ${H2('Calendrier', C.teal)}${tb(['Phase', 'Livrable', 'Date'], [['Cadrage', '…', '…'], ['Réalisation', '…', '…'], ['Livraison', '…', '…']], { fill: C.teal })}
@@ -221,7 +222,7 @@ ${H2('Pourquoi nous choisir', C.teal)}${ul(['Expérience : … projets similaire
 ${H2('Validation', C.teal)}${P('Pour accepter cette proposition, merci de retourner un exemplaire signé.')}${sign('Pour le client', 'Pour le prestataire')}`,
   },
   {
-    id: 'businessplan', cat: 'Professionnel', name: 'Plan d’affaires', desc: 'Business plan structuré : marché, offre, stratégie, prévisions financières.', emoji: '🚀', settings: { footer: 'Plan d’affaires — confidentiel', pageNumbers: true },
+    id: 'businessplan', cat: 'Professionnel', name: 'Plan d’affaires', desc: 'Business plan structuré : marché, offre, stratégie, prévisions financières.', settings: { footer: 'Plan d’affaires — confidentiel', pageNumbers: true },
     html: () => `${banner('Plan d’affaires', 'Nom du projet / de l’entreprise', C.navy, `Version ${year()} · Porteur de projet : Prénom NOM`)}
 ${H2('1. Synthèse du projet')}${note(P(sp('Le projet en une phrase : ', { b: true }) + '… pour … afin de …'), '#eaf2ff', C.blue)}
 ${H2('2. L’équipe')}${tb(['Nom', 'Rôle', 'Expérience clé'], [['Prénom NOM', 'Dirigeant', '…'], ['Prénom NOM', '…', '…']])}
@@ -235,7 +236,7 @@ ${H2('8. Financement')}${tb(['Besoins', 'Montant', 'Ressources', 'Montant'], [['
 ${H2('9. Risques et plan B')}${ul(['Risque 1 → mesure', 'Risque 2 → mesure'])}`,
   },
   {
-    id: 'specs', cat: 'Professionnel', name: 'Cahier des charges', desc: 'Besoins, périmètre, exigences, livrables, planning et validation.', emoji: '📐', settings: { footer: 'Cahier des charges', pageNumbers: true },
+    id: 'specs', cat: 'Professionnel', name: 'Cahier des charges', desc: 'Besoins, périmètre, exigences, livrables, planning et validation.', settings: { footer: 'Cahier des charges', pageNumbers: true },
     html: () => `${banner('Cahier des charges', 'Projet …', C.slate, `Version 1.0 · ${today()}`)}
 ${kv([['Client / Commanditaire', '…'], ['Chef de projet', '…'], ['Date de remise souhaitée', '…'], ['Budget indicatif', '… €']], 190)}
 ${H2('1. Contexte et objectifs')}${J('Situation actuelle, problème à résoudre, objectifs mesurables.')}
@@ -246,7 +247,7 @@ ${H2('5. Contraintes et risques')}${ul(['Contrainte technique / réglementaire :
 ${H2('6. Validation')}${sign('Le client', 'Le prestataire')}`,
   },
   {
-    id: 'jobdesc', cat: 'Professionnel', name: 'Fiche de poste / Offre d’emploi', desc: 'Mission, responsabilités, profil recherché et conditions.', emoji: '🧑‍💼', settings: { pageNumbers: false },
+    id: 'jobdesc', cat: 'Professionnel', name: 'Fiche de poste / Offre d’emploi', desc: 'Mission, responsabilités, profil recherché et conditions.', settings: { pageNumbers: false },
     html: () => `${banner('Intitulé du poste', 'CDI · Temps plein · Ville', C.blue, 'Entreprise · Service · Rattachement hiérarchique')}
 ${H2('Notre entreprise', C.blue)}${J('Présentation en 3 lignes : secteur, taille, valeurs, ambition.')}
 ${H2('Vos missions', C.blue)}${ul(['Mission principale : …', 'Piloter …', 'Collaborer avec …', 'Assurer le suivi de …'])}
@@ -255,16 +256,16 @@ ${H2('Ce que nous offrons', C.blue)}${tb(['Rémunération', 'Avantages', 'Cadre 
 ${note(P(sp('Comment postuler ? ', { b: true }) + 'Envoyez votre CV et une lettre de motivation à … avant le …'), '#eaf2ff', C.blue)}`,
   },
   {
-    id: 'project', cat: 'Professionnel', name: 'Charte de projet', desc: 'Objectifs, parties prenantes, jalons, budget et risques sur une page.', emoji: '🎯', settings: { orientation: 'portrait', pageNumbers: true, footer: 'Charte de projet' },
+    id: 'project', cat: 'Professionnel', name: 'Charte de projet', desc: 'Objectifs, parties prenantes, jalons, budget et risques sur une page.', settings: { orientation: 'portrait', pageNumbers: true, footer: 'Charte de projet' },
     html: () => `${banner('Charte de projet', 'Nom du projet', C.plum, `Sponsor : … · Chef de projet : … · ${today()}`)}
 ${H2('Vision et objectifs', C.plum)}${note(P(sp('Objectif SMART : ', { b: true }) + 'd’ici le …, atteindre … mesuré par …'), '#f6ecf4', C.plum)}
 ${H2('Parties prenantes', C.plum)}${tb(['Nom', 'Rôle', 'Attentes', 'Influence'], [['…', 'Sponsor', '…', 'Forte'], ['…', 'Chef de projet', '…', 'Forte'], ['…', 'Équipe', '…', 'Moyenne']], { fill: C.plum })}
-${H2('Jalons', C.plum)}${tb(['Jalon', 'Date', 'Responsable', 'Statut'], [['Lancement', '…', '…', '🟢'], ['Livraison phase 1', '…', '…', '🟡'], ['Clôture', '…', '…', '⚪']], { fill: C.plum })}
+${H2('Jalons', C.plum)}${tb(['Jalon', 'Date', 'Responsable', 'Statut'], [['Lancement', '…', '…', 'En cours'], ['Livraison phase 1', '…', '…', 'À surveiller'], ['Clôture', '…', '…', 'À venir']], { fill: C.plum })}
 ${H2('Budget', C.plum)}${tb(['Poste', 'Prévu', 'Engagé', 'Reste'], [['Ressources humaines', '… €', '… €', '… €'], ['Matériel / logiciels', '… €', '… €', '… €']], { fill: C.plum, align: ['left', 'right', 'right', 'right'], total: ['Total', '… €', '… €', '… €'] })}
 ${H2('Risques', C.plum)}${tb(['Risque', 'Probabilité', 'Impact', 'Action'], [['…', 'Moyenne', 'Fort', '…'], ['…', 'Faible', 'Moyen', '…']], { fill: C.plum })}`,
   },
   {
-    id: 'swot', cat: 'Professionnel', name: 'Analyse SWOT', desc: 'Forces, faiblesses, opportunités et menaces en matrice 2 × 2.', emoji: '🧭', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
+    id: 'swot', cat: 'Professionnel', name: 'Analyse SWOT', desc: 'Forces, faiblesses, opportunités et menaces en matrice 2 × 2.', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
     html: () => `${banner('Analyse SWOT', 'Sujet : … — ' + today(), C.navy)}
 <table data-borderless><tbody>
 <tr>${cell('<p>' + sp('FORCES (interne +)', { b: true, c: C.green, s: 13 }) + '</p>' + ul(['…', '…', '…']), { bg: '#e8f5e9' })}${cell('<p>' + sp('FAIBLESSES (interne −)', { b: true, c: C.red, s: 13 }) + '</p>' + ul(['…', '…', '…']), { bg: '#fdecea' })}</tr>
@@ -273,7 +274,7 @@ ${H2('Risques', C.plum)}${tb(['Risque', 'Probabilité', 'Impact', 'Action'], [['
 ${H3('Conclusions et plan d’actions')}${ol(['S’appuyer sur … pour saisir …', 'Corriger … afin de limiter …'])}`,
   },
   {
-    id: 'newsletter', cat: 'Professionnel', name: 'Lettre d’information', desc: 'Newsletter en deux colonnes : édito, actualités, agenda.', emoji: '📬', settings: { columns: { count: 2, gap: 1.0, rule: true }, pageNumbers: false, margins: { ...MARGIN_PRESETS.moderate.v } },
+    id: 'newsletter', cat: 'Professionnel', name: 'Lettre d’information', desc: 'Newsletter en deux colonnes : édito, actualités, agenda.', settings: { columns: { count: 2, gap: 1.0, rule: true }, pageNumbers: false, margins: { ...MARGIN_PRESETS.moderate.v } },
     html: () => `<h1>${sp('La Lettre', { c: C.blue })}</h1>
 ${P(sp('N° … · ' + today() + ' · Notre organisation', { c: C.gray, s: 10 }))}${rule(C.blue)}
 ${H2('L’édito', C.blue)}${J('Quelques mots du responsable pour ouvrir le numéro : ton chaleureux, une idée forte, un remerciement.')}
@@ -287,7 +288,7 @@ ${P(sp('Contact : … · Se désabonner : …', { s: 9, c: C.gray }))}`,
 
   /* ===================== FINANCE ===================== */
   {
-    id: 'invoice', cat: 'Finance', name: 'Facture', desc: 'Facture conforme : mentions légales, lignes, TVA et paiement.', emoji: '🧾', settings: { pageNumbers: false, footer: 'Pénalité de retard : 3 fois le taux d’intérêt légal · Indemnité forfaitaire de recouvrement : 40 €' },
+    id: 'invoice', cat: 'Finance', name: 'Facture', desc: 'Facture conforme : mentions légales, lignes, TVA et paiement.', settings: { pageNumbers: false, footer: 'Pénalité de retard : 3 fois le taux d’intérêt légal · Indemnité forfaitaire de recouvrement : 40 €' },
     html: () => `${cols({ html: P(sp('Votre Société', { b: true, c: C.navy, s: 18 })) + P('Adresse · Code postal Ville<br>SIRET : … · TVA intracom. : …<br>Tél. … · e-mail'), w: 360 }, P(sp('FACTURE', { b: true, c: C.navy, s: 24 }), 'right') + P(`N° ${year()}-001<br>Date : ${today()}<br>Échéance : …`, 'right'))}${rule()}
 ${cols(`<p>${sp('FACTURÉ À', { b: true, c: C.gray, s: 9 })}<br>${sp('Nom du client / Société', { b: true })}<br>Adresse<br>Code postal Ville<br>N° TVA : …</p>`, `<p>${sp('LIVRAISON / CHANTIER', { b: true, c: C.gray, s: 9 })}<br>Adresse de livraison<br>Référence commande : …</p>`)}
 ${tb(['Désignation', 'Qté', 'Prix unitaire HT', 'TVA', 'Total HT'], [['Prestation / produit', '1', '… €', '20 %', '… €'], ['Prestation / produit', '…', '… €', '20 %', '… €'], ['Prestation / produit', '…', '… €', '20 %', '… €']], { w: [250, 50, 110, 60, 100], align: ['left', 'right', 'right', 'right', 'right'] })}
@@ -295,7 +296,7 @@ ${cols({ html: P(sp('Conditions de paiement', { b: true })) + P('Paiement à …
 ${P(sp('TVA non applicable, art. 293 B du CGI (si micro-entrepreneur).', { i: true, s: 9, c: C.gray }))}`,
   },
   {
-    id: 'quote', cat: 'Finance', name: 'Devis', desc: 'Devis chiffré, valable 30 jours, avec bon pour accord.', emoji: '💶', settings: { pageNumbers: false, footer: 'Devis gratuit — valable 30 jours' },
+    id: 'quote', cat: 'Finance', name: 'Devis', desc: 'Devis chiffré, valable 30 jours, avec bon pour accord.', settings: { pageNumbers: false, footer: 'Devis gratuit — valable 30 jours' },
     html: () => `${cols({ html: P(sp('Votre Société', { b: true, c: C.teal, s: 18 })) + P('Adresse · Code postal Ville<br>SIRET : … · Tél. … · e-mail'), w: 360 }, P(sp('DEVIS', { b: true, c: C.teal, s: 24 }), 'right') + P(`N° D${year()}-001<br>Date : ${today()}<br>Validité : 30 jours`, 'right'))}${rule(C.teal)}
 ${cols(`<p>${sp('CLIENT', { b: true, c: C.gray, s: 9 })}<br>${sp('Nom / Société', { b: true })}<br>Adresse</p>`, `<p>${sp('PROJET', { b: true, c: C.gray, s: 9 })}<br>Objet du devis : …<br>Début estimé : …</p>`)}
 ${tb(['Désignation', 'Qté', 'Prix unitaire HT', 'Total HT'], [['Prestation 1 — description', '1', '… €', '… €'], ['Prestation 2 — description', '…', '… €', '… €'], ['Prestation 3 — description', '…', '… €', '… €']], { fill: C.teal, w: [330, 60, 130, 110], align: ['left', 'right', 'right', 'right'], total: ['Total HT', '', '', '… €'] })}
@@ -304,7 +305,7 @@ ${note(P(sp('Conditions : ', { b: true }) + 'acompte de …% à la commande, sol
 ${H3('Bon pour accord', C.teal)}${P('Date, signature précédée de la mention « Bon pour accord » :')}<p></p>`,
   },
   {
-    id: 'expense', cat: 'Finance', name: 'Note de frais', desc: 'Déclaration de frais professionnels avec justificatifs et validation.', emoji: '🧳', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
+    id: 'expense', cat: 'Finance', name: 'Note de frais', desc: 'Déclaration de frais professionnels avec justificatifs et validation.', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
     html: () => `${banner('Note de frais', 'Période : du … au …', C.green)}
 ${cols(kv([['Nom', '…'], ['Service', '…'], ['Motif / Mission', '…']], 100), kv([['Date de remise', today()], ['Matricule', '…'], ['Projet / Client', '…']], 110))}
 ${tb(['Date', 'Nature', 'Description', 'Justificatif n°', 'Montant TTC', 'dont TVA'], [['…', 'Transport', '…', '…', '… €', '… €'], ['…', 'Repas', '…', '…', '… €', '… €'], ['…', 'Hébergement', '…', '…', '… €', '… €'], ['…', 'Divers', '…', '…', '… €', '… €']], { fill: C.green, align: ['left', 'left', 'left', 'left', 'right', 'right'], total: ['', '', '', 'TOTAL', '… €', '… €'] })}
@@ -312,7 +313,7 @@ ${P(sp('Indemnités kilométriques : … km × … €/km = … €', { s: 10, c
 ${sign('Le salarié', 'Le responsable (validation)', 'La comptabilité')}`,
   },
   {
-    id: 'budget', cat: 'Finance', name: 'Budget mensuel', desc: 'Revenus, dépenses par poste et épargne : tableau de bord simple.', emoji: '💰', settings: { margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
+    id: 'budget', cat: 'Finance', name: 'Budget mensuel', desc: 'Revenus, dépenses par poste et épargne : tableau de bord simple.', settings: { margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
     html: () => `${banner('Budget mensuel', 'Mois de … ' + year(), C.teal)}
 ${cols({ html: H2('Revenus', C.green) + tb(['Source', 'Prévu', 'Réel'], [['Salaire', '… €', '… €'], ['Autres revenus', '… €', '… €']], { fill: C.green, align: ['left', 'right', 'right'], total: ['Total revenus', '… €', '… €'] }) }, { html: H2('Épargne', C.blue) + tb(['Objectif', 'Prévu', 'Réel'], [['Épargne de précaution', '… €', '… €'], ['Projet : …', '… €', '… €']], { fill: C.blue, align: ['left', 'right', 'right'], total: ['Total épargne', '… €', '… €'] }) })}
 ${H2('Dépenses', C.red)}
@@ -320,7 +321,7 @@ ${tb(['Poste', 'Prévu', 'Réel', 'Écart'], [['Logement (loyer, charges)', '…
 ${note(P(sp('Solde du mois : ', { b: true }) + 'revenus − dépenses − épargne = … €'), '#e6f4f2', C.teal)}`,
   },
   {
-    id: 'receipt', cat: 'Finance', name: 'Quittance de loyer', desc: 'Quittance mensuelle avec détail loyer et charges.', emoji: '🏠', settings: { pageNumbers: false },
+    id: 'receipt', cat: 'Finance', name: 'Quittance de loyer', desc: 'Quittance mensuelle avec détail loyer et charges.', settings: { pageNumbers: false },
     html: () => `${banner('Quittance de loyer', 'Mois de … ' + year(), C.navy)}
 ${cols(`<p>${sp('BAILLEUR', { b: true, c: C.gray, s: 9 })}<br>${sp('Prénom NOM', { b: true })}<br>Adresse</p>`, `<p>${sp('LOCATAIRE', { b: true, c: C.gray, s: 9 })}<br>${sp('Prénom NOM', { b: true })}<br>Adresse du logement loué</p>`)}
 ${J('Je soussigné(e) <strong>Prénom NOM</strong>, propriétaire du logement désigné ci-dessus, déclare avoir reçu de <strong>Prénom NOM</strong> la somme de <strong>… euros</strong>, au titre du loyer et des charges pour la période du <strong>… au …</strong>, et lui en donne quittance, sous réserve de tous mes droits.')}
@@ -329,7 +330,7 @@ ${P(`Fait à …, le ${today()}`)}${SIG}
 ${P(sp('Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme.', { i: true, s: 9, c: C.gray }))}`,
   },
   {
-    id: 'purchase', cat: 'Finance', name: 'Bon de commande', desc: 'Commande fournisseur avec lignes, livraison et conditions.', emoji: '📦', settings: { pageNumbers: false },
+    id: 'purchase', cat: 'Finance', name: 'Bon de commande', desc: 'Commande fournisseur avec lignes, livraison et conditions.', settings: { pageNumbers: false },
     html: () => `${cols({ html: P(sp('BON DE COMMANDE', { b: true, c: C.slate, s: 22 })), w: 330 }, P(`N° BC-${year()}-001<br>Date : ${today()}`, 'right'))}${rule(C.slate)}
 ${cols(`<p>${sp('ACHETEUR', { b: true, c: C.gray, s: 9 })}<br>${sp('Votre Société', { b: true })}<br>Adresse<br>Contact : …</p>`, `<p>${sp('FOURNISSEUR', { b: true, c: C.gray, s: 9 })}<br>${sp('Nom du fournisseur', { b: true })}<br>Adresse<br>Contact : …</p>`)}
 ${tb(['Réf.', 'Désignation', 'Qté', 'Prix unitaire HT', 'Total HT'], [['…', '…', '…', '… €', '… €'], ['…', '…', '…', '… €', '… €'], ['…', '…', '…', '… €', '… €']], { fill: C.slate, w: [70, 270, 60, 110, 100], align: ['left', 'left', 'right', 'right', 'right'], total: ['', '', '', 'Total HT', '… €'] })}
@@ -339,7 +340,7 @@ ${sign('Pour l’acheteur', 'Pour le fournisseur (accusé de réception)')}`,
 
   /* ===================== PERSONNEL ===================== */
   {
-    id: 'cv', cat: 'Personnel', name: 'Curriculum vitæ — classique', desc: 'CV sobre et efficace : une page, expériences chiffrées.', emoji: '👤', settings: { margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
+    id: 'cv', cat: 'Personnel', name: 'Curriculum vitæ — classique', desc: 'CV sobre et efficace : une page, expériences chiffrées.', settings: { margins: { ...MARGIN_PRESETS.moderate.v }, pageNumbers: false },
     html: () => `${P(sp('Prénom NOM', { b: true, c: C.navy, s: 26 }), 'center')}${P(sp('Intitulé du poste recherché', { c: C.blue, s: 13, b: true }), 'center')}${P('Téléphone · e-mail · Ville · linkedin.com/in/…', 'center')}${rule()}
 ${H2('Profil')}${J('Deux à trois lignes : votre expérience, votre valeur ajoutée, votre objectif.')}
 ${H2('Expérience professionnelle')}
@@ -350,7 +351,7 @@ ${cols({ html: P(sp('2019', { b: true, c: C.gray })), w: 130 }, P(sp('Diplôme �
 ${H2('Compétences')}${cols('<p>' + sp('Techniques', { b: true }) + '</p>' + ul(['Compétence 1', 'Compétence 2', 'Compétence 3']), '<p>' + sp('Langues', { b: true }) + '</p>' + ul(['Français : langue maternelle', 'Anglais : courant (C1)']), '<p>' + sp('Centres d’intérêt', { b: true }) + '</p>' + ul(['…', '…']))}`,
   },
   {
-    id: 'cv2', cat: 'Personnel', name: 'Curriculum vitæ — moderne', desc: 'Deux colonnes avec bandeau coloré et barre latérale.', emoji: '🎨', settings: { margins: { ...MARGIN_PRESETS.narrow.v }, pageNumbers: false },
+    id: 'cv2', cat: 'Personnel', name: 'Curriculum vitæ — moderne', desc: 'Deux colonnes avec bandeau coloré et barre latérale.', settings: { margins: { ...MARGIN_PRESETS.narrow.v }, pageNumbers: false },
     html: () => `${banner('Prénom NOM', 'Intitulé du poste recherché', C.blue, 'Téléphone · e-mail · Ville')}
 <table data-borderless><tbody><tr>
 ${cell(`${P(sp('PROFIL', { b: true, c: C.blue }))}${P('Deux lignes qui vous résument.')}${P(sp('COMPÉTENCES', { b: true, c: C.blue }))}${ul(['Compétence 1', 'Compétence 2', 'Compétence 3', 'Compétence 4'])}${P(sp('LANGUES', { b: true, c: C.blue }))}${ul(['Français — natif', 'Anglais — courant'])}${P(sp('CONTACT', { b: true, c: C.blue }))}${P('e-mail<br>téléphone<br>portfolio')}`, { bg: '#eef3fd', w: 210 })}
@@ -358,46 +359,46 @@ ${cell(`${P(sp('EXPÉRIENCE', { b: true, c: C.blue, s: 13 }))}${P(sp('Poste — 
 </tr></tbody></table><p></p>`,
   },
   {
-    id: 'checklist', cat: 'Personnel', name: 'Liste de tâches', desc: 'Cases à cocher classées par priorité et par échéance.', emoji: '✅', settings: { pageNumbers: false },
+    id: 'checklist', cat: 'Personnel', name: 'Liste de tâches', desc: 'Cases à cocher classées par priorité et par échéance.', settings: { pageNumbers: false },
     html: () => `${banner('Liste de tâches', today(), C.slate)}
-${H2('🔴 Urgent', C.red)}${tasks(['Tâche urgente 1', 'Tâche urgente 2'])}
-${H2('🟠 Cette semaine', C.gold)}${tasks(['Tâche 1', 'Tâche 2', ['Tâche déjà terminée', true]])}
-${H2('🟢 Plus tard', C.green)}${tasks(['Idée à explorer', 'Projet à planifier'])}
+${H2('Urgent', C.red)}${tasks(['Tâche urgente 1', 'Tâche urgente 2'])}
+${H2('Cette semaine', C.gold)}${tasks(['Tâche 1', 'Tâche 2', ['Tâche déjà terminée', true]])}
+${H2('Plus tard', C.green)}${tasks(['Idée à explorer', 'Projet à planifier'])}
 ${note(P(sp('Astuce : ', { b: true }) + 'limitez-vous à 3 priorités par jour.'), '#f1f5f9', C.slate)}`,
   },
   {
-    id: 'planner', cat: 'Personnel', name: 'Planning hebdomadaire', desc: 'Semaine par créneaux, priorités et bilan.', emoji: '📅', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.narrow.v }, pageNumbers: false },
+    id: 'planner', cat: 'Personnel', name: 'Planning hebdomadaire', desc: 'Semaine par créneaux, priorités et bilan.', settings: { orientation: 'landscape', margins: { ...MARGIN_PRESETS.narrow.v }, pageNumbers: false },
     html: () => `${banner('Planning de la semaine', 'Semaine du … au …', C.blue)}
 ${tb(['Créneau', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Week-end'], [['<strong>Matin</strong>', '', '', '', '', '', ''], ['<strong>Midi</strong>', '', '', '', '', '', ''], ['<strong>Après-midi</strong>', '', '', '', '', '', ''], ['<strong>Soir</strong>', '', '', '', '', '', '']], { fill: C.blue, w: [90, 110, 110, 110, 110, 110, 110] })}
 ${cols(`<p>${sp('Mes 3 priorités', { b: true, c: C.blue })}</p>${tasks(['…', '…', '…'])}`, `<p>${sp('Bilan de la semaine', { b: true, c: C.blue })}</p>${P('Réussites : …<br>À améliorer : …')}`)}`,
   },
   {
-    id: 'travel', cat: 'Personnel', name: 'Carnet de voyage', desc: 'Itinéraire jour par jour, réservations et valise.', emoji: '✈️', settings: { pageNumbers: true, footer: 'Bon voyage !' },
+    id: 'travel', cat: 'Personnel', name: 'Carnet de voyage', desc: 'Itinéraire jour par jour, réservations et valise.', settings: { pageNumbers: true, footer: 'Bon voyage !' },
     html: () => `${banner('Carnet de voyage', 'Destination — du … au …', C.teal, 'Voyageurs : …')}
-${H2('Réservations', C.teal)}${tb(['Type', 'Détail', 'Référence', 'Date / heure'], [['✈ Transport aller', '…', '…', '…'], ['🏨 Hébergement', '…', '…', '…'], ['🚗 Location', '…', '…', '…'], ['✈ Transport retour', '…', '…', '…']], { fill: C.teal })}
+${H2('Réservations', C.teal)}${tb(['Type', 'Détail', 'Référence', 'Date / heure'], [['Transport aller', '…', '…', '…'], ['Hébergement', '…', '…', '…'], ['Location', '…', '…', '…'], ['Transport retour', '…', '…', '…']], { fill: C.teal })}
 ${H2('Itinéraire', C.teal)}${tb(['Jour', 'Programme', 'Budget'], [['Jour 1', 'Arrivée — …', '… €'], ['Jour 2', '…', '… €'], ['Jour 3', '…', '… €']], { fill: C.teal, w: [90, 420, 90] })}
 ${H2('Valise', C.teal)}${cols(tasks(['Passeport / carte d’identité', 'Billets, assurances', 'Chargeurs, adaptateur']), tasks(['Vêtements adaptés', 'Trousse de toilette', 'Médicaments']))}
 ${note(P(sp('Contacts utiles : ', { b: true }) + 'ambassade, assurance, hôtel : …'), '#e6f4f2', C.teal)}`,
   },
   {
-    id: 'recipe', cat: 'Personnel', name: 'Fiche recette', desc: 'Ingrédients, étapes et astuces avec fiche d’identité.', emoji: '🍳', settings: { pageNumbers: false },
+    id: 'recipe', cat: 'Personnel', name: 'Fiche recette', desc: 'Ingrédients, étapes et astuces avec fiche d’identité.', settings: { pageNumbers: false },
     html: () => `${banner('Nom de la recette', 'Entrée · Plat · Dessert', C.gold)}
-${tb(['⏱ Préparation', '🔥 Cuisson', '👥 Personnes', '⭐ Difficulté'], [['… min', '… min', '4', 'Facile']], { fill: C.gold, zebra: false })}
+${tb(['Préparation', 'Cuisson', 'Personnes', 'Difficulté'], [['… min', '… min', '4', 'Facile']], { fill: C.gold, zebra: false })}
 ${cols({ html: H2('Ingrédients', C.gold) + ul(['… g de …', '… cl de …', '… œufs', 'Sel, poivre']), w: 250 }, H2('Préparation', C.gold) + ol(['Préchauffer le four à …°C.', 'Mélanger …', 'Cuire … minutes.', 'Laisser reposer avant de servir.']))}
 ${note(P(sp('Astuce du chef : ', { b: true }) + '…'), '#fff8e6', C.gold)}`,
   },
   {
-    id: 'goals', cat: 'Personnel', name: 'Objectifs de l’année', desc: 'Vision, objectifs SMART, plan trimestriel et suivi.', emoji: '🏆', settings: { pageNumbers: false },
+    id: 'goals', cat: 'Personnel', name: 'Objectifs de l’année', desc: 'Vision, objectifs SMART, plan trimestriel et suivi.', settings: { pageNumbers: false },
     html: () => `${banner('Mes objectifs ' + year(), 'Une année, trois priorités', C.plum)}
 ${H2('Ma vision', C.plum)}${note(P('Dans un an, je veux … parce que …'), '#f6ecf4', C.plum)}
-${H2('Mes objectifs', C.plum)}${tb(['Domaine', 'Objectif mesurable', 'Échéance', 'Avancement'], [['💼 Carrière', '…', '…', '☐ ☐ ☐ ☐'], ['❤ Santé', '…', '…', '☐ ☐ ☐ ☐'], ['💶 Finances', '…', '…', '☐ ☐ ☐ ☐'], ['📚 Apprentissage', '…', '…', '☐ ☐ ☐ ☐']], { fill: C.plum })}
+${H2('Mes objectifs', C.plum)}${tb(['Domaine', 'Objectif mesurable', 'Échéance', 'Avancement'], [['Carrière', '…', '…', '☐ ☐ ☐ ☐'], ['Santé', '…', '…', '☐ ☐ ☐ ☐'], ['Finances', '…', '…', '☐ ☐ ☐ ☐'], ['Apprentissage', '…', '…', '☐ ☐ ☐ ☐']], { fill: C.plum })}
 ${H2('Plan trimestriel', C.plum)}${tb(['T1', 'T2', 'T3', 'T4'], [['…', '…', '…', '…']], { fill: C.plum, zebra: false })}
 ${H2('Bilan', C.plum)}${P('Ce qui a fonctionné : …<br>Ce que j’ajuste : …')}`,
   },
 
   /* ===================== ÉDUCATION ===================== */
   {
-    id: 'coverpage', cat: 'Éducation', name: 'Page de garde (mémoire / dossier)', desc: 'Page de titre académique avec établissement, encadrant et date.', emoji: '🎓', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.navy, width: 1.4, offset: 1 } },
+    id: 'coverpage', cat: 'Éducation', name: 'Page de garde (mémoire / dossier)', desc: 'Page de titre académique avec établissement, encadrant et date.', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.navy, width: 1.4, offset: 1 } },
     html: () => `${P(sp('NOM DE L’ÉTABLISSEMENT', { b: true, c: C.navy, s: 14 }), 'center')}${P(sp('Faculté / École · Département · Année universitaire ' + year() + '-' + (year() + 1), { c: C.gray }), 'center')}<p></p><p></p>
 ${rule(C.navy)}${P(sp('MÉMOIRE DE FIN D’ÉTUDES', { b: true, c: C.blue, s: 12 }), 'center')}${P(sp('Titre du mémoire', { b: true, c: C.navy, s: 28 }), 'center')}${P(sp('Sous-titre éventuel', { i: true, c: C.gray, s: 14 }), 'center')}${rule(C.navy)}<p></p>
 ${P('Présenté par <strong>Prénom NOM</strong>', 'center')}${P('Pour l’obtention du diplôme de …<br>Spécialité : …', 'center')}<p></p>
@@ -405,16 +406,16 @@ ${cols(`<p>${sp('Encadrant pédagogique', { b: true, c: C.navy })}<br>Prénom NO
 ${P(sp('Soutenu le … devant le jury composé de : …', { i: true, c: C.gray }), 'center')}`,
   },
   {
-    id: 'lesson', cat: 'Éducation', name: 'Fiche de cours / révision', desc: 'Notions clés, définitions, exemples et exercices.', emoji: '📚', settings: { pageNumbers: true, footer: 'Fiche de révision' },
+    id: 'lesson', cat: 'Éducation', name: 'Fiche de cours / révision', desc: 'Notions clés, définitions, exemples et exercices.', settings: { pageNumbers: true, footer: 'Fiche de révision' },
     html: () => `${banner('Titre du chapitre', 'Matière · Niveau · ' + today(), C.blue)}
-${H2('🎯 Objectifs', C.blue)}${ul(['Savoir …', 'Comprendre …', 'Être capable de …'])}
-${H2('📌 Notions clés', C.blue)}${tb(['Notion', 'Définition', 'Exemple'], [['…', '…', '…'], ['…', '…', '…'], ['…', '…', '…']], { fill: C.blue, w: [130, 280, 200] })}
-${H2('📝 À retenir', C.blue)}${note(P('La règle ou la formule essentielle, en une phrase.'), '#fff8e6', C.gold)}
-${H2('✍ Exercices', C.blue)}${ol(['Exercice d’application …', 'Exercice de réflexion …'])}
-${H2('✅ Auto-évaluation', C.blue)}${tasks(['Je connais les définitions', 'Je sais refaire les exemples', 'J’ai fait les exercices'])}`,
+${H2('Objectifs', C.blue)}${ul(['Savoir …', 'Comprendre …', 'Être capable de …'])}
+${H2('Notions clés', C.blue)}${tb(['Notion', 'Définition', 'Exemple'], [['…', '…', '…'], ['…', '…', '…'], ['…', '…', '…']], { fill: C.blue, w: [130, 280, 200] })}
+${H2('À retenir', C.blue)}${note(P('La règle ou la formule essentielle, en une phrase.'), '#fff8e6', C.gold)}
+${H2('Exercices', C.blue)}${ol(['Exercice d’application …', 'Exercice de réflexion …'])}
+${H2('Auto-évaluation', C.blue)}${tasks(['Je connais les définitions', 'Je sais refaire les exemples', 'J’ai fait les exercices'])}`,
   },
   {
-    id: 'exam', cat: 'Éducation', name: 'Sujet d’examen / évaluation', desc: 'En-tête, consignes, barème et cadre pour la note.', emoji: '🖊️', settings: { pageNumbers: true, footer: 'Évaluation' },
+    id: 'exam', cat: 'Éducation', name: 'Sujet d’examen / évaluation', desc: 'En-tête, consignes, barème et cadre pour la note.', settings: { pageNumbers: true, footer: 'Évaluation' },
     html: () => `${cols({ html: P(sp('Établissement', { b: true, c: C.navy, s: 13 }) + '<br>Classe : … · Matière : …'), w: 360 }, P(sp('ÉVALUATION n° …', { b: true, c: C.navy, s: 16 }) + `<br>Date : ${today()} · Durée : … min`, 'right'))}${rule()}
 ${tb(['Nom, prénom : …………………………', 'Note : …… / 20', 'Appréciation'], [['', '', '']], { zebra: false })}
 ${note(P(sp('Consignes : ', { b: true }) + 'calculatrice autorisée / interdite. Les réponses doivent être rédigées et justifiées.'), '#eaf2ff', C.blue)}
@@ -426,7 +427,7 @@ ${P(sp('Barème indicatif : Ex. 1 : … pts · Ex. 2 : … pts · Ex. 3 : … pt
 
   /* ===================== JURIDIQUE ===================== */
   {
-    id: 'contract', cat: 'Juridique', name: 'Contrat de prestation de services', desc: 'Contrat complet : objet, prix, durée, responsabilité, résiliation.', emoji: '⚖️', settings: { footer: 'Modèle indicatif — à faire valider par un professionnel du droit', pageNumbers: true },
+    id: 'contract', cat: 'Juridique', name: 'Contrat de prestation de services', desc: 'Contrat complet : objet, prix, durée, responsabilité, résiliation.', settings: { footer: 'Modèle indicatif — à faire valider par un professionnel du droit', pageNumbers: true },
     html: () => `${P(sp('CONTRAT DE PRESTATION DE SERVICES', { b: true, c: C.navy, s: 20 }), 'center')}${rule()}
 ${P(sp('ENTRE LES SOUSSIGNÉS', { b: true }))}
 ${J('<strong>Le prestataire :</strong> Nom / Société, forme juridique, SIRET …, dont le siège est …, représenté par …, ci-après « le Prestataire »,')}
@@ -443,7 +444,7 @@ ${H2('Article 9 — Droit applicable et litiges')}${J('Le contrat est soumis au 
 ${P(`Fait à …, le ${today()}, en deux exemplaires originaux.`)}${sign('Le Prestataire', 'Le Client')}`,
   },
   {
-    id: 'nda', cat: 'Juridique', name: 'Accord de confidentialité (NDA)', desc: 'Protection réciproque des informations confidentielles.', emoji: '🔒', settings: { footer: 'Modèle indicatif — à faire valider par un professionnel du droit', pageNumbers: true },
+    id: 'nda', cat: 'Juridique', name: 'Accord de confidentialité (NDA)', desc: 'Protection réciproque des informations confidentielles.', settings: { footer: 'Modèle indicatif — à faire valider par un professionnel du droit', pageNumbers: true },
     html: () => `${P(sp('ACCORD DE CONFIDENTIALITÉ', { b: true, c: C.navy, s: 20 }), 'center')}${P(sp('Non-Disclosure Agreement', { i: true, c: C.gray }), 'center')}${rule()}
 ${J('<strong>Entre :</strong> Partie A, … (la « Partie Divulgatrice »), <strong>et</strong> Partie B, … (la « Partie Réceptrice »).')}
 ${H2('1. Objet')}${J('Les parties souhaitent échanger des informations confidentielles dans le cadre de … (le « Projet »).')}
@@ -454,7 +455,7 @@ ${H2('5. Sanctions et droit applicable')}${J('Toute violation engage la responsa
 ${P(`Fait à …, le ${today()}, en deux exemplaires.`)}${sign('Partie A', 'Partie B')}`,
   },
   {
-    id: 'proxy', cat: 'Juridique', name: 'Procuration / Pouvoir', desc: 'Mandat donné à une personne pour agir en votre nom.', emoji: '🖋️', settings: { pageNumbers: false, footer: 'Modèle indicatif' },
+    id: 'proxy', cat: 'Juridique', name: 'Procuration / Pouvoir', desc: 'Mandat donné à une personne pour agir en votre nom.', settings: { pageNumbers: false, footer: 'Modèle indicatif' },
     html: () => `${P(sp('PROCURATION', { b: true, c: C.navy, s: 24 }), 'center')}${rule()}
 ${J('Je soussigné(e) <strong>Prénom NOM</strong>, né(e) le … à …, demeurant …, titulaire de la pièce d’identité n° …,')}
 ${J('<strong>donne pouvoir à</strong> <strong>Prénom NOM</strong>, né(e) le … à …, demeurant …, titulaire de la pièce d’identité n° …,')}
@@ -465,7 +466,7 @@ ${cols(`<p>${sp('Le mandant', { b: true })}<br>« Bon pour pouvoir »</p><p></p>
 ${note(P(sp('À joindre : ', { b: true }) + 'photocopie recto-verso des pièces d’identité du mandant et du mandataire.'), '#fff8e6', C.gold)}`,
   },
   {
-    id: 'sale', cat: 'Juridique', name: 'Reconnaissance de dette', desc: 'Engagement de remboursement avec échéancier.', emoji: '🤲', settings: { pageNumbers: false, footer: 'Modèle indicatif' },
+    id: 'sale', cat: 'Juridique', name: 'Reconnaissance de dette', desc: 'Engagement de remboursement avec échéancier.', settings: { pageNumbers: false, footer: 'Modèle indicatif' },
     html: () => `${P(sp('RECONNAISSANCE DE DETTE', { b: true, c: C.navy, s: 22 }), 'center')}${rule()}
 ${J('Je soussigné(e) <strong>Prénom NOM</strong>, né(e) le … à …, demeurant …, reconnais devoir à <strong>Prénom NOM</strong>, demeurant …, la somme de <strong>… euros (… €)</strong> que j’ai reçue le … à titre de prêt.')}
 ${J('Je m’engage à rembourser cette somme selon l’échéancier ci-dessous, sans intérêts (ou au taux annuel de …%) :')}
@@ -477,7 +478,7 @@ ${cols(`<p>${sp('Le débiteur', { b: true })}<br>Mention manuscrite : « Bon pou
 
   /* ===================== ÉVÉNEMENT ===================== */
   {
-    id: 'invitation', cat: 'Événement', name: 'Invitation', desc: 'Invitation élégante encadrée : cérémonie, anniversaire, soirée.', emoji: '💌', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.gold, width: 1.5, offset: 1.2 }, margins: { ...MARGIN_PRESETS.wide.v } },
+    id: 'invitation', cat: 'Événement', name: 'Invitation', desc: 'Invitation élégante encadrée : cérémonie, anniversaire, soirée.', settings: { pageNumbers: false, pageBorder: { style: 'double', color: C.gold, width: 1.5, offset: 1.2 }, margins: { ...MARGIN_PRESETS.wide.v } },
     html: () => `<p></p>${P(sp('— Vous êtes invité(e) —', { c: C.gold, s: 14, i: true }), 'center')}<p></p>
 ${P(sp('Nom de l’événement', { b: true, c: C.navy, s: 34 }), 'center')}${P(sp('à l’occasion de …', { c: C.gray, s: 14, i: true }), 'center')}<p></p>
 ${rule(C.gold)}
@@ -488,15 +489,15 @@ ${P('Tenue : … · Un buffet sera servi', 'center')}
 ${P(sp('Merci de confirmer votre présence avant le … auprès de … · Téléphone / e-mail', { i: true, c: C.gray }), 'center')}`,
   },
   {
-    id: 'flyer', cat: 'Événement', name: 'Affiche / Flyer', desc: 'Affiche accrocheuse : titre, date, lieu, programme et contact.', emoji: '📣', settings: { pageNumbers: false, margins: { ...MARGIN_PRESETS.narrow.v } },
+    id: 'flyer', cat: 'Événement', name: 'Affiche / Flyer', desc: 'Affiche accrocheuse : titre, date, lieu, programme et contact.', settings: { pageNumbers: false, margins: { ...MARGIN_PRESETS.narrow.v } },
     html: () => `${banner('NOM DE L’ÉVÉNEMENT', 'Slogan ou accroche en une ligne', C.red, 'ENTRÉE LIBRE · TOUT PUBLIC')}
-${P(sp('📅 Samedi … ' + year() + ' — dès …h…', { b: true, s: 22, c: C.navy }), 'center')}${P(sp('📍 Lieu · Ville', { b: true, s: 18, c: C.red }), 'center')}
+${P(sp('Samedi … ' + year() + ' — dès …h…', { b: true, s: 22, c: C.navy }), 'center')}${P(sp('Lieu · Ville', { b: true, s: 18, c: C.red }), 'center')}
 ${rule(C.red)}
 ${H2('Au programme', C.red)}${tb(['Heure', 'Animation'], [['…h…', 'Ouverture et accueil'], ['…h…', 'Animation / concert / conférence'], ['…h…', 'Temps convivial']], { fill: C.red, w: [110, 500] })}
 ${note(P(sp('Infos et inscriptions : ', { b: true }) + '… · e-mail · téléphone · site web'), '#fdecea', C.red)}`,
   },
   {
-    id: 'program', cat: 'Événement', name: 'Programme d’événement', desc: 'Déroulé détaillé d’une journée : conférence, séminaire, mariage.', emoji: '🎤', settings: { pageNumbers: true, footer: 'Programme' },
+    id: 'program', cat: 'Événement', name: 'Programme d’événement', desc: 'Déroulé détaillé d’une journée : conférence, séminaire, mariage.', settings: { pageNumbers: true, footer: 'Programme' },
     html: () => `${banner('Programme', 'Nom de l’événement — ' + today(), C.plum, 'Lieu · Adresse')}
 ${H2('Matin', C.plum)}${tb(['Horaire', 'Session', 'Intervenant', 'Salle'], [['09:00', 'Accueil et café', '—', 'Hall'], ['09:30', 'Ouverture', '…', '…'], ['10:15', 'Conférence : …', '…', '…'], ['11:30', 'Atelier : …', '…', '…']], { fill: C.plum, w: [90, 270, 150, 90] })}
 ${H2('Déjeuner', C.plum)}${P('12:30 – 14:00 · Restaurant / buffet')}
@@ -504,7 +505,7 @@ ${H2('Après-midi', C.plum)}${tb(['Horaire', 'Session', 'Intervenant', 'Salle'],
 ${note(P(sp('Infos pratiques : ', { b: true }) + 'accès, parking, Wi-Fi, contact organisation.'), '#f6ecf4', C.plum)}`,
   },
   {
-    id: 'menu', cat: 'Événement', name: 'Menu de restaurant / réception', desc: 'Carte raffinée avec entrées, plats, desserts et boissons.', emoji: '🍽️', settings: { pageNumbers: false, pageBorder: { style: 'single', color: C.gold, width: 1, offset: 1 }, margins: { ...MARGIN_PRESETS.wide.v } },
+    id: 'menu', cat: 'Événement', name: 'Menu de restaurant / réception', desc: 'Carte raffinée avec entrées, plats, desserts et boissons.', settings: { pageNumbers: false, pageBorder: { style: 'single', color: C.gold, width: 1, offset: 1 }, margins: { ...MARGIN_PRESETS.wide.v } },
     html: () => `${P(sp('Nom du restaurant', { b: true, c: C.navy, s: 30 }), 'center')}${P(sp('Menu · ' + year(), { c: C.gold, i: true, s: 13 }), 'center')}${rule(C.gold)}
 ${P(sp('ENTRÉES', { b: true, c: C.gold, s: 14 }), 'center')}
 ${P(sp('Nom du plat', { b: true }) + '<br>' + sp('description courte des ingrédients', { i: true, c: C.gray }) + ' — … €', 'center')}${P(sp('Nom du plat', { b: true }) + '<br>' + sp('description courte', { i: true, c: C.gray }) + ' — … €', 'center')}

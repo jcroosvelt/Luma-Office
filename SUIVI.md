@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Emojis supprimés de toute l'application** (modèles, assistant IA, paramètres, listes, messages). Les cartes de modèles de l'accueil utilisent maintenant des icônes sobres par catégorie, les statuts des modèles sont en toutes lettres. Les symboles typographiques (✓, →, ☐, ▲, ★…) sont conservés.
 - **Téléchargement de l'APK depuis le dossier public du site** : le bouton « Installer l'app » (Android, navigateur) télécharge `/luma-office.apk`. Le fichier `public/luma-office.apk` doit être déposé dans le dépôt (voir ci-dessous) ; à remplacer à chaque nouvelle version de l'app.
 - **Plus de messages « connexion rétablie / hors connexion » ni « prêt à fonctionner hors ligne »** (l'enregistrement local continue sans rien afficher).
 - **Assistant IA toujours visible** : bouton ✨ dans la barre du haut de l'éditeur (en plus de Révision › Assistant IA, Outils et du menu ⋮). Il faut avoir ajouté la clé `GEMINI_API_KEY` sur Vercel (voir `GUIDE-IA.md`).
