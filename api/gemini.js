@@ -114,16 +114,25 @@ export default async function handler(req, res) {
   };
   if (body.systemInstruction?.parts) payload.systemInstruction = { parts: body.systemInstruction.parts.map((p) => ({ text: String(p.text ?? '') })) };
 
-  const call = (m) => fetch(`${BASE()}/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(payload),
+  // Réflexion réduite : la mise en forme et la réécriture de texte n'ont pas besoin de longue « réflexion » interne,
+  // qui retardait la première réponse jusqu'à dépasser la durée maximale de la fonction (erreur 504).
+  const thinkingFor = (m) => (/gemini-2\.5-flash/.test(m) ? { thinkingBudget: 0 } : /gemini-2\.5-pro/.test(m) ? { thinkingBudget: 128 } : /gemini-3/.test(m) ? { thinkingLevel: 'low' } : null);
+  const call = (m, think = true) => fetch(`${BASE()}/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify(think && thinkingFor(m) ? { ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: thinkingFor(m) } } : payload),
   });
+  const attempt = async (m) => { // si le modèle refuse ce réglage (400), on réessaie sans
+    let r = await call(m);
+    if (r.status === 400 && thinkingFor(m)) r = await call(m, false);
+    return r;
+  };
   let upstream;
   try {
-    upstream = await call(model);
+    upstream = await attempt(model);
     if (upstream.status === 404) { // modèle retiré ou inconnu : on prend automatiquement le meilleur modèle disponible
       dead.add(model); modelCache = { at: 0, best: null };
       const alt = await discover(key);
-      if (alt && alt !== model) { model = alt; upstream = await call(alt); }
+      if (alt && alt !== model) { model = alt; upstream = await attempt(alt); }
     }
   } catch { return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
   if (!upstream.ok) { let b = null; try { b = await upstream.json(); } catch { /* ignore */ } return fail(res, upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status, explain(upstream.status, b)); }

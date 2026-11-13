@@ -55,6 +55,7 @@ function describeHttp(status, body) {
   if (status === 400 && /API key/i.test(msg)) return new AiError('Clé API invalide : vérifiez-la dans les Paramètres.', 'bad-key');
   if (status === 403) return new AiError(msg || 'Accès refusé par le service d’IA (clé sans droit ou région non prise en charge).', 'forbidden');
   if (status === 429) return new AiError(msg || 'Quota de l’assistant atteint : réessayez dans une minute.', 'quota');
+  if (status === 502 || status === 504 || status === 524) return new AiError('L’assistant a mis trop de temps à répondre. Réessayez (ou travaillez sur un texte plus court).', 'timeout');
   if (status === 413) return new AiError(msg || 'Texte trop volumineux : sélectionnez un passage plus court.', 'too-big');
   return new AiError(msg || `Erreur du service (${status}).`, 'http');
 }
