@@ -15,7 +15,7 @@ const DEFAULT_MODEL = () => process.env.GEMINI_MODEL || ''; // vide = choix auto
 
 // Choix automatique du modèle : le plus récent « flash » stable disponible avec la clé (puis flash-lite, puis pro)
 const NOT_TEXT = /embed|image|tts|audio|live|robotics|computer|exp|learnlm|gemma|aqa|vision|thinking|customtools|research|banana/i;
-function pickBest(names) {
+function rankModels(names) {
   const fams = { 'flash': [], 'flash-lite': [], 'pro': [] };
   for (const n of names) {
     if (NOT_TEXT.test(n)) continue;
@@ -24,29 +24,31 @@ function pickBest(names) {
     const stable = !m[3] || /^(\d{3}|latest)$/.test(m[3]);
     fams[m[2]].push({ n, v: parseFloat(m[1]), stable, plain: !m[3] });
   }
-  for (const f of ['flash', 'flash-lite', 'pro']) {
-    const list = fams[f].sort((a, b) => (b.stable - a.stable) || (b.v - a.v) || (b.plain - a.plain));
-    if (list.length) return list[0].n;
+  // d'abord les modèles stables (les plus disponibles), du plus récent au plus ancien ; les préversions en dernier recours
+  const out = [];
+  for (const stable of [true, false]) for (const f of ['flash', 'flash-lite', 'pro']) {
+    out.push(...fams[f].filter((x) => x.stable === stable).sort((x, y) => (y.v - x.v) || (y.plain - x.plain)).map((x) => x.n));
   }
-  return null;
+  return out;
 }
 
 const MAX_BODY = 600_000; // caractères
-let modelCache = { at: 0, best: null };
+let modelCache = { at: 0, list: [] };
 const dead = new Set(); // modèles refusés (introuvables) : on ne les réessaie pas
 
-async function discover(key) {
-  if (modelCache.best && Date.now() - modelCache.at < 10 * 60_000) return modelCache.best;
+// Liste ordonnée des modèles utilisables avec la clé (mise en cache 10 min)
+async function discoverList(key, force) {
+  if (!force && modelCache.list.length && Date.now() - modelCache.at < 10 * 60_000) return modelCache.list.filter((n) => !dead.has(n));
   try {
     const r = await fetch(`${BASE()}/v1beta/models?pageSize=200`, { headers: { 'x-goog-api-key': key } });
-    if (!r.ok) return null;
+    if (!r.ok) return [];
     const j = await r.json();
-    const names = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m) => String(m.name).replace(/^models\//, '')).filter((n) => !dead.has(n));
-    const best = pickBest(names);
-    if (best) modelCache = { at: Date.now(), best };
-    return best;
-  } catch { return null; }
+    const list = rankModels((j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m) => String(m.name).replace(/^models\//, '')));
+    if (list.length) modelCache = { at: Date.now(), list };
+    return list.filter((n) => !dead.has(n));
+  } catch { return []; }
 }
+const discover = async (key) => (await discoverList(key))[0] || null;
 const hits = new Map();
 
 const json = (res, status, obj) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
@@ -117,22 +119,37 @@ export default async function handler(req, res) {
   // Réflexion réduite : la mise en forme et la réécriture de texte n'ont pas besoin de longue « réflexion » interne,
   // qui retardait la première réponse jusqu'à dépasser la durée maximale de la fonction (erreur 504).
   const thinkingFor = (m) => (/gemini-2\.5-flash/.test(m) ? { thinkingBudget: 0 } : /gemini-2\.5-pro/.test(m) ? { thinkingBudget: 128 } : /gemini-3/.test(m) ? { thinkingLevel: 'low' } : null);
-  const call = (m, think = true) => fetch(`${BASE()}/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify(think && thinkingFor(m) ? { ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: thinkingFor(m) } } : payload),
-  });
+  const FIRST_BYTE_MS = +process.env.AI_FIRST_BYTE_MS || 25_000; // au-delà, on bascule sur un autre modèle
+  const call = async (m, think = true) => {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), FIRST_BYTE_MS);
+    try {
+      return await fetch(`${BASE()}/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, signal: ac.signal,
+        body: JSON.stringify(think && thinkingFor(m) ? { ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: thinkingFor(m) } } : payload),
+      });
+    } catch (e) {
+      if (ac.signal.aborted) return new Response(JSON.stringify({ error: { message: 'timeout' } }), { status: 504 });
+      throw e;
+    } finally { clearTimeout(t); }
+  };
   const attempt = async (m) => { // si le modèle refuse ce réglage (400), on réessaie sans
     let r = await call(m);
     if (r.status === 400 && thinkingFor(m)) r = await call(m, false);
     return r;
   };
+  // Modèle surchargé, introuvable ou trop lent : on essaie automatiquement les modèles suivants (3 tentatives au plus)
   let upstream;
   try {
-    upstream = await attempt(model);
-    if (upstream.status === 404) { // modèle retiré ou inconnu : on prend automatiquement le meilleur modèle disponible
-      dead.add(model); modelCache = { at: 0, best: null };
-      const alt = await discover(key);
-      if (alt && alt !== model) { model = alt; upstream = await attempt(alt); }
+    const tried = new Set();
+    let m = model;
+    for (let i = 0; i < 3 && m; i++) {
+      tried.add(m); model = m;
+      upstream = await attempt(m);
+      if (upstream.ok || ![404, 429, 500, 502, 503, 504].includes(upstream.status)) break;
+      if (upstream.status === 404) { dead.add(m); modelCache = { at: 0, list: [] }; }
+      console.error('[ai] modèle', m, '→', upstream.status);
+      m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n));
     }
   } catch { return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
   if (!upstream.ok) { let b = null; try { b = await upstream.json(); } catch { /* ignore */ } return fail(res, upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status, explain(upstream.status, b)); }
