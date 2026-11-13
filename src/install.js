@@ -18,7 +18,16 @@ const isSafariIOS = () => isIOS() && /safari/i.test(navigator.userAgent) && !/cr
 const DAY = 864e5;
 // Dans l'application Android (WebView avec le canal AppBridge) : on ne propose jamais l'installation
 export const isApp = () => !!window.AppBridge || /; wv\)/.test(navigator.userAgent);
-const isAndroidBrowser = () => /android/i.test(navigator.userAgent) && !isApp();
+const isAndroidDevice = () => /android/i.test(navigator.userAgent) || navigator.userAgentData?.platform === 'Android';
+const isAndroidBrowser = () => isAndroidDevice() && !isApp();
+
+// Android (navigateur) : on retire le manifeste PWA pour que Chrome ne propose plus « Installer l'application » (PWA)
+// ni l'ajout à l'écran d'accueil : la seule installation proposée est celle de l'APK.
+try {
+  if (isAndroidBrowser() && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true)) {
+    document.querySelectorAll('link[rel="manifest"]').forEach((l) => l.remove());
+  }
+} catch { /* ignore */ }
 
 addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -37,18 +46,27 @@ addEventListener('appinstalled', () => {
 
 export const canInstall = () => !isApp() && !isStandalone() && (isAndroidBrowser() || !!deferred);
 export const onInstallAvailable = (f) => { listeners.add(f); return () => listeners.delete(f); };
-export function downloadApk() {
+export async function downloadApk() {
+  // vérifie que le fichier est bien publié (sinon le navigateur afficherait une page d'erreur)
+  try {
+    const r = await fetch(APK_URL, { method: 'HEAD', cache: 'no-store' });
+    if (!r.ok || /html/i.test(r.headers.get('content-type') || '')) throw new Error('absent');
+  } catch {
+    toast('Le fichier d’installation de l’application n’est pas encore disponible. Réessayez plus tard.', 6000);
+    return false;
+  }
   const a = h('a', { href: APK_URL, download: 'luma-office.apk', rel: 'noopener' });
   document.body.append(a);
   a.click();
   setTimeout(() => a.remove(), 1000);
   pref.set('installDismissed', Date.now());
   toast('Téléchargement de l’application lancé. Ouvrez le fichier téléchargé pour l’installer.', 6000);
+  return true;
 }
 
 export async function promptInstall() {
   if (isApp()) return false;
-  if (isAndroidBrowser()) { downloadApk(); listeners.forEach((f) => f()); return true; }
+  if (isAndroidBrowser()) { const ok = await downloadApk(); listeners.forEach((f) => f()); return ok; }
   if (!deferred) return false;
   const ev = deferred;
   deferred = null;
@@ -85,7 +103,7 @@ function show(kind) {
         : apk ? h('span', {}, 'Téléchargez l’application Android : plein écran, ouverture directe de vos fichiers Word et PDF, utilisable hors ligne.')
         : h('span', {}, 'Accès rapide depuis votre écran d’accueil, plein écran et utilisable hors ligne.')),
     h('div', { class: 'ib-actions' },
-      ios ? null : h('button', { class: 'btn ib-go', onclick: async () => { const ok = await promptInstall(); if (ok || !deferred) close(false); } }, icon('download', 18), apk ? 'Installer l’app' : 'Installer'),
+      ios ? null : h('button', { class: 'btn ib-go', onclick: async () => { const ok = await promptInstall(); if (ok || (!deferred && !apk)) close(false); } }, icon('download', 18), apk ? 'Installer l’app' : 'Installer'),
       h('button', { class: 'btn ib-later', onclick: () => close(true) }, ios ? 'Compris' : 'Plus tard')));
   document.body.append(banner);
   requestAnimationFrame(() => banner?.classList.add('in'));
