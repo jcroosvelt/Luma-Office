@@ -24,7 +24,19 @@ try {
   }
 } catch { /* ignore */ }
 
-registerSW({ immediate: true });
+// Mise à jour automatique : le navigateur cherche une nouvelle version du site à l'ouverture, toutes les 20 minutes,
+// au retour sur l'onglet et au retour du réseau ; dès qu'elle est prête la page se recharge toute seule.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, reg) {
+    if (!reg) return;
+    const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
+    setInterval(check, 20 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    addEventListener('online', check);
+    addEventListener('focus', check);
+  },
+});
 persist();
 const isAdminPath = () => /\/admin\/?$/.test(location.pathname) && !isApp(); // page /admin : site web uniquement (jamais dans l'application)
 if (!isAdminPath()) trackOnce('visit');

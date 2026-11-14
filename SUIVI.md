@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Mise à jour automatique du site** : le navigateur (ordinateur, Chromebook, application installée) cherche une nouvelle version toutes les 20 minutes, au retour sur l'onglet, quand le réseau revient, puis recharge la page tout seul. Évite de rester sur une ancienne version.
 - **Paramètres allégés** : suppression de « Recherche sur l'appareil », de « Stockage et sauvegarde » (vos données, sauvegarder, restaurer, protection des données, tout effacer), de « Statistiques anonymes » et du bouton Administration. Restent : Apparence, Écriture, Nouveaux documents, Application.
 - **Administration = page `/admin` du site web uniquement** (adresse `votre-site/admin`, protégée par `ADMIN_CODE`, non indexée). Elle n'existe pas dans l'application Android et n'y est mentionnée nulle part. Les statistiques anonymes restent actives (sans IP ni identifiant).
 - **Paramètres** : la section « Assistant IA » est supprimée (clé, modèle, code, test). L'assistant reste utilisable dans l'éditeur (onglet « Travailler avec l'IA ») et se configure côté serveur (voir GUIDE-IA.md).
