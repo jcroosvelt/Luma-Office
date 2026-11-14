@@ -3,6 +3,7 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **APK 1.16.0** (`public/luma-office.apk`, 22,5 Mo) : un seul fichier pour tous les processeurs Android (ARM 32 et 64 bits, Intel x86_64), Android 7 (API 24) et plus. Testé en installation et démarrage sur émulateurs Android 7.0 et 10 (le test Android 13 a expiré au démarrage de l'émulateur).
 - **Comptes clients et cloud payant (prêt)** : l'onglet Cloud propose désormais l'offre (Gratuit 25 Mo / 50 documents, Premium « bientôt »), la création de compte (e-mail + mot de passe), la connexion, l'espace utilisé, la synchronisation, le changement de mot de passe et la suppression du compte. Chaque compte a une offre, une date de fin et des quotas : il suffira de brancher Stripe pour l'abonnement Premium. Documents chiffrés au repos. Voir `GUIDE-CLOUD.md` (variables à configurer : `DATABASE_URL`, `AUTH_SECRET`, `ADMIN_CODE`).
 - **Tableau de bord administrateur** (Paramètres › Administration) : vue d'ensemble avec graphiques, gestion des comptes (offre, quotas, suspension, mot de passe temporaire, suppression), suivi et test de l'assistant IA, suivi de l'APK, journal d'activité, santé du site. Voir `GUIDE-ADMIN.md`.
 - **Statistiques anonymes** (visites, ouvertures de l'app, téléchargements de l'APK), désactivables dans Paramètres.
