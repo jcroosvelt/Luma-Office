@@ -12,11 +12,11 @@ Tout se règle dans **Vercel › votre projet › Settings › Environment Varia
 |---|---|---|---|
 | `DATABASE_URL` | **Oui** | Base de données (comptes, documents, statistiques) | Vercel › **Storage** › Create Database › **Neon** (gratuit) › Connect Project : la variable s'ajoute toute seule. (Ou créez un projet sur https://neon.tech et copiez la « connection string ».) |
 | `AUTH_SECRET` | **Oui (très recommandé)** | Protège les sessions et la clé de chiffrement des documents | Un texte aléatoire de 40 caractères ou plus (gestionnaire de mots de passe). **Ne le changez plus ensuite** : les documents déjà enregistrés deviendraient illisibles. |
-| `ADMIN_CODE` | **Oui** pour l'administration | Code d'accès du tableau de bord (page Paramètres › Administration) | Un code long et secret, 8 caractères minimum |
+| `ADMIN_CODE` | **Oui** pour l'administration | Code d'accès du tableau de bord (page votre-site/admin) | Un code long et secret, 8 caractères minimum |
 | `GEMINI_API_KEY` | Pour l'assistant IA | Voir `GUIDE-IA.md` | https://aistudio.google.com/apikey |
 | `AI_ACCESS_CODE` | Facultatif | Réserve l'assistant IA aux personnes qui connaissent ce code | Au choix |
 
-Ensuite : onglet **Cloud** de l'application › **Créer un compte**. Le tableau de bord est dans **Paramètres › Administration**.
+Ensuite : onglet **Cloud** de l'application › **Créer un compte**. Le tableau de bord est à l'adresse **votre-site/admin** (site web uniquement).
 
 ## À prévoir pour la suite
 
@@ -47,7 +47,7 @@ La base gratuite de Neon offre 0,5 Go : environ 20 comptes gratuits pleins (25 M
 - Documents chiffrés au repos avec une clé propre à chaque compte, elle-même protégée par `AUTH_SECRET`.
   (Ce n'est pas un chiffrement « de bout en bout » : le serveur peut déchiffrer pour le compte connecté ; cela permet la réinitialisation du mot de passe sans perte de données.)
 - L'administrateur ne voit jamais le contenu ni les titres des documents.
-- Statistiques d'usage anonymes (sans IP ni identifiant), désactivables par chaque utilisateur dans Paramètres.
+- Statistiques d'usage anonymes (sans IP ni identifiant ni contenu), visibles seulement dans le tableau de bord `votre-site/admin`.
 
 ## Limites actuelles
 3 Mo par document ; Gratuit : 25 Mo et 50 documents.

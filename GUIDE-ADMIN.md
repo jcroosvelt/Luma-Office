@@ -1,6 +1,6 @@
 # Tableau de bord administrateur
 
-Accès : application › **Paramètres › Administration** (ou l'adresse `…/#/admin`). Il faut définir `ADMIN_CODE` dans Vercel (voir `GUIDE-CLOUD.md`).
+Accès : adresse **`https://votre-site/admin`**, sur le site web uniquement (la page n'existe pas dans l'application Android et n'y est jamais mentionnée). Il faut définir `ADMIN_CODE` dans Vercel (voir `GUIDE-CLOUD.md`).
 
 | Onglet | Contenu |
 |---|---|

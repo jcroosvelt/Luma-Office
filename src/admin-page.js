@@ -46,13 +46,15 @@ const note = (msg, cls = '') => h('div', { class: 'ad-note ' + cls }, msg);
 const row = (...cells) => h('div', { class: 'ad-row' }, ...cells.map((c) => (c && c.nodeType ? c : h('span', {}, c == null ? '' : String(c)))));
 
 export async function showAdmin(host) {
+  document.title = 'Administration — Luma Office';
+  if (!document.querySelector('meta[name=robots]')) document.head.append(h('meta', { name: 'robots', content: 'noindex, nofollow' }));
   const body = h('main', { class: 'ad-main' });
   const tabsEl = h('nav', { class: 'ad-tabs', role: 'tablist' });
   const head = h('header', { class: 'ad-head' },
     h('img', { src: './icons/icon-192.png', alt: '', class: 'ad-logo' }),
     h('div', { class: 'ad-title' }, h('b', {}, 'Administration'), h('small', {}, 'Luma Office')),
     h('div', { class: 'grow' }),
-    h('button', { class: 'btn sm', onclick: () => { location.hash = '#/'; } }, icon('file', 16), 'Application'),
+    h('button', { class: 'btn sm', onclick: () => { location.assign(new URL('./', document.baseURI).href); } }, icon('file', 16), 'Retour au site'),
     h('button', { class: 'btn sm', id: 'ad-out', hidden: true, onclick: () => { token.set(''); start(); } }, 'Déconnexion'));
   host.replaceChildren(h('div', { class: 'ad-page' }, head, tabsEl, body));
   const logout = head.querySelector('#ad-out');

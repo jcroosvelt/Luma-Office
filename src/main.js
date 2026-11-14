@@ -11,6 +11,7 @@ import { createDocFromHtml, openFiles } from './files.js';
 import { applyTheme, h, toast } from './ui.js';
 import { initAppBridge, sendState } from './appbridge.js';
 import { trackOnce } from './track.js';
+import { isApp } from './install.js';
 
 // Écran de démarrage avec le logo (une fois par session)
 try {
@@ -25,7 +26,8 @@ try {
 
 registerSW({ immediate: true });
 persist();
-trackOnce('visit');
+const isAdminPath = () => /\/admin\/?$/.test(location.pathname) && !isApp(); // page /admin : site web uniquement (jamais dans l'application)
+if (!isAdminPath()) trackOnce('visit');
 applyTheme(pref.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(pref.get('theme', 'auto')));
 
@@ -58,6 +60,7 @@ async function render() {
   const my = ++token;
   if (current) { try { await current.flush?.(); } catch { /* ignore */ } current.destroy?.(); current = null; sendState('dirty', 'editor:clean'); sendState('open', 'editor:close'); }
   document.documentElement.classList.remove('in-editor');
+  if (isAdminPath()) { document.documentElement.classList.add('in-admin'); await (await import('./admin-page.js')).showAdmin(app); return; }
   if (location.hash === '#/shared') { await consumeShared(); return; }
   if (location.hash === '#/new') {
     const t = TEMPLATES[0];
@@ -99,7 +102,6 @@ async function render() {
     go(rec.id);
   };
   const refresh = () => render();
-  if (location.hash === '#/admin') { document.documentElement.classList.add('in-admin'); await (await import('./admin-page.js')).showAdmin(app); return; }
   document.documentElement.classList.remove('in-admin');
   if (location.hash === '#/outils') { await (await import('./tools-page.js')).showTools(app, { onOpen: go, refresh }); return; }
   if (location.hash === '#/cloud') { await (await import('./cloud-page.js')).showCloud(app, { onOpen: go, refresh }); return; }

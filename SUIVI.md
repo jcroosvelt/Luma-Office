@@ -3,6 +3,8 @@
 Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11-12 (2).
 
 ## Dernière modification
+- **Paramètres allégés** : suppression de « Recherche sur l'appareil », de « Stockage et sauvegarde » (vos données, sauvegarder, restaurer, protection des données, tout effacer), de « Statistiques anonymes » et du bouton Administration. Restent : Apparence, Écriture, Nouveaux documents, Application.
+- **Administration = page `/admin` du site web uniquement** (adresse `votre-site/admin`, protégée par `ADMIN_CODE`, non indexée). Elle n'existe pas dans l'application Android et n'y est mentionnée nulle part. Les statistiques anonymes restent actives (sans IP ni identifiant).
 - **Paramètres** : la section « Assistant IA » est supprimée (clé, modèle, code, test). L'assistant reste utilisable dans l'éditeur (onglet « Travailler avec l'IA ») et se configure côté serveur (voir GUIDE-IA.md).
 - **APK 1.16.0** (`public/luma-office.apk`, 22,5 Mo) : un seul fichier pour tous les processeurs Android (ARM 32 et 64 bits, Intel x86_64), Android 7 (API 24) et plus. Testé en installation et démarrage sur émulateurs Android 7.0 et 10 (le test Android 13 a expiré au démarrage de l'émulateur).
 - **Comptes clients et cloud payant (prêt)** : l'onglet Cloud propose désormais l'offre (Gratuit 25 Mo / 50 documents, Premium « bientôt »), la création de compte (e-mail + mot de passe), la connexion, l'espace utilisé, la synchronisation, le changement de mot de passe et la suppression du compte. Chaque compte a une offre, une date de fin et des quotas : il suffira de brancher Stripe pour l'abonnement Premium. Documents chiffrés au repos. Voir `GUIDE-CLOUD.md` (variables à configurer : `DATABASE_URL`, `AUTH_SECRET`, `ADMIN_CODE`).

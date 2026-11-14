@@ -1,12 +1,10 @@
 // Page « Paramètres » : apparence, écriture, valeurs par défaut des nouveaux documents, recherche, stockage, application.
 import { h, icon, toast, saveBlob, confirmDialog, applyTheme, dropdown } from './ui.js';
-import { pref, storageInfo, fmtBytes, persist } from './storage.js';
+import { pref } from './storage.js';
 import { PAGE_SIZES, MARGIN_PRESETS, DEFAULT_SETTINGS } from './layout.js';
 import { shell } from './shell.js';
 import { poweredBy, openAbout } from './about.js';
 import { canInstall, promptInstall, onInstallAvailable, isApp } from './install.js';
-import { allFolders, addFolder, removeFolder, hasDirPicker } from './device-search.js';
-import { exportBackup, importBackup, wipeAll } from './backup.js';
 import pkg from '../package.json';
 
 const seg = (opts, get, set) => {
@@ -30,15 +28,6 @@ export async function showSettings(host, { refresh }) {
   const mode = pref.get('mode', 'auto');
 
   const author = h('input', { class: 'field', value: pref.get('author', ''), placeholder: 'Votre nom', autocomplete: 'name', onchange: (e) => { pref.set('author', e.target.value.trim()); toast('Nom enregistré'); } });
-  const foldersEl = h('div', { class: 'folders' });
-  async function renderFolders() {
-    const fs = await allFolders();
-    foldersEl.replaceChildren(...fs.map((f) => h('span', { class: 'fchip' }, icon('folder', 16), f.name, f.session || f.mem ? h('small', {}, ' (session)') : null, h('button', { class: 'x', 'aria-label': 'Retirer', onclick: async () => { await removeFolder(f); renderFolders(); } }, '×'))),
-      h('button', { class: 'btn sm', onclick: async () => { if (await addFolder()) renderFolders(); } }, icon('plus', 16), 'Ajouter un dossier'));
-  }
-  const store = h('small', {}, 'Calcul…');
-  storageInfo().then((s) => { store.textContent = `${s.persisted ? 'Stockage protégé' : 'Stockage standard'} · ${fmtBytes(s.usage)} utilisés${s.quota ? ' sur ' + fmtBytes(s.quota) : ''}`; });
-  const restoreIn = h('input', { type: 'file', accept: '.zip', hidden: true, onchange: async () => { const f = restoreIn.files[0]; restoreIn.value = ''; if (!f) return; try { toast('Restauration…', 60000); const n = await importBackup(f); toast(`${n} élément${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''} ✓`); } catch (e) { toast(e.message || 'Restauration impossible', 5000); } } });
   const installBtn = h('button', { class: 'btn sm', onclick: async () => { if (canInstall()) await promptInstall(); else toast(matchMedia('(display-mode: standalone)').matches ? 'L’application est déjà installée ✓' : 'Utilisez le menu du navigateur : « Installer l’application » ou « Sur l’écran d’accueil ».', 5000); } }, icon('download', 18), 'Installer');
   onInstallAvailable(() => { installBtn.title = canInstall() ? 'Prêt à installer' : ''; });
 
@@ -57,22 +46,11 @@ export async function showSettings(host, { refresh }) {
       row('Orientation', seg([['portrait', 'Portrait'], ['landscape', 'Paysage']], () => defaults().orientation, (v) => setDef({ orientation: v }))),
       row('Marges', select(Object.entries(MARGIN_PRESETS).map(([k, p]) => [k, p.label]), marginKey, (v) => setDef({ margins: { ...MARGIN_PRESETS[v].v } }))),
       row('Numéroter les pages', toggle(() => defaults().pageNumbers, (v) => setDef({ pageNumbers: v })), 'S’applique aux documents créés ensuite ; certains modèles ont leurs propres réglages.')),
-    group('Recherche sur l’appareil',
-      row('Dossiers explorés', foldersEl, hasDirPicker() ? 'Luma Office retient ces dossiers pour retrouver vos fichiers Word, PDF et Excel.' : 'Ce navigateur ne mémorise pas les dossiers : ils sont à resélectionner à chaque visite.')),
-    group('Stockage et sauvegarde',
-      row('Vos données', store, 'Documents, PDF et classeurs sont gardés sur cet appareil, sans compte.'),
-      row('Sauvegarder', h('button', { class: 'btn sm', onclick: async () => { try { toast('Création de la sauvegarde…', 60000); const { blob, count } = await exportBackup(); saveBlob(blob, `Luma-Office-sauvegarde-${new Date().toISOString().slice(0, 10)}.zip`); toast(`Sauvegarde de ${count} élément${count > 1 ? 's' : ''} ✓`); } catch { toast('Sauvegarde impossible'); } } }, icon('download', 18), 'Tout sauvegarder (.zip)'), 'Conservez ce fichier pour changer d’appareil ou par précaution.'),
-      row('Restaurer', h('div', {}, h('button', { class: 'btn sm', onclick: () => restoreIn.click() }, icon('upload', 18), 'Restaurer une sauvegarde'), restoreIn)),
-      row('Protéger les données', h('button', { class: 'btn sm', onclick: async () => { const ok = await persist(); toast(ok ? 'Stockage protégé ✓' : 'Le navigateur refuse pour l’instant : installez l’application, puis réessayez.', 5000); } }, 'Demander la protection')),
-      row('Tout effacer', h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmDialog('Supprimer TOUS vos documents, modèles et réglages de cet appareil ? Cette action est définitive.', 'Tout supprimer', true)) { await wipeAll(); toast('Données effacées'); refresh(); } } }, icon('trash', 18), 'Effacer mes données'))),
     group('Application',
       isApp() ? null : row('Installer Luma Office', installBtn, /android/i.test(navigator.userAgent) ? 'Télécharge l’application Android (APK).' : 'Accès depuis l’écran d’accueil, plein écran, hors ligne.'),
       isApp() ? null : row('Invitation d’installation', h('button', { class: 'btn sm', onclick: () => { pref.set('installDismissed', 0); pref.set('installed', false); toast('L’invitation s’affichera à la prochaine visite'); } }, 'Réafficher')),
       isApp() ? row('Version de l’application', h('span', { class: 'ver' }, window.__APP_VERSION__ || '—')) : null, // visible seulement dans l'application Android
-      row('Statistiques anonymes', toggle(() => pref.get('stats', true) !== false, (v) => pref.set('stats', !!v)), 'Compte les visites et les téléchargements de l’application, sans aucune donnée personnelle ni contenu de document.'),
-      row('À propos', h('button', { class: 'btn sm', onclick: openAbout }, icon('info', 18), 'Ouvrir')),
-      row('Administration', h('button', { class: 'btn sm', onclick: () => { location.hash = '#/admin'; } }, icon('lock', 18), 'Ouvrir'), 'Réservé à l’administrateur du site (code requis).')),
+      row('À propos', h('button', { class: 'btn sm', onclick: openAbout }, icon('info', 18), 'Ouvrir'))),
   );
   host.replaceChildren(shell('#/parametres', h('div', { class: 'page' }, content, h('div', { class: 'home-foot' }, poweredBy()))));
-  renderFolders();
 }
