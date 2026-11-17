@@ -75,3 +75,4 @@ Fichier mis à jour après chaque modification. Dernière mise à jour : 2026-11
 
 ## Limites connues
 Voir `README.md` (section « Limites connues »).
+- 2026-11-17 : APK **1.24.0 native** (sans WebView, hors ligne) déposé dans public/luma-office.apk — 30,0 Mo.
