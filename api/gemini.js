@@ -146,18 +146,18 @@ export default async function handler(req, res) {
   // Modèle surchargé, introuvable ou trop lent : on essaie automatiquement les modèles suivants (3 tentatives au plus)
   let upstream;
   try {
-    const tried = new Set();
+    const tried = new Set(); var trace = [];
     let m = model;
     for (let i = 0; i < 3 && m; i++) {
       tried.add(m); model = m;
-      upstream = await attempt(m);
+      const ta = Date.now(); upstream = await attempt(m); trace.push(`${m}:${upstream.status}:${Date.now() - ta}ms`);
       if (upstream.ok || ![404, 429, 500, 502, 503, 504].includes(upstream.status)) break;
       if (upstream.status === 404) { dead.add(m); modelCache = { at: 0, list: [] }; }
-      console.error('[ai] modèle', m, '→', upstream.status);
+      let detail = ''; try { detail = (await upstream.clone().text()).slice(0, 200); } catch { /* ignore */ } console.error('[ai] modèle', m, '→', upstream.status, detail); trace.push(detail.replace(/\s+/g, ' '));
       m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n));
     }
   } catch { await logEvent('ai_error', { model, status: 502, ms: Date.now() - t0 }); return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
-  if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } return fail(res, upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status, explain(upstream.status, b)); }
+  if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } const st = upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status; return json(res, st, { error: { code: st, message: explain(upstream.status, b), trace: typeof trace !== 'undefined' ? trace : [] } }); }
 
   await logEvent('ai', { model, ms: Date.now() - t0 });
   res.writeHead(200, { 'X-AI-Model': model, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
