@@ -94,7 +94,7 @@ export function cors(req, res) {
   if (req.headers.origin === APP_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-access-code');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   }
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return true; }
