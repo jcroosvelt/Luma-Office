@@ -10,6 +10,7 @@
 //   GEMINI_API_BASE     (facultatif)  adresse de l'API (tests uniquement)
 import { timingSafeEqual } from 'node:crypto';
 import { logEvent } from './_db.js';
+import { cors, APP_ORIGIN } from './_auth.js';
 
 const BASE = () => process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
 const DEFAULT_MODEL = () => process.env.GEMINI_MODEL || ''; // vide = choix automatique du meilleur modèle disponible
@@ -57,6 +58,7 @@ const fail = (res, status, message, code) => json(res, status, { error: { code: 
 const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
 
 function originOk(req) {
+  if (req.headers.origin === APP_ORIGIN) return true;
   const origin = req.headers.origin;
   if (!origin) return true; // appels du même site, outils en ligne de commande
   let host; try { host = new URL(origin).host; } catch { return false; }
@@ -88,6 +90,7 @@ const explain = (status, body) => {
 };
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (!originOk(req)) return fail(res, 403, 'Origine non autorisée.');
   const key = process.env.GEMINI_API_KEY;
 

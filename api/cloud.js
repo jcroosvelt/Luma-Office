@@ -2,13 +2,14 @@
 // Chaque document est chiffré au repos (AES-256-GCM) avec la clé de données du compte. Accès réservé au compte connecté,
 // dans la limite de son offre (espace et nombre de documents).
 import { getSql, initUsers, initDocs, logEvent } from './_db.js';
-import { authUser, effective, encrypt, decrypt, limiter, ipOf, json, fail, originOk, readBody } from './_auth.js';
+import { authUser, effective, encrypt, decrypt, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
 
 const rateOk = limiter(240, 60_000);
 const validId = (s) => typeof s === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(s);
 const MAX_DOC = 3_400_000;
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (!originOk(req)) return fail(res, 403, 'Origine non autorisée.');
   const sql = await getSql();
   if (req.method === 'GET') return json(res, 200, { ok: true, configured: !!sql });

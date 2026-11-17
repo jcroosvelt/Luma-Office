@@ -2,7 +2,7 @@
 // Chaque client a un compte (e-mail + mot de passe) ; les documents sont chiffrés au repos sur le serveur.
 import { listEverything, getDoc, putDocQuiet, hooks, pref } from './storage.js';
 
-const url = (p) => new URL('api/' + p, document.baseURI).href;
+import { apiUrl as url } from './apibase.js';
 const MAX = 3_000_000; // caractères de données envoyables par document
 
 /* ---------- réglages mémorisés sur l'appareil ---------- */

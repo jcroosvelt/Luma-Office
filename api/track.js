@@ -1,6 +1,7 @@
 // Statistiques d'usage ANONYMES (visites, ouvertures de l'application, téléchargements de l'APK). Aucune donnée personnelle :
 // ni adresse IP, ni identifiant, ni contenu de document. Désactivable dans Paramètres › Statistiques anonymes.
 import { logEvent } from './_db.js';
+import { cors } from './_auth.js';
 
 const hits = new Map();
 const ALLOWED = new Set(['visit', 'app_open', 'apk_download', 'install_open']);
@@ -14,6 +15,7 @@ const rateOk = (req) => {
 };
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
   let body = req.body;

@@ -26,7 +26,7 @@ try {
 
 // Mise à jour automatique : le navigateur cherche une nouvelle version du site à l'ouverture, toutes les 20 minutes,
 // au retour sur l'onglet et au retour du réseau ; dès qu'elle est prête la page se recharge toute seule.
-registerSW({
+if (!(window.AppBridge && /^(127\.0\.0\.1|localhost)$/.test(location.hostname))) registerSW({ // dans l'application, le site est déjà embarqué : pas de service worker
   immediate: true,
   onRegisteredSW(_url, reg) {
     if (!reg) return;

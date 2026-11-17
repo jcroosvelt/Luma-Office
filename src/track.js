@@ -1,6 +1,7 @@
 // Statistiques d'usage ANONYMES : aucun identifiant, aucune adresse IP, aucun contenu de document (voir api/track.js).
 // Désactivables dans Paramètres › Statistiques anonymes.
 import { pref } from './storage.js';
+import { apiUrl } from './apibase.js';
 
 export const trackingOn = () => pref.get('stats', true) !== false;
 const platform = () => {
@@ -13,7 +14,7 @@ const platform = () => {
 export function track(e, extra = {}) {
   if (!trackingOn()) return;
   try {
-    const url = new URL('api/track', document.baseURI).href;
+    const url = apiUrl('track');
     const body = JSON.stringify({ e, p: platform(), ...extra });
     if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
     else fetch(url, { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {});

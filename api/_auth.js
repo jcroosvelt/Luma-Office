@@ -88,9 +88,22 @@ export function limiter(max, windowMs) {
 export const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
 export const json = (res, status, obj) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
 export const fail = (res, status, message, code) => json(res, status, { error: { code: code || status, message } });
+// Application Android : le site embarqué est servi par http://127.0.0.1:47831 (voir l'APK) et appelle ce serveur.
+export const APP_ORIGIN = 'http://127.0.0.1:47831';
+export function cors(req, res) {
+  if (req.headers.origin === APP_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  }
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return true; }
+  return false;
+}
 export function originOk(req) {
   const origin = req.headers.origin;
   if (!origin) return true;
+  if (origin === APP_ORIGIN) return true;
   let host; try { host = new URL(origin).host; } catch { return false; }
   if (host === req.headers.host) return true;
   return (process.env.AI_ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean).includes(origin);

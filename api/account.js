@@ -2,7 +2,7 @@
 // Prêt pour un abonnement payant futur : chaque compte a une offre (plan), une date de fin et des quotas (voir _auth.js).
 import { randomBytes } from 'node:crypto';
 import { getSql, initUsers, initDocs, logEvent } from './_db.js';
-import { PLANS, hashPassword, checkPassword, newDek, makeToken, authUser, profile, EMAIL_RE, normEmail, limiter, ipOf, json, fail, originOk, readBody } from './_auth.js';
+import { PLANS, hashPassword, checkPassword, newDek, makeToken, authUser, profile, EMAIL_RE, normEmail, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
 
 const signupOk = limiter(6, 3_600_000);     // créations de compte par adresse IP et par heure
 const loginOk = limiter(12, 600_000);       // connexions par IP et par 10 minutes
@@ -15,6 +15,7 @@ async function usage(sql, id) {
 }
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (!originOk(req)) return fail(res, 403, 'Origine non autorisée.');
   const sql = await getSql();
   if (req.method === 'GET') {

@@ -15,7 +15,8 @@ export const modelName = () => { const p = aiPrefs.get(); return p.model === 'cu
 
 export class AiError extends Error { constructor(message, code) { super(message); this.code = code; } }
 
-const apiUrl = () => new URL('api/gemini', document.baseURI).href;
+import { apiUrl as _api } from './apibase.js';
+const apiUrl = () => _api('gemini');
 // Choix automatique du modèle (mode « ma propre clé »)
 
 const NOT_TEXT = /embed|image|tts|audio|live|robotics|computer|exp|learnlm|gemma|aqa|vision|thinking|customtools|research|banana/i;
