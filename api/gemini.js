@@ -41,6 +41,8 @@ function rankModels(names) {
 const MAX_BODY = 600_000; // caractères
 let modelCache = { at: 0, list: [] };
 const dead = new Set(); // modèles refusés (introuvables) : on ne les réessaie pas
+const busy = new Map(); // modèles saturés (503/504) : mis de côté 3 minutes
+const isBusy = (n) => (busy.get(n) || 0) > Date.now();
 
 // Liste ordonnée des modèles utilisables avec la clé (mise en cache 10 min)
 async function discoverList(key, force) {
@@ -112,7 +114,7 @@ export default async function handler(req, res) {
   if (!Array.isArray(body.contents) || !body.contents.length) return fail(res, 400, 'Requête invalide.');
   if (JSON.stringify(body).length > MAX_BODY) return fail(res, 413, 'Texte trop volumineux pour l’assistant : sélectionnez un passage plus court.');
   let model = /^gemini-[a-z0-9.\-]+$/i.test(body.model || '') ? body.model : DEFAULT_MODEL();
-  if (!model || dead.has(model)) model = (await discover(key)) || 'gemini-flash-latest';
+  if (!model || dead.has(model) || isBusy(model)) model = (await discoverList(key)).find((n) => !isBusy(n)) || (await discover(key)) || 'gemini-flash-latest';
 
   const gc = { ...(body.generationConfig || {}) };
   if (gc.temperature === undefined && body.temperature !== undefined) gc.temperature = body.temperature;
@@ -157,8 +159,9 @@ export default async function handler(req, res) {
       const ta = Date.now(); upstream = await attempt(m); trace.push(`${m}:${upstream.status}:${Date.now() - ta}ms`);
       if (upstream.ok || ![404, 429, 500, 502, 503, 504].includes(upstream.status)) break;
       if (upstream.status === 404) { dead.add(m); modelCache = { at: 0, list: [] }; }
+      if ([429, 500, 502, 503, 504].includes(upstream.status)) busy.set(m, Date.now() + 3 * 60_000);
       let detail = ''; try { detail = (await upstream.clone().text()).slice(0, 200); } catch { /* ignore */ } console.error('[ai] modèle', m, '→', upstream.status, detail); trace.push(detail.replace(/\s+/g, ' '));
-      m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n));
+      m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n) && !isBusy(n)) || (await discoverList(key)).find((n) => !tried.has(n) && !dead.has(n));
     }
   } catch { await logEvent('ai_error', { model, status: 502, ms: Date.now() - t0 }); return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
   if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } const st = upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status; return json(res, st, { error: { code: st, message: explain(upstream.status, b), trace: typeof trace !== 'undefined' ? trace : [] } }); }
