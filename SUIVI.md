@@ -78,3 +78,4 @@ Voir `README.md` (section « Limites connues »).
 - 2026-11-17 : APK **1.24.0 native** (sans WebView, hors ligne) déposé dans public/luma-office.apk — 30,0 Mo.
 - 2026-11-17 : APK **1.30.0** (Ouvrir avec docx/odt/rtf/txt/md/html, IA patiente sur connexion lente, permissions réduites) — 30,0 Mo.
 - 2026-11-17 : APK **1.34.0** (design identique au site : couleurs, icônes, navigation, modèles, barre bleue et ruban de l'éditeur) — 30,2 Mo.
+- 2026-11-17 : APK **1.35.0** (assistant IA : nouvel essai automatique si le service est saturé ; serveur : bascule vers les modèles disponibles) — 30,2 Mo.
