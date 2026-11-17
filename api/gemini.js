@@ -26,10 +26,14 @@ function rankModels(names) {
     const stable = !m[3] || /^(\d{3}|latest)$/.test(m[3]);
     fams[m[2]].push({ n, v: parseFloat(m[1]), stable, plain: !m[3] });
   }
-  // d'abord les modèles stables (les plus disponibles), du plus récent au plus ancien ; les préversions en dernier recours
+  // Modèles stables d'abord, en alternant « flash » et « flash-lite » (familles moins saturées) du plus récent au plus ancien,
+  // puis « pro », puis les préversions : quand Google est surchargé (503), on bascule vite sur un modèle disponible.
   const out = [];
-  for (const stable of [true, false]) for (const f of ['flash', 'flash-lite', 'pro']) {
-    out.push(...fams[f].filter((x) => x.stable === stable).sort((x, y) => (y.v - x.v) || (y.plain - x.plain)).map((x) => x.n));
+  const sortF = (arr) => arr.sort((x, y) => (y.v - x.v) || (y.plain - x.plain)).map((x) => x.n);
+  for (const stable of [true, false]) {
+    const fl = sortF(fams.flash.filter((x) => x.stable === stable)), lite = sortF(fams['flash-lite'].filter((x) => x.stable === stable));
+    for (let i = 0; i < Math.max(fl.length, lite.length); i++) { if (fl[i]) out.push(fl[i]); if (lite[i]) out.push(lite[i]); }
+    out.push(...sortF(fams.pro.filter((x) => x.stable === stable)));
   }
   return out;
 }
@@ -124,7 +128,7 @@ export default async function handler(req, res) {
   // qui retardait la première réponse jusqu'à dépasser la durée maximale de la fonction (erreur 504).
   const thinkingFor = (m) => (/gemini-2\.5-flash/.test(m) ? { thinkingBudget: 0 } : /gemini-2\.5-pro/.test(m) ? { thinkingBudget: 128 } : /gemini-3/.test(m) ? { thinkingLevel: 'low' } : null);
   const t0 = Date.now();
-  const FIRST_BYTE_MS = +process.env.AI_FIRST_BYTE_MS || 25_000; // au-delà, on bascule sur un autre modèle
+  const FIRST_BYTE_MS = +process.env.AI_FIRST_BYTE_MS || 14_000; // au-delà, on bascule sur un autre modèle
   const call = async (m, think = true) => {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), FIRST_BYTE_MS);
@@ -148,7 +152,7 @@ export default async function handler(req, res) {
   try {
     const tried = new Set(); var trace = [];
     let m = model;
-    for (let i = 0; i < 3 && m; i++) {
+    for (let i = 0; i < 8 && m && Date.now() - t0 < 44_000; i++) {
       tried.add(m); model = m;
       const ta = Date.now(); upstream = await attempt(m); trace.push(`${m}:${upstream.status}:${Date.now() - ta}ms`);
       if (upstream.ok || ![404, 429, 500, 502, 503, 504].includes(upstream.status)) break;
