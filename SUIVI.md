@@ -79,3 +79,4 @@ Voir `README.md` (section « Limites connues »).
 - 2026-11-17 : APK **1.30.0** (Ouvrir avec docx/odt/rtf/txt/md/html, IA patiente sur connexion lente, permissions réduites) — 30,0 Mo.
 - 2026-11-17 : APK **1.34.0** (design identique au site : couleurs, icônes, navigation, modèles, barre bleue et ruban de l'éditeur) — 30,2 Mo.
 - 2026-11-17 : APK **1.35.0** (assistant IA : nouvel essai automatique si le service est saturé ; serveur : bascule vers les modèles disponibles) — 30,2 Mo.
+- 2026-11-17 : APK **1.36.0** (« Ouvrir avec » fiable : format reconnu par le contenu, anciens Word .doc, messages d'erreur précis) — 30,2 Mo.
