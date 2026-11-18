@@ -82,3 +82,4 @@ Voir `README.md` (section « Limites connues »).
 - 2026-11-17 : APK **1.36.0** (« Ouvrir avec » fiable : format reconnu par le contenu, anciens Word .doc, messages d'erreur précis) — 30,2 Mo.
 - 2026-11-17 : APK **1.37.0** (tous les documents : PDF modifiable ou scanné en images, Word .doc/.docx, Excel, PowerPoint, OpenDocument, CSV, photos partagées) — 30,3 Mo.
 - 2026-11-18 : APK **1.38.0** (vrai lecteur PDF natif : pages d'origine, zoom, recherche, mode lecture, partage, impression ; conversion en document modifiable à la demande) — 30.5 Mo.
+- 2026-11-18 : APK **1.39.0** (lecteur PDF complet : annotations, signature, formulaires, recherche surlignée, lecture à voix haute, export du PDF annoté) — 30.9 Mo.
