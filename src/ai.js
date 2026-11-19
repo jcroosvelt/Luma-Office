@@ -50,13 +50,13 @@ const DIRECT = (model) => `https://generativelanguage.googleapis.com/v1beta/mode
 
 function describeHttp(status, body) {
   const msg = body?.error?.message || '';
-  if (body?.error?.code === 'not-configured' || status === 503) return new AiError(msg || 'L’assistant IA n’est pas encore configuré sur ce site. Suivez le guide (Paramètres › Assistant IA).', 'not-configured');
+  if (body?.error?.code === 'not-configured' || status === 503) return new AiError(msg || 'Judy n’est pas encore configurée sur ce site. Suivez le guide (Paramètres › Judy).', 'not-configured');
   if (status === 401) return new AiError(msg || 'Code d’accès incorrect.', 'bad-code');
-  if (status === 404 && !msg) return new AiError('L’assistant n’est pas disponible ici : la fonction serveur /api/gemini est introuvable (elle n’existe que sur le site déployé sur Vercel). Vous pouvez utiliser « Ma propre clé » dans les Paramètres.', 'no-api');
+  if (status === 404 && !msg) return new AiError('Judy n’est pas disponible ici : la fonction serveur /api/gemini est introuvable (elle n’existe que sur le site déployé sur Vercel). Vous pouvez utiliser « Ma propre clé » dans les Paramètres.', 'no-api');
   if (status === 400 && /API key/i.test(msg)) return new AiError('Clé API invalide : vérifiez-la dans les Paramètres.', 'bad-key');
   if (status === 403) return new AiError(msg || 'Accès refusé par le service d’IA (clé sans droit ou région non prise en charge).', 'forbidden');
-  if (status === 429) return new AiError(msg || 'Quota de l’assistant atteint : réessayez dans une minute.', 'quota');
-  if (status === 502 || status === 504 || status === 524) return new AiError('L’assistant a mis trop de temps à répondre. Réessayez (ou travaillez sur un texte plus court).', 'timeout');
+  if (status === 429) return new AiError(msg || 'Quota de Judy atteint : réessayez dans une minute.', 'quota');
+  if (status === 502 || status === 504 || status === 524) return new AiError('Judy a mis trop de temps à répondre. Réessayez (ou travaillez sur un texte plus court).', 'timeout');
   if (status === 413) return new AiError(msg || 'Texte trop volumineux : sélectionnez un passage plus court.', 'too-big');
   return new AiError(msg || `Erreur du service (${status}).`, 'http');
 }
@@ -81,12 +81,12 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
     }
   } catch (e) {
     if (e.name === 'AbortError') throw e;
-    throw new AiError(navigator.onLine ? 'Impossible de joindre l’assistant. Réessayez.' : 'Vous êtes hors ligne : l’assistant IA nécessite une connexion Internet.', 'network');
+    throw new AiError(navigator.onLine ? 'Impossible de joindre Judy. Réessayez.' : 'Vous êtes hors ligne : Judy nécessite une connexion Internet.', 'network');
   }
   if (!res.ok) { let b = null; try { b = await res.json(); } catch { /* ignore */ } throw describeHttp(res.status, b); }
   const ct = res.headers.get('content-type') || '';
-  if (!/event-stream/.test(ct)) { // réponse HTML (ex. site sans fonction serveur) : pas une réponse de l’assistant
-    throw new AiError('L’assistant n’est pas disponible ici : la fonction serveur /api/gemini est introuvable. Utilisez « Ma propre clé » dans les Paramètres ou déployez sur Vercel.', 'no-api');
+  if (!/event-stream/.test(ct)) { // réponse HTML (ex. site sans fonction serveur) : pas une réponse de Judy
+    throw new AiError('Judy n’est pas disponible ici : la fonction serveur /api/gemini est introuvable. Utilisez « Ma propre clé » dans les Paramètres ou déployez sur Vercel.', 'no-api');
   }
   const reader = res.body.getReader(), dec = new TextDecoder();
   let buf = '', full = '', blocked = '';
@@ -107,8 +107,8 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
     let i; while ((i = buf.search(/\r?\n\r?\n/)) >= 0) { const evt = buf.slice(0, i); buf = buf.slice(i).replace(/^\r?\n\r?\n/, ''); evt.split(/\r?\n/).forEach(handle); }
   }
   buf.split(/\r?\n/).forEach(handle);
-  if (!full && blocked) throw new AiError('L’assistant a refusé de traiter ce contenu (' + blocked.toLowerCase() + '). Reformulez ou changez le texte.', 'blocked');
-  if (!full) throw new AiError('Réponse vide de l’assistant. Réessayez.', 'empty');
+  if (!full && blocked) throw new AiError('Judy a refusé de traiter ce contenu (' + blocked.toLowerCase() + '). Reformulez ou changez le texte.', 'blocked');
+  if (!full) throw new AiError('Réponse vide de Judy. Réessayez.', 'empty');
   return full;
 }
 
@@ -120,7 +120,7 @@ export async function testConnection() {
       let st = null;
       try { const r = await fetch(apiUrl(), { headers: p.code ? { 'x-access-code': p.code } : {} }); if (r.ok && /json/.test(r.headers.get('content-type') || '')) st = await r.json(); } catch { /* ignore */ }
       if (!st) return { ok: false, message: 'Fonction serveur /api/gemini introuvable : le site doit être déployé sur Vercel avec le dossier api/ (ou choisissez « Ma propre clé »).' };
-      if (!st.configured) return { ok: false, message: 'Le serveur répond mais la clé de l’assistant n’est pas définie côté serveur (voir le guide d’installation).' };
+      if (!st.configured) return { ok: false, message: 'Le serveur répond mais la clé de Judy n’est pas définie côté serveur (voir le guide d’installation).' };
     } else if (!p.ownKey.trim()) return { ok: false, message: 'Collez d’abord votre clé API.' };
     const t = await generate({ messages: [{ role: 'user', text: 'Réponds uniquement par le mot : OK' }], maxTokens: 20, temperature: 0 });
     return { ok: true, message: `Connexion réussie ✓ — réponse : « ${t.trim().slice(0, 30)} »` };

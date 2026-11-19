@@ -1,6 +1,6 @@
-# Configurer l'assistant IA (Gemini) — pas à pas
+# Configurer Judy (Gemini) — pas à pas
 
-L'assistant de Luma Office utilise **Google Gemini**. La clé API est **gratuite** pour commencer (limites d'usage) et se règle en 5 minutes.
+Judy, dans Luma Office, utilise **Google Gemini**. La clé API est **gratuite** pour commencer (limites d'usage) et se règle en 5 minutes.
 Deux façons de l'utiliser : **A. clé sur le serveur Vercel (recommandé)** ou **B. votre propre clé sur l'appareil (test rapide)**.
 
 ---
@@ -30,7 +30,7 @@ La clé n'apparaît jamais dans l'application : elle est stockée sur le serveur
 4. Cliquez **Save**.
 5. *(Facultatif)* Ajoutez aussi :
    - `GEMINI_MODEL` = `gemini-2.5-flash` (modèle par défaut du serveur)
-   - `AI_ACCESS_CODE` = un mot de passe de votre choix : seules les personnes qui le saisissent dans **Paramètres › Assistant IA › Code d'accès** pourront utiliser l'assistant. **Conseillé** si l'adresse du site est publique, pour que personne d'autre ne consomme votre quota.
+   - `AI_ACCESS_CODE` = un mot de passe de votre choix : seules les personnes qui le saisissent dans **Paramètres › Judy › Code d'accès** pourront utiliser Judy. **Conseillé** si l'adresse du site est publique, pour que personne d'autre ne consomme votre quota.
 
 ### Étape 3 — Redéployer
 Une variable d'environnement n'est prise en compte qu'après un nouveau déploiement :
@@ -38,7 +38,7 @@ Une variable d'environnement n'est prise en compte qu'après un nouveau déploie
 
 ### Étape 4 — Tester dans l'application
 1. Ouvrez l'application (fermez-la complètement puis rouvrez-la pour charger la dernière version).
-2. **Paramètres** → **Assistant IA (Gemini)** → laissez **« Serveur du site »**.
+2. **Paramètres** → **Judy (Gemini)** → laissez **« Serveur du site »**.
 3. Si vous avez défini `AI_ACCESS_CODE`, saisissez-le dans **Code d'accès**.
 4. Touchez **« Tester la connexion »**. Vous devez voir : *Connexion réussie ✓*.
 
@@ -54,15 +54,15 @@ Une variable d'environnement n'est prise en compte qu'après un nouveau déploie
 
 ## Option B — votre propre clé, directement sur l'appareil (test rapide)
 
-Sans rien configurer sur Vercel : **Paramètres → Assistant IA → Source de la clé : « Ma clé »**, collez la clé `AIza…`, **Tester la connexion**.
+Sans rien configurer sur Vercel : **Paramètres → Judy → Source de la clé : « Ma clé »**, collez la clé `AIza…`, **Tester la connexion**.
 La clé est enregistrée **uniquement sur cet appareil** (navigateur) et envoyée directement à Google. À éviter sur un appareil partagé.
 
 ---
 
-## Utiliser l'assistant
+## Utiliser Judy
 
-- **Dans un document** : onglet **Révision** ou **Outils** → **Assistant IA** (ou menu Fichier). Sélectionnez un passage puis choisissez : Reformuler, Corriger, Raccourcir, Développer, Ton formel/amical, Simplifier, Résumer, En liste, Plan, Continuer, Traduire. Ou écrivez une consigne libre (« Rédige une lettre de relance… »). Puis **Remplacer la sélection**, **Insérer à la suite** ou **Copier**. Vous pouvez demander des ajustements (« plus court ») : la conversation continue.
-- **Dans un PDF** : menu ⋮ → **Assistant IA** : résumé, points clés, dates et montants, traduction, ou question libre sur le contenu.
+- **Dans un document** : onglet **Révision** ou **Outils** → **Judy** (ou menu Fichier). Sélectionnez un passage puis choisissez : Reformuler, Corriger, Raccourcir, Développer, Ton formel/amical, Simplifier, Résumer, En liste, Plan, Continuer, Traduire. Ou écrivez une consigne libre (« Rédige une lettre de relance… »). Puis **Remplacer la sélection**, **Insérer à la suite** ou **Copier**. Vous pouvez demander des ajustements (« plus court ») : la conversation continue.
+- **Dans un PDF** : menu ⋮ → **Judy** : résumé, points clés, dates et montants, traduction, ou question libre sur le contenu.
 
 ## Confidentialité et coûts
 

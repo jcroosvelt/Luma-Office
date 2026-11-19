@@ -104,15 +104,15 @@ export default async function handler(req, res) {
     return json(res, 200, { ok: true, configured: !!key, needsCode: !!process.env.AI_ACCESS_CODE, model: DEFAULT_MODEL() || 'auto' });
   }
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return fail(res, 405, 'Méthode non autorisée.'); }
-  if (!key) return fail(res, 503, 'L’assistant IA n’est pas encore configuré sur ce site (clé API manquante).', 'not-configured');
+  if (!key) return fail(res, 503, 'Judy n’est pas encore configurée sur ce site (clé API manquante).', 'not-configured');
   const need = process.env.AI_ACCESS_CODE;
-  if (need && !safeEq(req.headers['x-access-code'] || '', need)) return fail(res, 401, 'Code d’accès de l’assistant incorrect ou manquant (Paramètres › Assistant IA).', 'bad-code');
+  if (need && !safeEq(req.headers['x-access-code'] || '', need)) return fail(res, 401, 'Code d’accès de Judy incorrect ou manquant (Paramètres › Judy).', 'bad-code');
   if (!rateOk(req)) return fail(res, 429, 'Trop de demandes en peu de temps : patientez une minute.', 'rate');
 
   let body;
   try { body = await readBody(req); } catch (e) { return fail(res, e.message === 'too-big' ? 413 : 400, e.message === 'too-big' ? 'Texte trop volumineux.' : 'Requête illisible.'); }
   if (!Array.isArray(body.contents) || !body.contents.length) return fail(res, 400, 'Requête invalide.');
-  if (JSON.stringify(body).length > MAX_BODY) return fail(res, 413, 'Texte trop volumineux pour l’assistant : sélectionnez un passage plus court.');
+  if (JSON.stringify(body).length > MAX_BODY) return fail(res, 413, 'Texte trop volumineux pour Judy : sélectionnez un passage plus court.');
   let model = /^gemini-[a-z0-9.\-]+$/i.test(body.model || '') ? body.model : DEFAULT_MODEL();
   if (!model || dead.has(model) || isBusy(model)) model = (await discoverList(key)).find((n) => !isBusy(n)) || (await discover(key)) || 'gemini-flash-latest';
 

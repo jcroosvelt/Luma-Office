@@ -768,7 +768,7 @@ export function mountEditor(host, docRec, hooks) {
       canShare ? { icon: 'share', label: 'Partager en PDF', run: sharePdf } : null,
       { sep: 'Document' },
       { icon: 'share', label: 'Partager avec un compte…', hint: 'Lecture seule, avec commentaires', run: async () => { try { await manualSave(); } catch { /* le partage utilise la dernière version enregistrée */ } (await import('./share.js')).openShareSheet(docRec); } },
-      { icon: 'sparkle', label: 'Assistant IA', hint: 'Reformuler, corriger, résumer, traduire, rédiger', run: pro.openAI },
+      { icon: 'sparkle', label: 'Judy', hint: 'Reformuler, corriger, résumer, traduire, rédiger', run: pro.openAI },
       { icon: 'history', label: 'Historique des versions', hint: 'Revenir à une version précédente', run: pro.openVersions },
       { icon: 'compare', label: 'Comparer avec un autre document', run: () => pro.openCompare() },
       { icon: 'lock', label: docRec.lock ? 'Protection du document…' : 'Protéger par mot de passe…', hint: 'Mot de passe et permissions', run: pro.openLock },

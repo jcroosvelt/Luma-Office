@@ -254,7 +254,7 @@ export function buildRibbon(app) {
     {
       id: 'ai', label: 'Travailler avec l’IA', build: () => [
         group(
-          btn({ icon: 'sparkle', label: 'Assistant IA', title: 'Ouvrir l’assistant : écrivez ce que vous voulez', run: () => app.openAI('write') }),
+          btn({ icon: 'sparkle', label: 'Judy', title: 'Demandez à Judy : écrivez ce que vous voulez', run: () => app.openAI('write') }),
           btn({ icon: 'edit', label: 'Rédiger', title: 'Demander à l’IA de rédiger un texte', run: () => app.openAI('write') }),
         ),
         group(

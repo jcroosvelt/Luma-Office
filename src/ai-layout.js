@@ -49,7 +49,7 @@ function parseJson(t) {
   try { return JSON.parse(s); } catch { /* essai suivant */ }
   const a = s.indexOf('{'), b = s.lastIndexOf('}');
   if (a >= 0 && b > a) return JSON.parse(s.slice(a, b + 1));
-  throw new AiError('Réponse de l’assistant illisible. Réessayez.', 'bad-json');
+  throw new AiError('Réponse de Judy illisible. Réessayez.', 'bad-json');
 }
 
 const num = (v, lo, hi, d) => { const n = +String(v).replace(',', '.'); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
@@ -161,11 +161,11 @@ const cm = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
 
 export async function openAutoLayout({ editor, getSettings, updateSettings }) {
   const prefs = aiPrefs.get();
-  if (!prefs.enabled) { toast('L’assistant IA est désactivé (Paramètres › Assistant IA)', 3500); return; }
+  if (!prefs.enabled) { toast('Judy est désactivée (Paramètres › Judy)', 3500); return; }
   const total = editor.state.doc.childCount;
   if (!editor.getText().trim()) { toast('Écrivez d’abord du texte : l’IA a besoin du document pour proposer une mise en page', 4000); return; }
   if (!prefs.consent) {
-    if (!(await confirmDialog('L’assistant envoie le texte du document à un service d’intelligence artificielle pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'Continuer'))) return;
+    if (!(await confirmDialog('Judy envoie le texte du document à un service d’intelligence artificielle pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'Continuer'))) return;
     aiPrefs.set({ consent: true });
   }
   const body = h('div', { class: 'form ai-box' });

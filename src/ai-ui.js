@@ -1,11 +1,11 @@
-// Fenêtre « Assistant IA » : actions rapides (reformuler, corriger, résumer, traduire…), consigne libre, résultat en direct.
+// Fenêtre « Judy » : actions rapides (reformuler, corriger, résumer, traduire…), consigne libre, résultat en direct.
 import { h, icon, sheet, toast, confirmDialog } from './ui.js';
 import { generate, aiPrefs, mdToHtml, AiError } from './ai.js';
 import { writeLongDocument, longPages } from './ai-long.js';
 
-const EDIT_SYS = 'Tu es l’assistant de rédaction d’un traitement de texte. Réponds UNIQUEMENT avec le texte demandé : pas d’introduction, pas de commentaire, pas de guillemets autour du résultat. Garde la langue du texte d’origine, sauf demande de traduction. Sépare les paragraphes par une ligne vide. N’utilise pas de Markdown (ni **, ni #), sauf si l’on te demande explicitement une liste ou un plan.';
-const GEN_SYS = 'Tu es l’assistant de rédaction d’un traitement de texte. Réponds en français sauf demande contraire, sans phrase d’introduction du type « Voici ». Tu peux structurer avec # et ## pour les titres, - pour les listes et ** pour le gras. Sépare les paragraphes par une ligne vide. Pour un document complet (règlement, contrat, rapport, guide, statuts…), sois EXHAUSTIF : articles ou sections numérotés avec alinéas, cas particuliers, procédures, exemples concrets ; ne te limite jamais à un résumé ni à quelques lignes par partie, sauf demande explicite, et respecte la longueur demandée.';
-const PDF_SYS = 'Tu es un assistant qui répond à des questions sur un document fourni par l’utilisateur. Appuie-toi uniquement sur le document ; si l’information n’y figure pas, dis-le clairement. Quand c’est utile, indique la page (le texte contient des repères « [Page N] »). Réponds en français, de façon claire et concise ; Markdown léger autorisé (listes avec -, gras avec **).';
+const EDIT_SYS = 'Tu es Judy, la rédactrice IA d’un traitement de texte (si on te demande ton nom, tu t’appelles Judy). Réponds UNIQUEMENT avec le texte demandé : pas d’introduction, pas de commentaire, pas de guillemets autour du résultat. Garde la langue du texte d’origine, sauf demande de traduction. Sépare les paragraphes par une ligne vide. N’utilise pas de Markdown (ni **, ni #), sauf si l’on te demande explicitement une liste ou un plan.';
+const GEN_SYS = 'Tu es Judy, la rédactrice IA d’un traitement de texte (si on te demande ton nom, tu t’appelles Judy). Réponds en français sauf demande contraire, sans phrase d’introduction du type « Voici ». Tu peux structurer avec # et ## pour les titres, - pour les listes et ** pour le gras. Sépare les paragraphes par une ligne vide. Pour un document complet (règlement, contrat, rapport, guide, statuts…), sois EXHAUSTIF : articles ou sections numérotés avec alinéas, cas particuliers, procédures, exemples concrets ; ne te limite jamais à un résumé ni à quelques lignes par partie, sauf demande explicite, et respecte la longueur demandée.';
+const PDF_SYS = 'Tu es Judy, qui répond à des questions sur un document fourni par l’utilisateur. Appuie-toi uniquement sur le document ; si l’information n’y figure pas, dis-le clairement. Quand c’est utile, indique la page (le texte contient des repères « [Page N] »). Réponds en français, de façon claire et concise ; Markdown léger autorisé (listes avec -, gras avec **).';
 const LANGS = ['anglais', 'espagnol', 'allemand', 'italien', 'portugais', 'arabe', 'néerlandais', 'chinois', 'français'];
 const MAX_CHARS = 400000;
 
@@ -30,11 +30,11 @@ const PDF_ACTIONS = [
   ['todo', 'Actions à faire', 'Liste les actions, obligations ou échéances qui concernent le lecteur de ce document.'],
 ];
 
-export async function openAssistant({ kind = 'editor', title = 'Assistant IA', action = null, getSelection, getDocument, onReplace, onReplaceAll, onInsert, onNewDoc }) {
+export async function openAssistant({ kind = 'editor', title = 'Judy', action = null, getSelection, getDocument, onReplace, onReplaceAll, onInsert, onNewDoc }) {
   const prefs = aiPrefs.get();
-  if (!prefs.enabled) { toast('L’assistant IA est désactivé (Paramètres › Assistant IA)', 3500); return; }
+  if (!prefs.enabled) { toast('Judy est désactivée (Paramètres › Judy)', 3500); return; }
   if (!prefs.consent) {
-    if (!(await confirmDialog('L’assistant envoie le texte concerné (sélection, document ou PDF) à un service d’intelligence artificielle pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'J’ai compris, continuer'))) return;
+    if (!(await confirmDialog('Judy envoie le texte concerné (sélection, document ou PDF) à un service d’intelligence artificielle pour le traiter. N’utilisez pas cette fonction pour des documents confidentiels. Continuer ?', 'J’ai compris, continuer'))) return;
     aiPrefs.set({ consent: true });
   }
   const sel = (getSelection?.() || '').trim();
@@ -66,10 +66,10 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
     if (user) chat.append(h('div', { class: 'ai-msg me' }, user));
     const cur = h('div', { class: 'ai-msg bot typing' }, h('span', { class: 'ai-dots' }, h('i'), h('i'), h('i')));
     chat.append(cur); scrollChat();
-    status.textContent = 'L’assistant réfléchit…';
+    status.textContent = 'Judy réfléchit…';
     let first = true;
     try {
-      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, maxTokens: 8192, onText: (_d, full) => { if (first) { first = false; status.textContent = 'L’assistant écrit…'; } cur.innerHTML = mdToHtml(full); scrollChat(); } });
+      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, maxTokens: 8192, onText: (_d, full) => { if (first) { first = false; status.textContent = 'Judy écrit…'; } cur.innerHTML = mdToHtml(full); scrollChat(); } });
       messages = [...messages, { role: 'model', text: lastResult }];
       cur.innerHTML = mdToHtml(lastResult);
       status.textContent = `${words(lastResult)} mots`; buildApply();
@@ -162,7 +162,7 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
     h('div', { class: 'row' }, send, stopBtn, status),
     h('small', { class: 'muted' }, 'Le résultat peut contenir des erreurs : relisez-le avant de l’utiliser.')),
   { wide: true, onClose: () => ctrl?.abort() });
-  // Lancement direct depuis l'onglet « Travailler avec l'IA » : « write » = champ de saisie, « translate » = choix de la langue
+  // Lancement direct depuis l'onglet « Travailler avec Judy » : « write » = champ de saisie, « translate » = choix de la langue
   if (action === 'write') setTimeout(() => ta.focus(), 300);
   else if (action === 'translate') setTimeout(() => langSel.focus(), 300);
   else if (action) { const a = (isPdf ? PDF_ACTIONS : EDIT_ACTIONS).find((x) => x[0] === action); if (a) setTimeout(() => doQuick(a[0], a[2]), 250); else setTimeout(() => ta.focus(), 300); }

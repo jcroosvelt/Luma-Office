@@ -1,4 +1,4 @@
-// Tableau de bord administrateur (#/admin) : vue d'ensemble, cloud, assistant IA, application Android, journal, santé du site.
+// Tableau de bord administrateur (#/admin) : vue d'ensemble, cloud, Judy, application Android, journal, santé du site.
 // Les données viennent de /api/admin (protégé par ADMIN_CODE) ; rien n'est lisible sans connexion.
 import { h, icon, toast, confirmDialog, sheet } from './ui.js';
 import { fmtBytes } from './storage.js';
@@ -59,7 +59,7 @@ export async function showAdmin(host) {
   host.replaceChildren(h('div', { class: 'ad-page' }, head, tabsEl, body));
   const logout = head.querySelector('#ad-out');
 
-  const TABS = [['overview', 'Vue d’ensemble'], ['users', 'Comptes'], ['ai', 'Assistant IA'], ['app', 'Application'], ['events', 'Journal'], ['health', 'Santé']];
+  const TABS = [['overview', 'Vue d’ensemble'], ['users', 'Comptes'], ['ai', 'Judy'], ['app', 'Application'], ['events', 'Journal'], ['health', 'Santé']];
   let current = 'overview';
   const VIEWS = { overview: viewOverview, users: viewUsers, ai: viewAi, app: viewApp, events: viewEvents, health: viewHealth };
 
@@ -125,7 +125,7 @@ export async function showAdmin(host) {
         kpi('Envois cloud (7 j)', nf(k.cloudPuts7d), k.cloudErr7d ? `${nf(k.cloudErr7d)} erreurs` : 'aucune erreur', k.cloudErr7d ? 'bad' : '')),
       h('div', { class: 'ad-grid' },
         card('Visites — 14 jours', barChart(o.series, ['visit'], ['#2563eb'], ['Visites']), legend([['#2563eb', 'Visites']])),
-        card('Assistant IA — 14 jours', barChart(o.series, ['ai', 'ai_error'], ['#16a34a', '#dc2626'], ['Réussies', 'Erreurs']), legend([['#16a34a', 'Réussies'], ['#dc2626', 'Erreurs']])),
+        card('Judy — 14 jours', barChart(o.series, ['ai', 'ai_error'], ['#16a34a', '#dc2626'], ['Réussies', 'Erreurs']), legend([['#16a34a', 'Réussies'], ['#dc2626', 'Erreurs']])),
         card('Comptes, cloud et application — 14 jours', barChart(o.series, ['signup', 'cloud_put', 'apk_download', 'app_open'], ['#16a34a', '#7c3aed', '#f59e0b', '#0891b2'], ['Nouveaux comptes', 'Envois cloud', 'APK téléchargés', 'Ouvertures app']), legend([['#16a34a', 'Nouveaux comptes'], ['#7c3aed', 'Envois cloud'], ['#f59e0b', 'APK téléchargés'], ['#0891b2', 'Ouvertures app']])),
         card('Plateformes (visites, 30 j)', ...(plat.length ? plat.map(([p, n]) => h('div', { class: 'ad-bar' }, h('span', {}, PL[p] || p), h('div', {}, h('i', { style: { width: Math.max(3, Math.round((n / platTotal) * 100)) + '%' } })), h('b', {}, nf(n)))) : [note('Pas encore de données.')]))),
       note('Statistiques anonymes : aucune adresse IP, aucun identifiant ni contenu de document n’est enregistré. Les données de plus de 90 jours sont supprimées automatiquement.'));
@@ -184,7 +184,7 @@ export async function showAdmin(host) {
         h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmDialog('Supprimer ce document du cloud ?', 'Supprimer', true)) { try { await call('user_doc_delete', { id: u.id, doc: d.id }); toast('Supprimé'); sh.close(); render(); } catch (e) { toast(e.message, 4000); } } } }, icon('trash', 14)))) : [note('Aucun document.')])), { wide: true });
   }
 
-  /* ----- assistant IA ----- */
+  /* ----- Judy ----- */
   async function viewAi() {
     const [o, hl] = await Promise.all([call('overview'), call('health')]);
     const out = h('div', { class: 'ad-testout' });
@@ -193,10 +193,10 @@ export async function showAdmin(host) {
     const key = hl.checks.find((c) => c.key === 'GEMINI_API_KEY');
     body.replaceChildren(
       h('div', { class: 'ad-kpis' },
-        kpi('Clé de l’assistant', key?.ok ? 'Configurée' : 'Manquante', key?.ok ? 'GEMINI_API_KEY définie' : 'voir GUIDE-IA.md', key?.ok ? 'ok' : 'bad'),
+        kpi('Clé de Judy', key?.ok ? 'Configurée' : 'Manquante', key?.ok ? 'GEMINI_API_KEY définie' : 'voir GUIDE-IA.md', key?.ok ? 'ok' : 'bad'),
         kpi('Requêtes (7 j)', nf(o.ai.total || 0)), kpi('Latence moyenne', o.ai.avgMs ? (o.ai.avgMs / 1000).toFixed(1) + ' s' : '—'),
         kpi('Erreurs (7 j)', nf((o.kpi || {}).aiErr7d || 0), st.length ? st.map(([c, n]) => `${c}: ${n}`).join(' · ') : 'aucune', (o.kpi || {}).aiErr7d ? 'bad' : '')),
-      card('Tester l’assistant', h('p', { class: 'muted' }, 'Envoie une vraie requête minimale au service d’IA et indique le modèle utilisé et le temps de réponse.'),
+      card('Tester Judy', h('p', { class: 'muted' }, 'Envoie une vraie requête minimale au service d’IA et indique le modèle utilisé et le temps de réponse.'),
         h('button', { class: 'btn primary', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; out.replaceChildren(note('Test en cours…')); try { const r = await call('ai_test'); out.replaceChildren(note(r.ok ? `Réponse « ${r.text} » en ${(r.ms / 1000).toFixed(1)} s — modèle ${r.model || 'inconnu'}` : `Échec${r.status ? ' (' + r.status + ')' : ''} : ${r.message}`, r.ok ? 'ok' : 'bad')); } catch (er) { out.replaceChildren(note(er.message, 'bad')); } b.disabled = false; } }, icon('sparkle', 18), 'Lancer le test'), out),
       card('Modèles utilisés (7 j)', ...(models.length ? models.map(([m, n]) => h('div', { class: 'ad-bar' }, h('span', {}, m), h('div', {}, h('i', { style: { width: Math.max(3, Math.round((n / models[0][1]) * 100)) + '%' } })), h('b', {}, nf(n)))) : [note('Aucune requête enregistrée.')])),
       note('Le modèle est choisi automatiquement (le plus récent disponible avec votre clé) et bascule seul sur un autre en cas de surcharge.'));

@@ -1,4 +1,4 @@
-// Tableau de bord administrateur : statistiques d'usage, cloud, assistant IA, application Android, journal et santé du site.
+// Tableau de bord administrateur : statistiques d'usage, cloud, Judy, application Android, journal et santé du site.
 // Protégé par la variable d'environnement ADMIN_CODE (8 caractères minimum). Aucun secret n'est jamais renvoyé.
 import { createHmac, createHash, timingSafeEqual, randomBytes } from 'node:crypto';
 import { getSql, initDocs, initEvents, initUsers, logEvent, dropUserShares } from './_db.js';
@@ -163,8 +163,8 @@ export default async function handler(req, res) {
         const out = {
           checks: [
             { key: 'ADMIN_CODE', label: 'Code administrateur', ok: enabled(), hint: 'Variable ADMIN_CODE' },
-            { key: 'GEMINI_API_KEY', label: 'Clé de l’assistant IA', ok: env('GEMINI_API_KEY'), hint: 'Variable GEMINI_API_KEY (voir GUIDE-IA.md)' },
-            { key: 'AI_ACCESS_CODE', label: 'Code d’accès de l’assistant', ok: env('AI_ACCESS_CODE'), info: true, hint: 'Facultatif : protège votre quota IA' },
+            { key: 'GEMINI_API_KEY', label: 'Clé de Judy', ok: env('GEMINI_API_KEY'), hint: 'Variable GEMINI_API_KEY (voir GUIDE-IA.md)' },
+            { key: 'AI_ACCESS_CODE', label: 'Code d’accès de Judy', ok: env('AI_ACCESS_CODE'), info: true, hint: 'Facultatif : protège votre quota IA' },
             { key: 'DATABASE_URL', label: 'Base de données (cloud, statistiques)', ok: !!sql, hint: 'Variable DATABASE_URL (voir GUIDE-CLOUD.md)' },
           ],
           db: { ok: false, ms: 0 },
