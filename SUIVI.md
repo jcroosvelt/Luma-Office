@@ -87,3 +87,4 @@ Voir `README.md` (section « Limites connues »).
 - 2026-11-19 : APK **1.44.0** (phase 4 : alerte de nouvelle version, alertes de compte, rappels personnels sur les documents) — 32.1 Mo.
 - **Politique de confidentialité** : page publique `/confidentialite.html` (exigée par Google Play pour la fiche de l'application).
 - **APK 1.47.0** (32 Mo) : IA renommée Judy, rédaction longue, préparation Google Play.
+- **APK 1.49.0** (33 Mo) : icône sans fond blanc, partage de documents dans l'application (partager, Partagés avec moi, commentaires, mentions, alertes).
