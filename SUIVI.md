@@ -84,3 +84,4 @@ Voir `README.md` (section « Limites connues »).
 - 2026-11-18 : APK **1.38.0** (vrai lecteur PDF natif : pages d'origine, zoom, recherche, mode lecture, partage, impression ; conversion en document modifiable à la demande) — 30.5 Mo.
 - 2026-11-18 : APK **1.39.0** (lecteur PDF complet : annotations, signature, formulaires, recherche surlignée, lecture à voix haute, export du PDF annoté) — 30.9 Mo.
 - 2026-11-19 : APK **1.41.0** (mise en page IA, surlignage collé au texte, anciens .xls/.ppt, PDF protégés par mot de passe, synchro des PDF ; versions jni figées après un écran blanc détecté en test) — 31.1 Mo.
+- 2026-11-19 : APK **1.44.0** (phase 4 : alerte de nouvelle version, alertes de compte, rappels personnels sur les documents) — 32.1 Mo.
