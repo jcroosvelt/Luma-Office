@@ -1,7 +1,7 @@
 // Comptes clients du cloud : création de compte, connexion, profil, changement de mot de passe, suppression du compte.
 // Prêt pour un abonnement payant futur : chaque compte a une offre (plan), une date de fin et des quotas (voir _auth.js).
 import { randomBytes } from 'node:crypto';
-import { getSql, initUsers, initDocs, logEvent } from './_db.js';
+import { getSql, initUsers, initDocs, logEvent, dropUserShares } from './_db.js';
 import { PLANS, hashPassword, checkPassword, newDek, makeToken, authUser, profile, EMAIL_RE, normEmail, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
 
 const signupOk = limiter(6, 3_600_000);     // créations de compte par adresse IP et par heure
@@ -73,6 +73,7 @@ export default async function handler(req, res) {
       case 'delete_account': {
         if (!checkPassword(body.password || '', u.pw)) return fail(res, 403, 'Mot de passe incorrect.', 'bad-login');
         await sql`DELETE FROM luma_cloud_docs WHERE owner = ${u.id}`;
+        await dropUserShares(sql, u.id);
         await sql`DELETE FROM luma_users WHERE id = ${u.id}`;
         await logEvent('account_deleted', {});
         return json(res, 200, { ok: true });

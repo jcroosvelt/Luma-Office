@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "test:partage": "node tests/share.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.16",

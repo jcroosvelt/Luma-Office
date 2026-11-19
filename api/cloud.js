@@ -1,7 +1,7 @@
 // Cloud Luma Office : documents des comptes clients (fonction serverless Vercel + Postgres / Neon).
 // Chaque document est chiffré au repos (AES-256-GCM) avec la clé de données du compte. Accès réservé au compte connecté,
 // dans la limite de son offre (espace et nombre de documents).
-import { getSql, initUsers, initDocs, logEvent } from './_db.js';
+import { getSql, initUsers, initDocs, logEvent, dropDocShares } from './_db.js';
 import { authUser, effective, encrypt, decrypt, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
 
 const rateOk = limiter(240, 60_000);
@@ -55,10 +55,12 @@ export default async function handler(req, res) {
       case 'delete': {
         if (!validId(body.id)) return fail(res, 400, 'Identifiant invalide.');
         await sql`DELETE FROM luma_cloud_docs WHERE owner = ${owner} AND id = ${body.id}`;
+        await dropDocShares(sql, owner, body.id);
         return json(res, 200, { ok: true });
       }
       case 'deleteAll': {
         await sql`DELETE FROM luma_cloud_docs WHERE owner = ${owner}`;
+        await dropDocShares(sql, owner, null);
         return json(res, 200, { ok: true });
       }
       default: return fail(res, 400, 'Action inconnue.');

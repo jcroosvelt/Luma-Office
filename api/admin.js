@@ -1,7 +1,7 @@
 // Tableau de bord administrateur : statistiques d'usage, cloud, assistant IA, application Android, journal et santé du site.
 // Protégé par la variable d'environnement ADMIN_CODE (8 caractères minimum). Aucun secret n'est jamais renvoyé.
 import { createHmac, createHash, timingSafeEqual, randomBytes } from 'node:crypto';
-import { getSql, initDocs, initEvents, initUsers, logEvent } from './_db.js';
+import { getSql, initDocs, initEvents, initUsers, logEvent, dropUserShares } from './_db.js';
 import { PLANS, hashPassword } from './_auth.js';
 
 const DAY = 86_400_000;
@@ -119,6 +119,7 @@ export default async function handler(req, res) {
         needDb(); await initUsers(sql); await initDocs(sql);
         if (!id32(body.id)) return fail(res, 400, 'Compte invalide.');
         await sql`DELETE FROM luma_cloud_docs WHERE owner = ${body.id}`;
+        await dropUserShares(sql, body.id);
         await sql`DELETE FROM luma_users WHERE id = ${body.id}`;
         await logEvent('admin', { a: 'user_delete' });
         return json(res, 200, { ok: true });
@@ -139,7 +140,7 @@ export default async function handler(req, res) {
         needDb(); await initUsers(sql); await initDocs(sql);
         const days = Math.max(30, Math.min(3650, Math.floor(num(body.days) || 365))), cutoff = Date.now() - days * DAY;
         const old = await sql`SELECT id FROM luma_users WHERE plan = 'free' AND coalesce(last_login, created) < ${cutoff}`;
-        for (const o of old) { await sql`DELETE FROM luma_cloud_docs WHERE owner = ${o.id}`; await sql`DELETE FROM luma_users WHERE id = ${o.id}`; }
+        for (const o of old) { await sql`DELETE FROM luma_cloud_docs WHERE owner = ${o.id}`; await dropUserShares(sql, o.id); await sql`DELETE FROM luma_users WHERE id = ${o.id}`; }
         await logEvent('admin', { a: 'purge_users', days, n: old.length });
         return json(res, 200, { ok: true, n: old.length });
       }
