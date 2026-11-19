@@ -60,6 +60,7 @@ export async function showDocuments(host, { onOpen, onNew, onImportFiles, refres
       { icon: 'file', label: 'Ouvrir', run: () => onOpen(d.id) },
       { icon: 'edit', label: 'Renommer', run: async () => { const t = await promptDialog('Renommer', 'Titre du document', d.title); if (t?.trim()) { await putDoc({ ...d, title: t.trim() }); refresh(); } } },
       { icon: 'lock', label: d.lock ? 'Protection…' : 'Protéger par mot de passe…', run: async () => { const L = await import('./lock.js'); L.openLockSheet(d, async (patch) => { await putDoc({ ...d, lock: patch.lock || undefined }); refresh(); }, { pdf: d.kind === 'pdf' || d.kind === 'sheet' }); } },
+      !d.kind || d.kind === 'doc' ? { icon: 'share', label: 'Partager avec un compte…', hint: 'Lecture seule, avec commentaires', run: async () => (await import('./share.js')).openShareSheet(d) } : null,
       { icon: 'copy', label: 'Dupliquer', run: async () => { await putDoc({ ...d, id: newId(), title: d.title + ' (copie)', updated: Date.now() }); refresh(); } },
       { icon: 'trash', label: 'Supprimer', danger: true, run: async () => { if (await confirmDialog(`Supprimer « ${d.title} » définitivement ?`, 'Supprimer', true)) { await deleteDoc(d.id); refresh(); } } },
     ], () => s.close()));

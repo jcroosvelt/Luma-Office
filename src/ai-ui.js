@@ -1,9 +1,10 @@
 // Fenêtre « Assistant IA » : actions rapides (reformuler, corriger, résumer, traduire…), consigne libre, résultat en direct.
 import { h, icon, sheet, toast, confirmDialog } from './ui.js';
 import { generate, aiPrefs, mdToHtml, AiError } from './ai.js';
+import { writeLongDocument, longPages } from './ai-long.js';
 
 const EDIT_SYS = 'Tu es l’assistant de rédaction d’un traitement de texte. Réponds UNIQUEMENT avec le texte demandé : pas d’introduction, pas de commentaire, pas de guillemets autour du résultat. Garde la langue du texte d’origine, sauf demande de traduction. Sépare les paragraphes par une ligne vide. N’utilise pas de Markdown (ni **, ni #), sauf si l’on te demande explicitement une liste ou un plan.';
-const GEN_SYS = 'Tu es l’assistant de rédaction d’un traitement de texte. Réponds en français sauf demande contraire, sans phrase d’introduction du type « Voici ». Tu peux structurer avec # et ## pour les titres, - pour les listes et ** pour le gras. Sépare les paragraphes par une ligne vide.';
+const GEN_SYS = 'Tu es l’assistant de rédaction d’un traitement de texte. Réponds en français sauf demande contraire, sans phrase d’introduction du type « Voici ». Tu peux structurer avec # et ## pour les titres, - pour les listes et ** pour le gras. Sépare les paragraphes par une ligne vide. Pour un document complet (règlement, contrat, rapport, guide, statuts…), sois EXHAUSTIF : articles ou sections numérotés avec alinéas, cas particuliers, procédures, exemples concrets ; ne te limite jamais à un résumé ni à quelques lignes par partie, sauf demande explicite, et respecte la longueur demandée.';
 const PDF_SYS = 'Tu es un assistant qui répond à des questions sur un document fourni par l’utilisateur. Appuie-toi uniquement sur le document ; si l’information n’y figure pas, dis-le clairement. Quand c’est utile, indique la page (le texte contient des repères « [Page N] »). Réponds en français, de façon claire et concise ; Markdown léger autorisé (listes avec -, gras avec **).';
 const LANGS = ['anglais', 'espagnol', 'allemand', 'italien', 'portugais', 'arabe', 'néerlandais', 'chinois', 'français'];
 const MAX_CHARS = 400000;
@@ -39,7 +40,7 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
   const sel = (getSelection?.() || '').trim();
   const isPdf = kind === 'pdf';
   const words = (t) => (t.match(/\S+/g) || []).length;
-  let messages = [], lastResult = '', ctrl = null, running = false, s;
+  let messages = [], lastResult = '', ctrl = null, running = false, s, lengthMode = 'auto';
 
   const chat = h('div', { class: 'ai-chat', hidden: true, 'aria-live': 'polite' });
   const scrollChat = () => { chat.scrollTop = chat.scrollHeight; };
@@ -68,7 +69,7 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
     status.textContent = 'L’assistant réfléchit…';
     let first = true;
     try {
-      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, onText: (_d, full) => { if (first) { first = false; status.textContent = 'L’assistant écrit…'; } cur.innerHTML = mdToHtml(full); scrollChat(); } });
+      lastResult = await generate({ system, messages, signal: ctrl.signal, temperature, maxTokens: 8192, onText: (_d, full) => { if (first) { first = false; status.textContent = 'L’assistant écrit…'; } cur.innerHTML = mdToHtml(full); scrollChat(); } });
       messages = [...messages, { role: 'model', text: lastResult }];
       cur.innerHTML = mdToHtml(lastResult);
       status.textContent = `${words(lastResult)} mots`; buildApply();
@@ -77,6 +78,30 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
       const partial = !first && cur.textContent.trim();
       if (e.name === 'AbortError') { status.textContent = 'Arrêté.'; if (partial) { lastResult = cur.textContent; buildApply(); } else cur.remove(); }
       else { status.textContent = ''; if (!partial) cur.remove(); showError(e); }
+    } finally { cur.classList.remove('typing'); running = false; ctrl = null; stopBtn.hidden = true; send.disabled = false; scrollChat(); }
+  }
+  async function runLong(q, ctx, pages) {
+    if (running) return;
+    running = true; ctrl = new AbortController();
+    errBox.hidden = true; applyRow.hidden = true; stopBtn.hidden = false; send.disabled = true;
+    chat.hidden = false; chat.append(h('div', { class: 'ai-msg me' }, q));
+    const cur = h('div', { class: 'ai-msg bot typing' }, h('span', { class: 'ai-dots' }, h('i'), h('i'), h('i')));
+    chat.append(cur); scrollChat();
+    try {
+      const r = await writeLongDocument({
+        instruction: q, context: ctx, pages, cancelled: () => ctrl.signal.aborted,
+        ask: (msgs, o) => generate({ system: o.system, messages: msgs, signal: ctrl.signal, temperature: o.temperature, maxTokens: o.maxTokens, json: !!o.json }),
+        onProgress: (partial, st) => { status.textContent = st; if (partial) { cur.innerHTML = mdToHtml(partial); scrollChat(); } },
+      });
+      lastResult = r.text;
+      if (!lastResult) { cur.remove(); status.textContent = r.note || 'Arrêté.'; return; }
+      messages = [{ role: 'user', text: q }, { role: 'model', text: lastResult }];
+      cur.innerHTML = mdToHtml(lastResult);
+      status.textContent = `${words(lastResult).toLocaleString('fr-FR')} mots (environ ${Math.max(1, Math.round(words(lastResult) / 450))} pages)${r.note ? ' — ' + r.note : ''}`;
+      buildApply();
+      ta.placeholder = 'Demander une modification du résultat… (ex. « ajoute un article sur… »)';
+    } catch (e) {
+      status.textContent = ''; cur.remove(); if (e.name !== 'AbortError') showError(e);
     } finally { cur.classList.remove('typing'); running = false; ctrl = null; stopBtn.hidden = true; send.disabled = false; scrollChat(); }
   }
   function showError(e) {
@@ -121,15 +146,19 @@ export async function openAssistant({ kind = 'editor', title = 'Assistant IA', a
     if (lastResult) { run([...messages, { role: 'user', text: q }], isPdf ? PDF_SYS : GEN_SYS, { user: q }); return; } // suite de la conversation
     if (isPdf) { const t = docText(); if (!t.trim()) { toast('Ce PDF ne contient pas de texte'); return; } run([{ role: 'user', text: `Document :\n${t}\n\nQuestion : ${q}` }], PDF_SYS, { temperature: 0.3, user: q }); return; }
     const ctx = sel || (useDoc.checked ? docText() : '');
+    const pages = longPages(lengthMode, q);
+    if (pages) { runLong(q, ctx, pages); return; }
     run([{ role: 'user', text: ctx ? `${q}\n\nTexte concerné :\n${ctx}` : q }], ctx ? EDIT_SYS : GEN_SYS, { user: q });
   }
 
+  const lenBtns = [['auto', 'Auto'], ['court', 'Court'], ['long', 'Long (~10 pages)'], ['tres', 'Très long (jusqu’à 10 000 mots)']].map(([id, l]) => h('button', { class: 'chip' + (id === lengthMode ? ' on' : ''), type: 'button', 'aria-pressed': id === lengthMode ? 'true' : 'false', onclick: () => { lengthMode = id; lenBtns.forEach((b, i) => { const on = ['auto', 'court', 'long', 'tres'][i] === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); } }, l));
+  const lenRow = h('div', { class: 'chips ai-len' }, h('small', { class: 'muted' }, 'Longueur :'), ...lenBtns);
   const ctxLabel = isPdf ? `PDF entier (${words(docText()).toLocaleString('fr-FR')} mots)` : sel ? `Sélection : ${words(sel)} mot${words(sel) > 1 ? 's' : ''}` : 'Aucun texte sélectionné : les actions portent sur le document entier';
   s = sheet(title, h('div', { class: 'form ai-box' },
     h('div', { class: 'ai-ctx' }, icon('sparkle', 16), h('span', {}, ctxLabel)),
     h('div', { class: 'chips ai-chips' }, ...(isPdf ? PDF_ACTIONS : EDIT_ACTIONS).map(([id, l, p]) => quick(id, l, p)), h('span', { class: 'ai-tr' }, h('button', { class: 'chip', onclick: translate }, 'Traduire en'), langSel)),
     chat, applyRow, errBox,
-    ta, !isPdf && !sel ? h('label', { class: 'chk' }, useDoc, ' Utiliser le document comme contexte pour ma consigne') : null,
+    ta, !isPdf ? lenRow : null, !isPdf && !sel ? h('label', { class: 'chk' }, useDoc, ' Utiliser le document comme contexte pour ma consigne') : null,
     h('div', { class: 'row' }, send, stopBtn, status),
     h('small', { class: 'muted' }, 'Le résultat peut contenir des erreurs : relisez-le avant de l’utiliser.')),
   { wide: true, onClose: () => ctrl?.abort() });

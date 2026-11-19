@@ -28,6 +28,7 @@ async function post(path, action, payload = {}, auth = true) {
   }
   return body;
 }
+export const sharePost = (action, payload) => post('share', action, payload);
 export async function serverInfo() {
   try { const r = await fetch(url('account')); if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return { configured: false, plans: [] }; return await r.json(); } catch { return { configured: false, plans: [] }; }
 }

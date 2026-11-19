@@ -79,6 +79,8 @@ async function render() {
     const rec = await createDocFromHtml({ title: 'Document sans titre', html: t.html(), settings: templateSettings(t) });
     history.replaceState(null, '', `#/doc/${rec.id}`);
   }
+  const sm = location.hash.match(/^#\/partage\/([a-f0-9]{24})$/);
+  if (sm) { document.documentElement.classList.remove('in-editor'); await (await import('./share.js')).showShared(app, sm[1], { onBack: () => { location.hash = '#/cloud'; } }); return; }
   const m = location.hash.match(/^#\/doc\/(.+)$/);
   if (m) {
     const rec = await getDoc(m[1]);
@@ -132,5 +134,6 @@ if ('launchQueue' in window) {
 }
 
 initAppBridge({ go });
+import('./share.js').then((S) => S.startNotifWatcher()).catch(() => {});
 addEventListener('hashchange', render);
 render();

@@ -134,6 +134,8 @@ export async function showCloud(host, { onOpen, refresh }) {
         h('small', { class: 'muted' }, `Dernière synchronisation : ${fmtDate(c.last)}`)].filter(Boolean));
     };
     renderAccount();
+    const notifCard = h('section', { class: 'cl-card' }), inboxCard = h('section', { class: 'cl-card' });
+    import('./share.js').then((S) => { S.drawNotifCard(notifCard); S.drawInboxCard(inboxCard); });
     body.append(accountCard,
       h('section', { class: 'cl-card' }, h('b', {}, 'Synchronisation'),
         h('div', { class: 'row' },
@@ -141,6 +143,7 @@ export async function showCloud(host, { onOpen, refresh }) {
           h('button', { class: 'btn', onclick: () => runSync('up') }, 'Tout envoyer'),
           h('button', { class: 'btn', onclick: async () => { if (await confirmDialog('Récupérer tous les documents du cloud sur cet appareil ? Les versions plus récentes du cloud remplaceront celles de cet appareil.', 'Restaurer')) runSync('down'); } }, icon('download', 18), 'Tout restaurer')),
         h('label', { class: 'chk' }, auto, ' Synchronisation automatique (à l’ouverture et après chaque enregistrement)')),
+      notifCard, inboxCard,
       h('section', { class: 'cl-card' }, h('b', {}, 'Mes documents dans le cloud'), list),
       h('section', { class: 'cl-card' }, h('b', {}, 'Votre offre'), planCards(info.plans || [], p?.plan || 'free'),
         h('small', { class: 'muted' }, 'L’abonnement Premium sera bientôt disponible : votre compte actuel sera utilisé, rien à refaire.')),

@@ -832,3 +832,20 @@ html.in-admin .appnav.bottom { display: none; }
 .cl-card .row, .ad-card .row, .cl-plan .row { flex-wrap: wrap; } .cl-card .row .btn { flex: 1 1 auto; }
 .ad-head { flex-wrap: wrap; row-gap: 6px; } .ad-head .btn { padding-left: 10px; padding-right: 10px; }
 @media (max-width: 520px) { .ad-head .btn.sm { font-size: 12px; } .ad-title small { display: none; } }
+
+/* ---------- partage de documents, commentaires, notifications ---------- */
+.sh-people { display: grid; gap: 6px; } .sh-person { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--line); } .sh-person > div { display: grid; min-width: 0; } .sh-person small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.sh-notif { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); } .sh-notif.new { background: var(--brand-tint); border-color: var(--brand); }
+.sh-notif-t { display: grid; gap: 1px; min-width: 0; flex: 1; } .sh-notif-t small { color: var(--muted); }
+.share-alert { position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 310; width: min(560px, calc(100vw - 20px)); display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: var(--surface); color: var(--text); border: 1px solid var(--brand); box-shadow: var(--shadow); }
+.sh-page { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.sh-top { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--navy); color: #fff; } .sh-top .icon-btn { color: #fff; } .sh-title { flex: 1; min-width: 0; display: grid; } .sh-title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sh-title small { opacity: .8; }
+.sh-wait { display: grid; gap: 12px; place-content: center; flex: 1; text-align: center; padding: 24px; }
+.sh-body { flex: 1; min-height: 0; display: flex; gap: 14px; padding: 14px; overflow: auto; } @media (max-width: 860px) { .sh-body { flex-direction: column; } }
+.sh-paper { flex: 1 1 640px; background: #fff; color: #111; padding: 28px 32px; border-radius: 6px; box-shadow: var(--shadow); font-family: Carlito, Calibri, system-ui, sans-serif; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; min-width: 0; align-self: flex-start; }
+.sh-paper img { max-width: 100%; height: auto; } .sh-paper table { border-collapse: collapse; max-width: 100%; } .sh-paper td, .sh-paper th { border: 1px solid #c7cfdd; padding: 4px 6px; } .sh-paper a { color: #0157e0; }
+.sh-side { flex: 0 0 340px; display: grid; gap: 8px; align-content: start; } @media (max-width: 860px) { .sh-side { flex: none; } }
+.sh-thread { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+.sh-comment { padding: 8px 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); } .sh-comment.mine { background: var(--brand-tint); }
+.sh-comment p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; } .sh-who { display: flex; justify-content: space-between; gap: 8px; } .sh-who small { color: var(--muted); } .sh-at { color: var(--brand); }
+.sh-mentions { display: flex; flex-wrap: wrap; gap: 6px; }
