@@ -40,7 +40,9 @@ function rankModels(names) {
 
 const MAX_BODY = 600_000; // caractères
 let modelCache = { at: 0, list: [] };
-const dead = new Set(); // modèles refusés (introuvables) : on ne les réessaie pas
+// modèles refusés (introuvables) : mis de côté 10 minutes seulement (un 404 passager de Google ne doit pas les bannir durablement)
+const deadMap = new Map();
+const dead = { has: (n) => (deadMap.get(n) || 0) > Date.now(), add: (n) => deadMap.set(n, Date.now() + 10 * 60_000) };
 const busy = new Map(); // modèles saturés (503/504) : mis de côté 3 minutes
 const isBusy = (n) => (busy.get(n) || 0) > Date.now();
 
@@ -161,10 +163,12 @@ export default async function handler(req, res) {
       if (upstream.status === 404) { dead.add(m); modelCache = { at: 0, list: [] }; }
       if ([429, 500, 502, 503, 504].includes(upstream.status)) busy.set(m, Date.now() + 3 * 60_000);
       let detail = ''; try { detail = (await upstream.clone().text()).slice(0, 200); } catch { /* ignore */ } console.error('[ai] modèle', m, '→', upstream.status, detail); trace.push(detail.replace(/\s+/g, ' '));
-      m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n) && !isBusy(n)) || (await discoverList(key)).find((n) => !tried.has(n) && !dead.has(n));
+      m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n) && !isBusy(n)) || (await discoverList(key)).find((n) => !tried.has(n) && !dead.has(n))
+        || ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest'].find((n) => !tried.has(n));
     }
   } catch { await logEvent('ai_error', { model, status: 502, ms: Date.now() - t0 }); return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
-  if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } const st = upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status; return json(res, st, { error: { code: st, message: explain(upstream.status, b), trace: typeof trace !== 'undefined' ? trace : [] } }); }
+  if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } let st = upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status;
+    if (st === 404) st = 503; /* panne passagère côté Google : l'application réessaie toute seule */ return json(res, st, { error: { code: st, message: explain(st === 503 && upstream.status === 404 ? 503 : upstream.status, b), trace: typeof trace !== 'undefined' ? trace : [] } }); }
 
   await logEvent('ai', { model, ms: Date.now() - t0 });
   res.writeHead(200, { 'X-AI-Model': model, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
