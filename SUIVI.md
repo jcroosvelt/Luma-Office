@@ -88,3 +88,4 @@ Voir `README.md` (section « Limites connues »).
 - **Politique de confidentialité** : page publique `/confidentialite.html` (exigée par Google Play pour la fiche de l'application).
 - **APK 1.47.0** (32 Mo) : IA renommée Judy, rédaction longue, préparation Google Play.
 - **APK 1.49.0** (33 Mo) : icône sans fond blanc, partage de documents dans l'application (partager, Partagés avec moi, commentaires, mentions, alertes).
+- **APK en base de données** : plus de fichier dans Git. Téléversement depuis `/admin` › Application (par morceaux, contrôle SHA-256), l'ancienne version est supprimée ; `/luma-office.apk` et `/apk-info.json` sont servis par `api/apk.js` (reprise Range). Test : `npm run test:apk`.

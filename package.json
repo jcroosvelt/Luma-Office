@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "test:partage": "node tests/share.test.mjs",
-    "test:ia-longue": "node tests/ai-long.test.mjs"
+    "test:ia-longue": "node tests/ai-long.test.mjs",
+    "test:apk": "node tests/apk.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.16",

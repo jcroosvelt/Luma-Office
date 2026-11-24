@@ -208,15 +208,49 @@ export async function showAdmin(host) {
     const k = o.kpi || {}, v = Object.entries(o.appVersions || {}).sort((a, b) => b[1] - a[1]);
     body.replaceChildren(
       h('div', { class: 'ad-kpis' },
-        kpi('Fichier APK', info.file ? 'Publié' : 'Absent', info.file ? `${info.version ? 'version ' + info.version + ' · ' : ''}${fmtBytes(info.size)}` : 'ajoutez public/luma-office.apk', info.file ? 'ok' : 'bad'),
+        kpi('Fichier APK', info.file ? 'Publié' : 'Absent', info.file ? `${info.version ? 'version ' + info.version + ' · ' : ''}${fmtBytes(info.size)}` : 'téléversez un fichier ci-dessous', info.file ? 'ok' : 'bad'),
         kpi('Fenêtre « Installer » ouverte (7 j)', nf(k.installOpens7d || 0)), kpi('APK téléchargé (7 j)', nf(k.apkDownloads7d || 0), `${nf(k.apkDownloads30d || 0)} sur 30 j`),
         kpi('Ouvertures de l’app (7 j)', nf(k.appOpens7d || 0), `${nf(k.appOpens30d || 0)} sur 30 j`)),
       card('Versions de l’application utilisées (30 j)', ...(v.length ? v.map(([ver, n]) => h('div', { class: 'ad-bar' }, h('span', {}, ver), h('div', {}, h('i', { style: { width: Math.max(3, Math.round((n / v[0][1]) * 100)) + '%' } })), h('b', {}, nf(n)))) : [note('Aucune ouverture enregistrée pour l’instant.')])),
-      card('Mettre à jour l’APK', h('ol', { class: 'ins-steps-ol' },
-        h('li', {}, 'GitHub › luma-office-apk › Actions › dernier build réussi › Artifacts › Android-APK.'),
-        h('li', {}, 'Renommez le fichier en luma-office.apk et déposez-le dans le dossier public du site.'),
-        h('li', {}, 'Mettez à jour public/apk-info.json avec la nouvelle version.')),
-      h('small', { class: 'muted' }, 'La version affichée aux utilisateurs vient de apk-info.json.')));
+      uploadCard(info));
+  }
+
+  // Téléversement de l'APK : par morceaux (la limite d'un envoi est de 4 Mo), contrôle d'intégrité à la fin ; remplace l'ancienne version.
+  function uploadCard(info) {
+    const file = h('input', { type: 'file', accept: '.apk,application/vnd.android.package-archive', class: 'field' });
+    const ver = h('input', { class: 'field', placeholder: 'Version (ex. 1.50.0)', value: info.version || '', 'aria-label': 'Version' });
+    const bar = h('progress', { max: 100, value: 0, hidden: true, style: { width: '100%' } });
+    const msg = h('div', { class: 'muted' });
+    const go = h('button', { class: 'btn primary' }, 'Téléverser et publier');
+    file.addEventListener('change', () => { const m = /(\d+\.\d+\.\d+)/.exec(file.files[0]?.name || ''); if (m) ver.value = m[1]; });
+    const b64 = (blob) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => ko(new Error('lecture')); r.readAsDataURL(blob); });
+    go.onclick = async () => {
+      const f = file.files[0];
+      if (!f) { msg.textContent = 'Choisissez d’abord le fichier APK.'; return; }
+      if (!/^\d+\.\d+\.\d+$/.test(ver.value.trim())) { msg.textContent = 'Indiquez la version au format 1.50.0.'; return; }
+      go.disabled = file.disabled = true; bar.hidden = false; bar.value = 0;
+      try {
+        msg.textContent = 'Calcul de l’empreinte du fichier…';
+        const sha = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await f.arrayBuffer()))].map((x) => x.toString(16).padStart(2, '0')).join('');
+        const CS = 2_500_000;
+        const { id, chunks } = await call('apk_begin', { version: ver.value.trim(), size: f.size, chunkSize: CS, sha256: sha });
+        for (let n = 0; n < chunks; n++) {
+          msg.textContent = `Envoi ${n + 1}/${chunks}… ne fermez pas la page.`;
+          const data = await b64(f.slice(n * CS, (n + 1) * CS));
+          for (let t = 0; ; t++) { try { await call('apk_chunk', { id, n, data }); break; } catch (e) { if (t >= 3 || e.code === 'expired') throw e; await new Promise((r) => setTimeout(r, 1500 * (t + 1))); } }
+          bar.value = Math.round(((n + 1) / chunks) * 95);
+        }
+        msg.textContent = 'Vérification du fichier…';
+        const r = await call('apk_finish', { id });
+        bar.value = 100; msg.textContent = `Publié : version ${r.version} (${fmtBytes(r.size)}). L’ancienne version est supprimée.`;
+        toast('APK publié');
+        setTimeout(() => viewApp(), 1500);
+      } catch (e) { msg.textContent = 'Échec : ' + (e.message || 'erreur'); go.disabled = file.disabled = false; }
+    };
+    return card('Publier une nouvelle version de l’APK',
+      h('p', { class: 'muted' }, 'Choisissez le fichier APK reçu : il est stocké dans la base de données et remplace l’ancienne version, qui est supprimée. Il devient aussitôt téléchargeable depuis le bouton « Installer l’app » du site.'),
+      file, ver, go, bar, msg,
+      info.file ? h('button', { class: 'btn sm danger', onclick: async () => { if (confirm('Supprimer l’APK publié ? Le téléchargement sera indisponible jusqu’au prochain téléversement.')) { await call('apk_delete'); viewApp(); } } }, 'Supprimer l’APK publié') : null);
   }
 
   /* ----- journal ----- */

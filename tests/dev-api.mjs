@@ -8,11 +8,14 @@ globalThis.__LUMA_SQL = async (strings, ...vals) => {
   const q = strings.reduce((a, s, i) => a + s + (i < vals.length ? `$${i + 1}` : ''), '');
   return (await db.query(q, vals)).rows;
 };
+process.env.ADMIN_CODE ||= 'code-admin-1234';
 process.env.AUTH_SECRET ||= 'dev-secret-dev-secret-dev-secret-1234';
 const handlers = {
   account: (await import('../api/account.js')).default,
   cloud: (await import('../api/cloud.js')).default,
   share: (await import('../api/share.js')).default,
+  admin: (await import('../api/admin.js')).default,
+  apk: (await import('../api/apk.js')).default,
 };
 const port = Number(process.argv[2]) || 5300;
 http

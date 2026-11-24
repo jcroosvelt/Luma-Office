@@ -1,5 +1,5 @@
 // Accès base de données partagé (Neon / Postgres) et journal d'événements. Les fichiers commençant par « _ » ne sont pas des routes.
-let sqlP, readyDocs, readyEvents, readyUsers, readyShares;
+let sqlP, readyDocs, readyEvents, readyUsers, readyShares, readyApk;
 
 export async function getSql() {
   if (globalThis.__LUMA_SQL) return globalThis.__LUMA_SQL; // tests
@@ -35,6 +35,15 @@ export async function initShares(sql) {
     await sql`CREATE INDEX IF NOT EXISTS luma_notifs_user_idx ON luma_notifs (user_id, created)`;
   })();
   await readyShares;
+}
+
+// Fichier APK de l'application, stocké en base par morceaux (base64). Une seule version complète est conservée.
+export async function initApk(sql) {
+  readyApk ||= (async () => {
+    await sql`CREATE TABLE IF NOT EXISTS luma_apk (id text PRIMARY KEY, version text NOT NULL, size bigint NOT NULL, sha256 text NOT NULL, chunks int NOT NULL, chunk_size int NOT NULL, created bigint NOT NULL, complete boolean NOT NULL DEFAULT false)`;
+    await sql`CREATE TABLE IF NOT EXISTS luma_apk_chunks (apk_id text NOT NULL, n int NOT NULL, data text NOT NULL, PRIMARY KEY (apk_id, n))`;
+  })();
+  await readyApk;
 }
 
 // Supprime tout ce qui concerne un document du cloud (partages et commentaires).

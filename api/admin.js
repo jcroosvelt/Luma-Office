@@ -1,7 +1,7 @@
 // Tableau de bord administrateur : statistiques d'usage, cloud, Judy, application Android, journal et santé du site.
 // Protégé par la variable d'environnement ADMIN_CODE (8 caractères minimum). Aucun secret n'est jamais renvoyé.
 import { createHmac, createHash, timingSafeEqual, randomBytes } from 'node:crypto';
-import { getSql, initDocs, initEvents, initUsers, logEvent, dropUserShares } from './_db.js';
+import { getSql, initDocs, initEvents, initUsers, initApk, logEvent, dropUserShares } from './_db.js';
 import { PLANS, hashPassword } from './_auth.js';
 
 const DAY = 86_400_000;
@@ -28,7 +28,7 @@ const failedLogin = (ip) => { const a = tries.get(ip) || []; a.push(Date.now());
 
 async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
-  let raw = ''; for await (const c of req) { raw += c; if (raw.length > 100_000) throw new Error('too-big'); }
+  let raw = ''; for await (const c of req) { raw += c; if (raw.length > 4_400_000) throw new Error('too-big'); }
   return raw ? JSON.parse(raw) : {};
 }
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -186,10 +186,58 @@ export default async function handler(req, res) {
         return json(res, 200, { ok: !!text, ms: Date.now() - t0, model, text: text.trim().slice(0, 60) });
       }
       case 'apk_info': {
-        const base = origin(req); const out = { file: false, size: 0, version: null };
-        try { const h = await fetch(`${base}/luma-office.apk`, { method: 'HEAD' }); if (h.ok && !/html/i.test(h.headers.get('content-type') || '')) { out.file = true; out.size = num(h.headers.get('content-length')); out.modified = h.headers.get('last-modified'); } } catch { /* ignore */ }
-        try { const j = await fetch(`${base}/apk-info.json`).then((x) => (x.ok ? x.json() : null)); out.version = j?.version || null; } catch { /* ignore */ }
-        return json(res, 200, out);
+        needDb(); await initApk(sql);
+        const r = (await sql`SELECT version, size, sha256, created FROM luma_apk WHERE complete = true ORDER BY created DESC LIMIT 1`)[0];
+        if (!r) return json(res, 200, { file: false, size: 0, version: null });
+        return json(res, 200, { file: true, size: num(r.size), version: r.version, modified: new Date(num(r.created)).toISOString(), sha256: r.sha256 });
+      }
+      case 'apk_begin': { // téléversement de l'APK : 1) déclaration
+        needDb(); await initApk(sql);
+        const version = String(body.version || '').trim(), size = Number(body.size), chunkSize = Number(body.chunkSize), sha = String(body.sha256 || '').toLowerCase();
+        if (!/^[0-9A-Za-z][0-9A-Za-z.+_-]{0,29}$/.test(version)) return fail(res, 400, 'Version invalide (exemple : 1.50.0).');
+        if (!Number.isInteger(size) || size < 1000 || size > 200_000_000) return fail(res, 400, 'Taille de fichier invalide (200 Mo au plus).');
+        if (!Number.isInteger(chunkSize) || chunkSize < 100_000 || chunkSize > 3_000_000) return fail(res, 400, 'Taille de morceau invalide.');
+        if (!/^[a-f0-9]{64}$/.test(sha)) return fail(res, 400, 'Empreinte invalide.');
+        const old = await sql`SELECT id FROM luma_apk WHERE complete = false AND created < ${Date.now() - 3600_000}`; // envois abandonnés
+        for (const o of old) { await sql`DELETE FROM luma_apk_chunks WHERE apk_id = ${o.id}`; await sql`DELETE FROM luma_apk WHERE id = ${o.id}`; }
+        const id = randomBytes(16).toString('hex'), chunks = Math.ceil(size / chunkSize);
+        await sql`INSERT INTO luma_apk (id, version, size, sha256, chunks, chunk_size, created) VALUES (${id}, ${version}, ${size}, ${sha}, ${chunks}, ${chunkSize}, ${Date.now()})`;
+        return json(res, 200, { id, chunks });
+      }
+      case 'apk_chunk': { // 2) un morceau (base64)
+        needDb(); await initApk(sql);
+        if (!id32(body.id)) return fail(res, 400, 'Envoi invalide.');
+        const a = (await sql`SELECT * FROM luma_apk WHERE id = ${body.id} AND complete = false`)[0];
+        if (!a) return fail(res, 404, 'Envoi introuvable ou déjà terminé : recommencez.');
+        const n = Number(body.n);
+        if (!Number.isInteger(n) || n < 0 || n >= a.chunks || typeof body.data !== 'string') return fail(res, 400, 'Morceau invalide.');
+        const buf = Buffer.from(body.data, 'base64');
+        const expect = n < a.chunks - 1 ? a.chunk_size : num(a.size) - (a.chunks - 1) * a.chunk_size;
+        if (buf.length !== expect) return fail(res, 400, `Morceau ${n + 1} incomplet (${buf.length} octets au lieu de ${expect}).`);
+        if (n === 0 && !(buf[0] === 0x50 && buf[1] === 0x4b)) return fail(res, 400, 'Ce fichier n’est pas un APK valide.');
+        await sql`INSERT INTO luma_apk_chunks (apk_id, n, data) VALUES (${body.id}, ${n}, ${body.data}) ON CONFLICT (apk_id, n) DO UPDATE SET data = EXCLUDED.data`;
+        return json(res, 200, { ok: true });
+      }
+      case 'apk_finish': { // 3) contrôle d'intégrité, puis remplacement de l'ancienne version
+        needDb(); await initApk(sql);
+        if (!id32(body.id)) return fail(res, 400, 'Envoi invalide.');
+        const a = (await sql`SELECT * FROM luma_apk WHERE id = ${body.id} AND complete = false`)[0];
+        if (!a) return fail(res, 404, 'Envoi introuvable ou déjà terminé : recommencez.');
+        const have = (await sql`SELECT count(*)::int AS n FROM luma_apk_chunks WHERE apk_id = ${a.id}`)[0].n;
+        if (have !== a.chunks) return fail(res, 400, `Envoi incomplet (${have}/${a.chunks} morceaux). Recommencez.`);
+        const hash = createHash('sha256'); let total = 0;
+        for (let n = 0; n < a.chunks; n++) { const c = (await sql`SELECT data FROM luma_apk_chunks WHERE apk_id = ${a.id} AND n = ${n}`)[0]; const b = Buffer.from(c.data, 'base64'); total += b.length; hash.update(b); }
+        if (total !== num(a.size) || hash.digest('hex') !== a.sha256) { await sql`DELETE FROM luma_apk_chunks WHERE apk_id = ${a.id}`; await sql`DELETE FROM luma_apk WHERE id = ${a.id}`; return fail(res, 400, 'Le fichier reçu est corrompu (empreinte différente) : recommencez le téléversement.'); }
+        await sql`UPDATE luma_apk SET complete = true, created = ${Date.now()} WHERE id = ${a.id}`;
+        await sql`DELETE FROM luma_apk_chunks WHERE apk_id <> ${a.id}`;
+        await sql`DELETE FROM luma_apk WHERE id <> ${a.id}`;
+        await logEvent('apk_upload', { version: a.version, size: num(a.size) });
+        return json(res, 200, { ok: true, version: a.version, size: num(a.size) });
+      }
+      case 'apk_delete': {
+        needDb(); await initApk(sql);
+        await sql`DELETE FROM luma_apk_chunks`; await sql`DELETE FROM luma_apk`;
+        return json(res, 200, { ok: true });
       }
       default: return fail(res, 400, 'Action inconnue.');
     }

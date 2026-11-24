@@ -6,7 +6,7 @@ import { h, icon, toast, sheet } from './ui.js';
 import { pref, fmtBytes } from './storage.js';
 import { track } from './track.js';
 
-// Le vrai APK est dans le dossier public du site (public/luma-office.apk)
+// Le vrai APK est stocké en base de données (téléversé depuis /admin) et servi par api/apk.js (/luma-office.apk)
 export const APK_URL = new URL('luma-office.apk', document.baseURI).href;
 
 let deferred = null;
