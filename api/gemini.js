@@ -8,8 +8,8 @@
 //   AI_ALLOWED_ORIGINS  (facultatif)  origines autorisées en plus du site lui-même, séparées par des virgules
 //   AI_RATE_PER_MIN     (facultatif)  requêtes par minute et par adresse IP (20 par défaut)
 //   GEMINI_API_BASE     (facultatif)  adresse de l'API (tests uniquement)
-import { timingSafeEqual } from 'node:crypto';
-import { logEvent } from './_db.js';
+import { timingSafeEqual, createHash } from 'node:crypto';
+import { logEvent, getSql, rateLimit } from './_db.js';
 import { cors, APP_ORIGIN } from './_auth.js';
 
 const BASE = () => process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
@@ -63,7 +63,7 @@ const hits = new Map();
 
 const json = (res, status, obj) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
 const fail = (res, status, message, code) => json(res, status, { error: { code: code || status, message } });
-const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
+const safeEq = (a, b) => { const x = createHash('sha256').update(String(a)).digest(), y = createHash('sha256').update(String(b)).digest(); return timingSafeEqual(x, y); }; // longueur non révélée
 
 function originOk(req) {
   if (req.headers.origin === APP_ORIGIN) return true;
@@ -110,12 +110,18 @@ export default async function handler(req, res) {
   const need = process.env.AI_ACCESS_CODE;
   if (need && !safeEq(req.headers['x-access-code'] || '', need)) return fail(res, 401, 'Code d’accès de Judy incorrect ou manquant (Paramètres › Judy).', 'bad-code');
   if (!rateOk(req)) return fail(res, 429, 'Trop de demandes en peu de temps : patientez une minute.', 'rate');
+  { // plafonds PARTAGÉS entre instances (protègent le quota et la facture de la clé) : par IP et par heure / jour, et plafond global par jour
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim(), db = await getSql();
+    if (!(await rateLimit(db, 'ai-h:' + ip, +process.env.AI_RATE_PER_HOUR || 120, 3_600_000)) || !(await rateLimit(db, 'ai-d:' + ip, +process.env.AI_RATE_PER_DAY || 600, 86_400_000))) return fail(res, 429, 'Limite d’utilisation de Judy atteinte pour le moment : réessayez plus tard.', 'rate');
+    if (!(await rateLimit(db, 'ai-global', +process.env.AI_DAILY_MAX || 8000, 86_400_000))) return fail(res, 429, 'Judy est très sollicitée aujourd’hui : réessayez demain.', 'rate');
+  }
 
   let body;
   try { body = await readBody(req); } catch (e) { return fail(res, e.message === 'too-big' ? 413 : 400, e.message === 'too-big' ? 'Texte trop volumineux.' : 'Requête illisible.'); }
   if (!Array.isArray(body.contents) || !body.contents.length) return fail(res, 400, 'Requête invalide.');
   if (JSON.stringify(body).length > MAX_BODY) return fail(res, 413, 'Texte trop volumineux pour Judy : sélectionnez un passage plus court.');
-  let model = /^gemini-[a-z0-9.\-]+$/i.test(body.model || '') ? body.model : DEFAULT_MODEL();
+  // modèle imposé par le client : seulement la famille « flash » (économique) ; les modèles « pro » (chers) restent réservés au réglage serveur
+  let model = /^gemini-([\d.]+-)?flash(-lite)?(-[a-z0-9.]+)*$/i.test(body.model || '') ? body.model : DEFAULT_MODEL();
   if (!model || dead.has(model) || isBusy(model)) model = (await discoverList(key)).find((n) => !isBusy(n)) || (await discover(key)) || 'gemini-flash-latest';
 
   const gc = { ...(body.generationConfig || {}) };
@@ -162,13 +168,13 @@ export default async function handler(req, res) {
       if (upstream.ok || ![404, 429, 500, 502, 503, 504].includes(upstream.status)) break;
       if (upstream.status === 404) { dead.add(m); modelCache = { at: 0, list: [] }; }
       if ([429, 500, 502, 503, 504].includes(upstream.status)) busy.set(m, Date.now() + 3 * 60_000);
-      let detail = ''; try { detail = (await upstream.clone().text()).slice(0, 200); } catch { /* ignore */ } console.error('[ai] modèle', m, '→', upstream.status, detail); trace.push(detail.replace(/\s+/g, ' '));
+      let detail = ''; try { detail = (await upstream.clone().text()).slice(0, 200); } catch { /* ignore */ } console.error('[ai] modèle', m, '→', upstream.status, detail.replace(/key=[^&\s"]+/gi, 'key=****')); trace.push(detail.replace(/\s+/g, ' '));
       m = (await discoverList(key, upstream.status === 404)).find((n) => !tried.has(n) && !dead.has(n) && !isBusy(n)) || (await discoverList(key)).find((n) => !tried.has(n) && !dead.has(n))
         || ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest'].find((n) => !tried.has(n));
     }
   } catch { await logEvent('ai_error', { model, status: 502, ms: Date.now() - t0 }); return fail(res, 502, 'Impossible de joindre le service d’IA.'); }
   if (!upstream.ok) { await logEvent('ai_error', { model, status: upstream.status, ms: Date.now() - t0 }); let b = null; try { b = await upstream.json(); } catch { /* ignore */ } let st = upstream.status === 400 && !/API key/i.test(b?.error?.message || '') ? 400 : upstream.status;
-    if (st === 404) st = 503; /* panne passagère côté Google : l'application réessaie toute seule */ return json(res, st, { error: { code: st, message: explain(st === 503 && upstream.status === 404 ? 503 : upstream.status, b), trace: typeof trace !== 'undefined' ? trace : [] } }); }
+    if (st === 404) st = 503; /* panne passagère côté Google : l'application réessaie toute seule */ return json(res, st, { error: { code: st, message: explain(st === 503 && upstream.status === 404 ? 503 : upstream.status, b) } }); }
 
   await logEvent('ai', { model, ms: Date.now() - t0 });
   res.writeHead(200, { 'X-AI-Model': model, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });

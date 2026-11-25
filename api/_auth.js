@@ -9,12 +9,30 @@ export const PLANS = {
   pro: { id: 'pro', label: 'Premium', bytes: 2048 * MB, docs: 5000, price: null, available: false },
 };
 
-const master = () => createHash('sha256').update('luma-master:' + (process.env.AUTH_SECRET || process.env.DATABASE_URL || process.env.POSTGRES_URL || 'dev-only')).digest();
+// Clés maîtres : AUTH_SECRET (à définir, 32 caractères aléatoires ou plus) d'abord ; la clé dérivée de DATABASE_URL reste
+// acceptée en lecture pour ne pas rendre illisibles les comptes créés avant que AUTH_SECRET existe. En production, sans aucune
+// clé, le serveur refuse de fonctionner (plus de clé « dev-only » prévisible).
+const keyOf = (s) => createHash('sha256').update('luma-master:' + s).digest();
+function masters() {
+  const l = [];
+  if (process.env.AUTH_SECRET) l.push(keyOf(process.env.AUTH_SECRET));
+  const db = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (db) l.push(keyOf(db));
+  if (!l.length) {
+    if (process.env.VERCEL_ENV === 'production') throw new Error('AUTH_SECRET manquant');
+    l.push(keyOf('dev-only'));
+  }
+  return l;
+}
+const master = () => masters()[0];
 const b64 = (b) => Buffer.from(b).toString('base64');
 const unb64 = (s) => Buffer.from(String(s), 'base64');
 
 /* ----- mots de passe ----- */
 export function hashPassword(pw) { const salt = randomBytes(16); return `scrypt$${b64(salt)}$${b64(scryptSync(String(pw), salt, 64))}`; }
+const DUMMY = hashPassword('dummy-password-for-timing');
+// Compare en temps constant même si le compte n'existe pas (évite de révéler quelles adresses ont un compte).
+export const checkPasswordOrDummy = (pw, stored) => { const ok = checkPassword(pw, stored || DUMMY); return stored ? ok : false; };
 export function checkPassword(pw, stored) {
   const [alg, salt, hash] = String(stored || '').split('$');
   if (alg !== 'scrypt' || !salt || !hash) return false;
@@ -34,12 +52,15 @@ function open(key, s) {
   return Buffer.concat([d.update(u.subarray(28)), d.final()]).toString('utf8');
 }
 export const newDek = () => seal(master(), b64(randomBytes(32)));      // clé de données (stockée protégée)
-export const dekKey = (wrapped) => unb64(open(master(), wrapped));      // clé de données en clair (mémoire seulement)
+export const dekKey = (wrapped) => { // clé de données en clair (mémoire seulement) : essaie chaque clé maître (migration AUTH_SECRET)
+  let last; for (const m of masters()) { try { return unb64(open(m, wrapped)); } catch (e) { last = e; } } throw last;
+};
 export const encrypt = (wrapped, text) => seal(dekKey(wrapped), text);
 export const decrypt = (wrapped, s) => open(dekKey(wrapped), s);
 
 /* ----- sessions (jetons signés, 30 jours ; invalidés par un changement de mot de passe) ----- */
-const sig = (p) => createHmac('sha256', master()).update('session:' + p).digest('base64url');
+const sigWith = (key, p) => createHmac('sha256', key).update('session:' + p).digest('base64url');
+const sig = (p) => sigWith(master(), p);
 export function makeToken(user, days = 30) {
   const p = Buffer.from(JSON.stringify({ u: user.id, tv: user.tv || 0, exp: Date.now() + days * 86_400_000 })).toString('base64url');
   return `${p}.${sig(p)}`;
@@ -47,8 +68,8 @@ export function makeToken(user, days = 30) {
 export function readToken(token) {
   const [p, s] = String(token || '').split('.');
   if (!p || !s) return null;
-  const a = Buffer.from(sig(p)), b = Buffer.from(s);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const b = Buffer.from(s);
+  if (!masters().some((m) => { const a = Buffer.from(sigWith(m, p)); return a.length === b.length && timingSafeEqual(a, b); })) return null;
   try { const j = JSON.parse(Buffer.from(p, 'base64url').toString()); return j.exp > Date.now() ? j : null; } catch { return null; }
 }
 export async function authUser(req, sql) {
@@ -86,7 +107,7 @@ export function limiter(max, windowMs) {
   };
 }
 export const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
-export const json = (res, status, obj) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
+export const json = (res, status, obj) => { res.statusCode = status; res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
 export const fail = (res, status, message, code) => json(res, status, { error: { code: code || status, message } });
 // Application Android : le site embarqué est servi par http://127.0.0.1:47831 (voir l'APK) et appelle ce serveur.
 export const APP_ORIGIN = 'http://127.0.0.1:47831';

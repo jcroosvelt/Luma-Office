@@ -1,5 +1,5 @@
 // Accès base de données partagé (Neon / Postgres) et journal d'événements. Les fichiers commençant par « _ » ne sont pas des routes.
-let sqlP, readyDocs, readyEvents, readyUsers, readyShares, readyApk;
+let sqlP, readyDocs, readyEvents, readyUsers, readyShares, readyApk, readyRate;
 
 export async function getSql() {
   if (globalThis.__LUMA_SQL) return globalThis.__LUMA_SQL; // tests
@@ -82,4 +82,24 @@ export async function logEvent(type, data) {
     await initEvents(sql);
     await sql`INSERT INTO luma_events (ts, type, data) VALUES (${Date.now()}, ${type}, ${data ? JSON.stringify(data).slice(0, 600) : null})`;
   } catch { /* le journal ne doit jamais faire échouer une requête */ }
+}
+
+// Limiteur de débit PARTAGÉ entre toutes les instances du serveur (les compteurs en mémoire d'une fonction serverless ne
+// suffisent pas : chaque instance repart de zéro). Renvoie true si la demande est autorisée. Sans base : toujours true
+// (l'appelant garde alors son limiteur en mémoire).
+export async function rateLimit(sql, key, max, windowMs) {
+  if (!sql) return true;
+  try {
+    readyRate ||= (async () => {
+      await sql`CREATE TABLE IF NOT EXISTS luma_rate (k text NOT NULL, ts bigint NOT NULL)`;
+      await sql`CREATE INDEX IF NOT EXISTS luma_rate_k_idx ON luma_rate (k, ts)`;
+    })();
+    await readyRate;
+    const now = Date.now();
+    const n = (await sql`SELECT count(*)::int AS n FROM luma_rate WHERE k = ${key} AND ts > ${now - windowMs}`)[0].n;
+    if (n >= max) return false;
+    await sql`INSERT INTO luma_rate (k, ts) VALUES (${key}, ${now})`;
+    if (Math.random() < 0.02) await sql`DELETE FROM luma_rate WHERE ts < ${now - 2 * 86_400_000}`;
+    return true;
+  } catch { return true; } // panne de la base : on ne bloque pas les utilisateurs
 }

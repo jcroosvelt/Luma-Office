@@ -1,8 +1,8 @@
 // Comptes clients du cloud : création de compte, connexion, profil, changement de mot de passe, suppression du compte.
 // Prêt pour un abonnement payant futur : chaque compte a une offre (plan), une date de fin et des quotas (voir _auth.js).
 import { randomBytes } from 'node:crypto';
-import { getSql, initUsers, initDocs, logEvent, dropUserShares } from './_db.js';
-import { PLANS, hashPassword, checkPassword, newDek, makeToken, authUser, profile, EMAIL_RE, normEmail, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
+import { getSql, initUsers, initDocs, logEvent, dropUserShares, rateLimit } from './_db.js';
+import { PLANS, hashPassword, checkPassword, checkPasswordOrDummy, newDek, makeToken, authUser, profile, EMAIL_RE, normEmail, limiter, ipOf, json, fail, originOk, readBody, cors } from './_auth.js';
 
 const signupOk = limiter(6, 3_600_000);     // créations de compte par adresse IP et par heure
 const loginOk = limiter(12, 600_000);       // connexions par IP et par 10 minutes
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     await initUsers(sql); await initDocs(sql);
     switch (body.action) {
       case 'signup': {
-        if (!signupOk(ip)) return fail(res, 429, 'Trop de créations de compte depuis cette connexion : réessayez plus tard.', 'rate');
+        if (!signupOk(ip) || !(await rateLimit(sql, 'signup:' + ip, 8, 3_600_000))) return fail(res, 429, 'Trop de créations de compte depuis cette connexion : réessayez plus tard.', 'rate');
         const email = normEmail(body.email), password = String(body.password || ''), name = String(body.name || '').trim().slice(0, 60);
         if (!EMAIL_RE.test(email)) return fail(res, 400, 'Adresse e-mail invalide.', 'bad-email');
         if (password.length < 8) return fail(res, 400, 'Le mot de passe doit contenir au moins 8 caractères.', 'weak-password');
@@ -45,9 +45,9 @@ export default async function handler(req, res) {
       }
       case 'login': {
         const email = normEmail(body.email);
-        if (!loginOk(ip) || !loginEmailOk(email)) return fail(res, 429, 'Trop de tentatives : patientez 10 minutes.', 'rate');
+        if (!loginOk(ip) || !loginEmailOk(email) || !(await rateLimit(sql, 'login-ip:' + ip, 30, 600_000)) || !(await rateLimit(sql, 'login-mail:' + email, 10, 600_000))) return fail(res, 429, 'Trop de tentatives : patientez 10 minutes.', 'rate');
         const u = (await sql`SELECT * FROM luma_users WHERE email = ${email}`)[0];
-        if (!u || !checkPassword(body.password || '', u.pw)) { await new Promise((r) => setTimeout(r, 500)); return fail(res, 401, 'E-mail ou mot de passe incorrect.', 'bad-login'); }
+        if (!checkPasswordOrDummy(body.password || '', u?.pw) || !u) { await logEvent('login_fail', {}); await new Promise((r) => setTimeout(r, 500)); return fail(res, 401, 'E-mail ou mot de passe incorrect.', 'bad-login'); }
         if (u.status !== 'active') return fail(res, 403, 'Ce compte est suspendu. Contactez l’administrateur.', 'suspended');
         await sql`UPDATE luma_users SET last_login = ${Date.now()} WHERE id = ${u.id}`;
         await logEvent('login', {});

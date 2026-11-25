@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       case 'put': {
         if (!validId(body.id) || typeof body.data !== 'string' || typeof body.meta !== 'object' || !body.meta) return fail(res, 400, 'Requête invalide.');
         if (body.data.length > MAX_DOC) return fail(res, 413, 'Document trop volumineux pour le cloud (3 Mo maximum).', 'too-big');
-        const updated = Math.floor(+body.updated || Date.now());
+        const updated = Math.min(Math.floor(+body.updated || Date.now()), Date.now() + 86_400_000); // pas de date lointaine qui bloquerait les mises à jour
         const data = encrypt(u.dek, body.data);
         const meta = encrypt(u.dek, JSON.stringify({ title: String(body.meta.title || 'Sans titre').slice(0, 200), kind: String(body.meta.kind || 'doc').slice(0, 20), words: Math.floor(+body.meta.words || 0) }));
         const size = data.length + meta.length;
