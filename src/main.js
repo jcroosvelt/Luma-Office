@@ -79,7 +79,8 @@ async function render() {
     const rec = await createDocFromHtml({ title: 'Document sans titre', html: t.html(), settings: templateSettings(t) });
     history.replaceState(null, '', `#/doc/${rec.id}`);
   }
-  const sm = location.hash.match(/^#\/partage\/([a-f0-9]{24})$/);
+  // lien de partage : /partage/<id> (adresse publique, utilisable dans WhatsApp, e-mail…) ou ancienne forme #/partage/<id>
+  const sm = location.hash.match(/^#\/partage\/([a-f0-9]{24})$/) || location.pathname.match(/\/partage\/([a-f0-9]{24})\/?$/);
   if (sm) { document.documentElement.classList.remove('in-editor'); await (await import('./share.js')).showShared(app, sm[1], { onBack: () => { location.hash = '#/cloud'; } }); return; }
   const m = location.hash.match(/^#\/doc\/(.+)$/);
   if (m) {

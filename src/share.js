@@ -60,6 +60,8 @@ export async function openShareSheet(rec) {
       const r = await api('out', { docId: rec.id });
       list.replaceChildren(...(r.shares.length ? r.shares.map((x) => h('div', { class: 'sh-person' },
         h('div', {}, h('b', {}, who(x.to)), h('small', {}, x.to.email)),
+        // lien public de ce partage : n'ouvre le document que pour la personne invitée (connexion requise) ; l'aperçu (WhatsApp…) reste générique
+        h('button', { class: 'btn sm', onclick: async () => { const link = `https://lumaoffice.vercel.app/partage/${x.id}`; try { if (navigator.share) await navigator.share({ title: rec.title || 'Luma Office', url: link }); else { await navigator.clipboard.writeText(link); toast('Lien copié'); } } catch { /* partage annulé */ } } }, 'Lien'),
         h('button', { class: 'btn sm', onclick: async () => { if (await confirmDialog(`Retirer l’accès de ${x.to.email} ?`, 'Retirer', true)) { try { await api('revoke', { id: x.id }); toast('Partage retiré'); refresh(); } catch (e) { toast(e.message, 4000); } } } }, 'Retirer')))
         : [h('small', { class: 'muted' }, 'Personne pour l’instant.')]));
     } catch (e) { list.replaceChildren(h('small', { class: 'muted' }, e.message)); }

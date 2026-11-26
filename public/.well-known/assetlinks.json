@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lumaoffice.luma_office_app",
+      "sha256_cert_fingerprints": [
+        "38:EC:8A:A8:3E:89:1F:46:43:43:78:9B:A0:D7:5F:B4:95:A6:AF:35:BB:94:0F:C0:AA:79:BA:AE:3F:FF:E6:32"
+      ]
+    }
+  }
+]

@@ -1,11 +1,22 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// SEO : les balises de la page d'accueil viennent du système central (api/_seo.js) et sont écrites dans le HTML initial.
+const seoHtml = () => ({
+  name: 'luma-seo-html',
+  async transformIndexHtml(html) {
+    const seo = await import('./api/_seo.js');
+    const head = seo.headTags({ key: 'home', locale: 'fr', jsonld: [seo.websiteLd('fr'), seo.softwareLd('fr'), seo.orgLd()] });
+    return html.replace(/<!--seo:start-->[\s\S]*?<!--seo:end-->/, `<!--seo:start-->\n    ${head}\n    <!--seo:end-->`);
+  },
+});
+
 export default defineConfig({
   define: { __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)) },
   base: './',
   build: { chunkSizeWarningLimit: 1500, target: 'es2020' },
   plugins: [
+    seoHtml(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo.png', 'icons/apple-touch-icon.png'],
@@ -15,7 +26,7 @@ export default defineConfig({
         // mis en cache à la première utilisation (voir runtimeCaching ci-dessous) → installation et mises à jour plus légères.
         globIgnores: ['**/pdf.worker*', '**/pdfmake-*', '**/pdf-*.js', '**/pdf-view-*', '**/pdf_viewer*', '**/es-*.js', '**/dist-*.js', '**/pdfjs/**', '**/screens/**', '**/import-docx-*', '**/sheet-view-*', '**/xlsx-*', '**/pdf-tools-*', '**/pdf-annot-*', '**/fonts/**', '**/katex*', '**/KaTeX_*', '**/mailmerge-*', '**/math-*.js', '**/bookmarks-*', '**/versions-*', '**/compare-*', '**/ocr/**', '**/{open-sans,roboto,lato,montserrat,poppins,nunito,source-sans-3,merriweather,lora,playfair-display,dancing-script}-latin-*'],
         importScripts: ['share-target-sw.js'],
-        navigateFallbackDenylist: [/share-target/, /confidentialite/, /^\/api\//, /\.apk$/],
+        navigateFallbackDenylist: [/share-target/, /confidentialite/, /^\/api\//, /\.apk$/, /^\/telecharger/, /^\/(en|es)\//, /^\/partage\//, /^\/sitemap\.xml/, /^\/robots\.txt/, /^\/\.well-known\//],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {

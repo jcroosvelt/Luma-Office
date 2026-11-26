@@ -51,6 +51,55 @@
           "value": "no-store"
         }
       ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/luma-office.apk",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/partage/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/og/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, s-maxage=604800"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
     }
   ],
   "functions": {
@@ -59,9 +108,52 @@
     },
     "api/apk.js": {
       "maxDuration": 300
+    },
+    "api/page.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/page?r=sitemap"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/api/page?r=robots"
+    },
+    {
+      "source": "/telecharger",
+      "destination": "/api/page?r=download&l=fr"
+    },
+    {
+      "source": "/en/download",
+      "destination": "/api/page?r=download&l=en"
+    },
+    {
+      "source": "/es/descargar",
+      "destination": "/api/page?r=download&l=es"
+    },
+    {
+      "source": "/en",
+      "destination": "/api/page?r=home&l=en"
+    },
+    {
+      "source": "/en/",
+      "destination": "/api/page?r=home&l=en"
+    },
+    {
+      "source": "/es",
+      "destination": "/api/page?r=home&l=es"
+    },
+    {
+      "source": "/es/",
+      "destination": "/api/page?r=home&l=es"
+    },
+    {
+      "source": "/partage/:id",
+      "destination": "/api/page?r=share"
+    },
     {
       "source": "/luma-office.apk",
       "destination": "/api/apk"
