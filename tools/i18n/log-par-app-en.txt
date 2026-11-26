@@ -1,0 +1,15 @@
+app/en : 40/539
+app/en : 80/539
+app/en : 120/539
+app/en : 160/539
+app/en : 200/539
+app/en : 240/539
+app/en : 280/539
+app/en : 320/539
+app/en : 360/539
+app/en : 400/539
+app/en : 440/539
+app/en : 480/539
+app/en : 520/539
+app/en : 539/539
+terminé : 539 traductions, 0 ignorées

@@ -1,0 +1,23 @@
+site/en : 40/864
+site/en : 80/864
+site/en : 120/864
+site/en : 160/864
+site/en : 200/864
+site/en : 240/864
+site/en : 280/864
+site/en : 320/864
+site/en : 360/864
+site/en : 400/864
+site/en : 440/864
+site/en : 480/864
+site/en : 520/864
+site/en : 560/864
+site/en : 600/864
+site/en : 640/864
+site/en : 680/864
+site/en : 720/864
+site/en : 760/864
+site/en : 800/864
+site/en : 840/864
+site/en : 864/864
+terminé : 2264 traductions, 4 ignorées

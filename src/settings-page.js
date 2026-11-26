@@ -1,6 +1,7 @@
 // Page « Paramètres » : apparence, écriture, valeurs par défaut des nouveaux documents, recherche, stockage, application.
 import { h, icon, toast, saveBlob, confirmDialog, applyTheme, dropdown } from './ui.js';
 import { pref } from './storage.js';
+import { getLang, setLang, LANG_NAMES } from './i18n.js';
 import { PAGE_SIZES, MARGIN_PRESETS, DEFAULT_SETTINGS } from './layout.js';
 import { shell } from './shell.js';
 import { poweredBy, openAbout } from './about.js';
@@ -34,6 +35,7 @@ export async function showSettings(host, { refresh }) {
   const content = h('main', { class: 'home-main' },
     h('h1', { class: 'ptitle' }, 'Paramètres'),
     group('Apparence',
+      row('Langue de l’interface', select(Object.entries(LANG_NAMES), getLang(), (v) => setLang(v)), 'Français, English ou Español. Le contenu de vos documents n’est pas traduit.'),
       row('Thème', seg([['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']], () => pref.get('theme', 'auto'), (v) => { pref.set('theme', v); applyTheme(v); }), 'La page du document reste toujours blanche.'),
       row('Affichage de l’éditeur', seg([['auto', 'Auto'], ['page', 'Page'], ['reflow', 'Adapté']], () => (mode === 'page' || mode === 'reflow' ? mode : 'auto'), (v) => pref.set('mode', v)), 'Auto : « Adapté » sur téléphone, « Page » sur tablette.')),
     group('Écriture',

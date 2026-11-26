@@ -1,3 +1,4 @@
+import { aiLanguage } from './i18n.js';
 // Assistant IA : réglages, appel en flux (streaming) et gestion des erreurs.
 // Deux modes : « serveur » (clé stockée sur Vercel, fonction /api/gemini) ou « ma clé » (appel direct depuis l'appareil).
 import { pref } from './storage.js';
@@ -67,7 +68,7 @@ export async function generate({ system, messages, signal, temperature = 0.7, ma
   const body = {
     contents: messages.map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text }] })),
     generationConfig: { temperature, maxOutputTokens: maxTokens, ...(json ? { responseMimeType: 'application/json' } : {}) },
-    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    ...(system ? { systemInstruction: { parts: [{ text: system.replace(/Réponds en français/g, 'Réponds en ' + aiLanguage()) }] } } : {}),
   };
   let res;
   try {

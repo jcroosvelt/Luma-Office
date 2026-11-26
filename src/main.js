@@ -10,6 +10,7 @@ import { TEMPLATES, templateSettings } from './templates.js';
 import { createDocFromHtml, openFiles } from './files.js';
 import { applyTheme, h, toast } from './ui.js';
 import { initAppBridge, sendState } from './appbridge.js';
+import { initI18n, tr } from './i18n.js';
 import { trackOnce } from './track.js';
 import { isApp } from './install.js';
 
@@ -76,7 +77,7 @@ async function render() {
   if (location.hash === '#/shared') { await consumeShared(); return; }
   if (location.hash === '#/new') {
     const t = TEMPLATES[0];
-    const rec = await createDocFromHtml({ title: 'Document sans titre', html: t.html(), settings: templateSettings(t) });
+    const rec = await createDocFromHtml({ title: tr('Document sans titre'), html: t.html(), settings: templateSettings(t) });
     history.replaceState(null, '', `#/doc/${rec.id}`);
   }
   // lien de partage : /partage/<id> (adresse publique, utilisable dans WhatsApp, e-mail…) ou ancienne forme #/partage/<id>
@@ -113,7 +114,7 @@ async function render() {
     return;
   }
   const useTemplate = async (t) => {
-    const rec = await createDocFromHtml({ title: t.id === 'blank' ? 'Document sans titre' : t.name, html: t.html(), settings: templateSettings(t) });
+    const rec = await createDocFromHtml({ title: t.id === 'blank' ? tr('Document sans titre') : tr(t.name), html: t.html(), settings: templateSettings(t) });
     go(rec.id);
   };
   const refresh = () => render();
@@ -137,4 +138,4 @@ if ('launchQueue' in window) {
 initAppBridge({ go });
 import('./share.js').then((S) => S.startNotifWatcher()).catch(() => {});
 addEventListener('hashchange', render);
-render();
+initI18n().catch(() => {}).finally(() => render()); // langue de l'interface (fr, en, es) choisie avant le premier affichage

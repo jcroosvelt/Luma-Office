@@ -1,4 +1,5 @@
 // Écran d'édition : éditeur, pagination visuelle, zoom, recherche, boîtes de dialogue, enregistrement auto.
+import { tr } from './i18n.js';
 import { Editor, findParentNode } from '@tiptap/core';
 import { TableMap } from '@tiptap/pm/tables';
 import { NodeSelection } from '@tiptap/pm/state';
@@ -94,7 +95,7 @@ export function mountEditor(host, docRec, hooks) {
       LumaTable.configure({ resizable: false }), LumaRule, TableRow, TableHeader, LumaCell,
       LumaImage.configure({ inline: true, allowBase64: true }),
       TaskList, TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: 'Commencez à écrire…' }),
+      Placeholder.configure({ placeholder: tr('Commencez à écrire…') }),
       CharacterCount, ReadAloudHighlight, Bookmark, MathFormula, MergeField, Endnote, TextBox, DateField, ParagraphFormat, PageBreak, ColumnBreak, SearchReplace, TableOfContents, CommentMark, InsertionMark, DeletionMark, TrackChanges,
     ],
     editorProps: {
